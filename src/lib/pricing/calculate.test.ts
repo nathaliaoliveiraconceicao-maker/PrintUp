@@ -274,3 +274,36 @@ describe("validação (zod)", () => {
     expect(pricingInputSchema.safeParse(base({ quantity: 1.5 })).success).toBe(false);
   });
 });
+
+describe("caso completo conferido à mão", () => {
+  // 2h30, 80 g de PLA a R$120/kg, A1 de 150 W (desgaste R$1,50/h), fixos R$480/160h, perdas 5%,
+  // mão de obra 10 min a R$30/h, embalagem R$2, taxa 14% + R$4, imposto 6%, margem 30%.
+  const input = base({
+    printMinutesPerUnit: 150,
+    filamentGramsPerUnit: 80,
+    filamentPricePerKg: 120,
+    machine: { ...base().machine, powerWatts: 150, energyPricePerKwh: 0.9, wearPerHour: 1.5 },
+    fixedCosts: { monthlyTotal: 480, allocation: "per_hour", productiveHoursPerMonth: 160, monthlyUnits: 0 },
+    lossPercent: 5,
+    labor: { hourlyRate: 30, minutesPerUnit: 10, setupMinutesPerBatch: 0 },
+    packagingPerUnit: 2,
+    sale: { feePercent: 14, feeFixed: 4, taxPercent: 6 },
+    pricing: { mode: "margin", marginPercent: 30 },
+  });
+
+  it("componentes, custo, preço e lucro", () => {
+    const r = calculatePricing(input);
+    expect(r.unit).toMatchObject({ filament: 9.6, energy: 0.34, wear: 3.75, fixed: 7.5, losses: 0.68, labor: 5, packaging: 2 });
+    expect(r.unitCost).toBe(28.87);
+    expect(r.suggestedUnitPrice).toBe(65.74); // (28,871875 + 4) / 0,5
+    expect(r.unitFees).toBe(13.2);
+    expect(r.unitTaxes).toBe(3.94);
+    expect(r.unitProfit).toBe(19.73);
+    expect(r.marginPercent).toBeCloseTo(30, 1);
+  });
+
+  it("lote de 10: custo do lote com preparo único", () => {
+    const r = calculatePricing({ ...input, quantity: 10 });
+    expect(r.batchCost).toBe(288.72);
+  });
+});

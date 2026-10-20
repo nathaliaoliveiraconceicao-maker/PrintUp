@@ -1,4 +1,4 @@
--- Precifica3D · Etapa 1: perfis, planos, assinaturas, impressoras, filamentos,
+-- PrintUp · Etapa 1: perfis, planos, assinaturas, impressoras, filamentos,
 -- configurações de custo, histórico e eventos de cobrança.
 -- Tenant = usuário (user_id). Organizações/equipes ficam para uma etapa futura.
 

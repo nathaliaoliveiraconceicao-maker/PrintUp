@@ -1,11 +1,29 @@
 # PrintUp
 
-Precificação para quem vende peças impressas em 3D. Next.js + Supabase.
+Precificação para quem vende peças impressas em 3D. Next.js 16 + Supabase. Interface em pt-BR, moeda BRL.
 
-## Começando
-1. Crie um projeto no Supabase e rode `supabase/migrations/0001_core.sql` (SQL Editor ou `supabase db push`).
-2. `cp .env.example .env.local` e preencha URL e anon key.
-3. Em Auth → URL Configuration, adicione `http://localhost:3000/auth/callback` aos redirects.
-4. `npm install && npm run dev`
+## Rodar localmente
+```bash
+npm install
+cp .env.example .env.local      # preencha com os dados do SEU projeto Supabase
+npm run check:env               # confere as variáveis (não imprime valores)
+npm run dev                     # http://localhost:3000
+```
+Sem `.env.local`, o app abre uma tela de instruções (`/setup`) em vez de quebrar.
+
+## Conectar o Supabase (uma vez)
+1. Crie um projeto em https://supabase.com (região São Paulo, se disponível).
+2. **Project Settings → API**: copie *Project URL* e a chave pública (*anon* / *publishable*) para `.env.local`.
+   Nunca use a `service_role` no front-end; ela só será necessária na etapa 5 (webhooks) e fica apenas no servidor.
+3. **SQL Editor**: execute `supabase/migrations/0001_core.sql` (cria tabelas, RLS, planos e gatilhos).
+4. **Authentication → URL Configuration**: em *Site URL* use `http://localhost:3000` e em *Redirect URLs* adicione `http://localhost:3000/auth/callback`.
+5. (Opcional, só em desenvolvimento) **Authentication → Providers → Email**: desligue *Confirm email* para entrar logo após o cadastro.
+
+## Verificações
+```bash
+npm run lint && npm run typecheck && npm test   # qualidade + fórmulas financeiras
+npm run test:db                                  # migrations + RLS (Postgres descartável, ver CLAUDE.md)
+npm run build
+```
 
 Veja `docs/PLANO.md` (arquitetura e etapas) e `CLAUDE.md` (convenções).

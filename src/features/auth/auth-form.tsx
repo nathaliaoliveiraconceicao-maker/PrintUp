@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
 import Link from "next/link";
 import { Field, Input } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { useActionForm } from "@/lib/use-action-form";
 import type { AuthState } from "./actions";
 
 export function AuthForm({
@@ -14,10 +14,10 @@ export function AuthForm({
   mode: "login" | "signup";
   action: (s: AuthState, f: FormData) => Promise<AuthState>;
 }) {
-  const [state, formAction] = useActionState(action, {});
+  const { state, onSubmit, pending } = useActionForm(action, {} as AuthState);
   const signup = mode === "signup";
   return (
-    <form action={formAction} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       {signup && (
         <Field label="Seu nome">
           <Input name="fullName" autoComplete="name" required />
@@ -30,7 +30,7 @@ export function AuthForm({
         <Input name="password" type="password" autoComplete={signup ? "new-password" : "current-password"} minLength={8} required />
       </Field>
       <FormMessage error={state.error} ok={state.ok} />
-      <SubmitButton className="w-full">{signup ? "Criar conta e testar grátis" : "Entrar"}</SubmitButton>
+      <SubmitButton pending={pending} className="w-full">{signup ? "Criar conta e testar grátis" : "Entrar"}</SubmitButton>
       <p className="text-center text-sm text-muted">
         {signup ? (
           <>Já tem conta? <Link href="/login" className="font-medium text-accent-strong underline">Entrar</Link></>

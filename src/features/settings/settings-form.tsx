@@ -1,21 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
+import { useActionForm } from "@/lib/use-action-form";
 import { saveSettings } from "./actions";
 import type { SettingsRow } from "./schema";
 
 const v = (n: number) => String(n).replace(".", ",");
 
 export function SettingsForm({ settings }: { settings: SettingsRow }) {
-  const [state, action] = useActionState<FormState, FormData>(saveSettings, {});
+  const { state, onSubmit, pending } = useActionForm(saveSettings, {} as FormState);
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="space-y-6">
+    <form onSubmit={onSubmit} className="space-y-6">
       <Card className="space-y-4">
         <div>
           <h2 className="font-semibold">Custos fixos do negócio</h2>
@@ -80,7 +80,7 @@ export function SettingsForm({ settings }: { settings: SettingsRow }) {
       </Card>
 
       <FormMessage error={state.error} ok={state.ok} />
-      <SubmitButton>Salvar configurações</SubmitButton>
+      <SubmitButton pending={pending}>Salvar configurações</SubmitButton>
     </form>
   );
 }

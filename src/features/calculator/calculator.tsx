@@ -120,7 +120,7 @@ export function Calculator({
               </Select>
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 items-end gap-4 sm:grid-cols-4">
             <Field label="Tempo (h)"><Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="0" /></Field>
             <Field label="Tempo (min)"><Input inputMode="decimal" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="0" /></Field>
             <Field label="Peso (g)" hint="Peça + suportes"><Input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} placeholder="0" /></Field>
@@ -134,7 +134,7 @@ export function Calculator({
 
         <Card className="space-y-4">
           <h2 className="font-semibold">Mão de obra, perdas e embalagem</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid items-end gap-4 sm:grid-cols-3">
             <Field label="Mão de obra (min/unid.)"><Input inputMode="decimal" value={laborMin} onChange={(e) => setLaborMin(e.target.value)} /></Field>
             <Field label="Preparo do lote (min)"><Input inputMode="decimal" value={setupMin} onChange={(e) => setSetupMin(e.target.value)} /></Field>
             <Field label="Valor da hora (R$)"><Input inputMode="decimal" value={laborRate} onChange={(e) => setLaborRate(e.target.value)} /></Field>
@@ -145,7 +145,7 @@ export function Calculator({
 
         <Card className="space-y-4">
           <h2 className="font-semibold">Venda</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid items-end gap-4 sm:grid-cols-3">
             <Field label="Taxa de venda (%)"><Input inputMode="decimal" value={feePct} onChange={(e) => setFeePct(e.target.value)} /></Field>
             <Field label="Taxa fixa (R$)"><Input inputMode="decimal" value={feeFixed} onChange={(e) => setFeeFixed(e.target.value)} /></Field>
             <Field label="Impostos (%)"><Input inputMode="decimal" value={taxPct} onChange={(e) => setTaxPct(e.target.value)} /></Field>

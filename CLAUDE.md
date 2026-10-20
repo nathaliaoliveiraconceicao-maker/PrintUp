@@ -5,6 +5,7 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 ## Comandos
 - `npm run dev` · `npm run build`
 - `npm run lint` · `npm run typecheck` · `npm test` (Vitest) — rodar os três antes de concluir qualquer tarefa
+- `npm run check:env` — confere variáveis de ambiente sem imprimir valores
 - `npm run test:db` — valida migrations + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
 
 ## Next.js 16 (leia `node_modules/next/dist/docs/` antes de usar APIs novas)
@@ -22,6 +23,7 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - Limites e recursos pagos são impostos por trigger/`current_entitlements()`; **nunca** só no frontend.
 - Use `supabase.auth.getUser()` (valida o token), não `getSession()`, para decisões de acesso.
 - `SUPABASE_SERVICE_ROLE_KEY` só em código de servidor (webhooks/admin). Nunca `NEXT_PUBLIC_`.
+- Formulários com Server Action usam `useActionForm` (`src/lib/use-action-form.ts`), **não** `<form action>` puro: o React 19 apaga os campos quando a action devolve erro.
 - Mutações = Server Actions com validação Zod no servidor; erros do banco passam por `dbErrorMessage` (sem vazar detalhes).
 - Webhooks: verificar assinatura no corpo bruto + idempotência via `billing_events`.
 
@@ -31,6 +33,7 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - Mobile primeiro: alvos de toque ≥ 44px, navegação inferior no celular, fonte ≥ 16px em inputs.
 - Textos de interface em português do Brasil; identificadores de código em inglês; rotas em português (`/impressoras`).
 - Migrations em `supabase/migrations/NNNN_nome.sql`, nunca editar uma já aplicada.
+- O build não pode exigir credenciais: chame `cookies()` antes de checar env em código de servidor. Sem env, o proxy leva a `/setup`.
 - Sem dependências novas sem necessidade clara.
 
 ## Design

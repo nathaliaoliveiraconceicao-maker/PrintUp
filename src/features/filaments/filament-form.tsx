@@ -1,6 +1,5 @@
 "use client";
 
-import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,6 +7,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
+import { useActionForm } from "@/lib/use-action-form";
 import { MATERIALS, type FilamentRow } from "./schema";
 
 export function FilamentForm({
@@ -17,12 +17,12 @@ export function FilamentForm({
   filament?: FilamentRow;
   action: (s: FormState, f: FormData) => Promise<FormState>;
 }) {
-  const [state, formAction] = useActionState(action, {});
+  const { state, onSubmit, pending } = useActionForm(action, {} as FormState);
   const e = state.fieldErrors ?? {};
   const v = (n: number | null | undefined) => (n ? String(n).replace(".", ",") : "");
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form onSubmit={onSubmit} className="space-y-6">
       <Card className="space-y-4">
         <Field label="Nome" error={e.name}>
           <Input name="name" defaultValue={filament?.name} placeholder="Ex.: PLA Basic Preto" required />
@@ -48,7 +48,7 @@ export function FilamentForm({
       </Card>
       <FormMessage error={state.error} />
       <div className="flex gap-3">
-        <SubmitButton>Salvar filamento</SubmitButton>
+        <SubmitButton pending={pending}>Salvar filamento</SubmitButton>
         <Button asChild variant="secondary"><Link href="/filamentos">Cancelar</Link></Button>
       </div>
     </form>

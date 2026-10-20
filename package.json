@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "check:env": "node scripts/check-env.mjs",
     "test": "vitest run",
     "test:db": "bash supabase/tests/run.sh"
   },
