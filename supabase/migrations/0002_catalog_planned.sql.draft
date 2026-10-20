@@ -1,0 +1,12 @@
+-- RASCUNHO (não aplicado) das tabelas das etapas 3-5. Ver docs/PLANO.md.
+-- Será convertido em migration numerada quando a etapa correspondente começar.
+--
+-- imported_models(id, user_id, source, source_url, title, external_id, license_note, imported_at)
+-- print_profiles(id, user_id, model_id, printer_id, name, weight_g, print_minutes, filament_type,
+--                layer_height, source ('manual'|'3mf'|'gcode'|'connector'), raw_meta jsonb)
+-- products(id, user_id, name, sku, model_id, print_profile_id, filament_id, notes, photo_path)
+-- pricings(id, user_id, product_id, printer_id, filament_id, input jsonb, result jsonb,
+--          engine_version, created_at)   -- snapshot imutável do cálculo
+-- quotes(id, user_id, customer_name, status, valid_until, total, created_at)
+-- quote_items(id, quote_id, product_id, pricing_id, quantity, unit_price)
+-- Todas com RLS "user_id = auth.uid()" e trigger enforce_plan_limit quando houver limite.

@@ -1,0 +1,36 @@
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { checkbox, decimal, dbErrorMessage, zodToState } from "./forms";
+
+describe("decimal", () => {
+  const s = z.object({ v: decimal({ max: 100 }) });
+  it("interpreta pt-BR e vazio como 0", () => {
+    expect(s.parse({ v: "12,5" }).v).toBe(12.5);
+    expect(s.parse({ v: "" }).v).toBe(0);
+  });
+  it("rejeita lixo, negativo e acima do máximo", () => {
+    expect(s.safeParse({ v: "abc" }).success).toBe(false);
+    expect(s.safeParse({ v: "-1" }).success).toBe(false);
+    expect(s.safeParse({ v: "101" }).success).toBe(false);
+  });
+});
+
+describe("checkbox", () => {
+  it("on => true, ausente => false", () => {
+    const s = z.object({ c: checkbox });
+    expect(s.parse({ c: "on" }).c).toBe(true);
+    expect(s.parse({ c: undefined }).c).toBe(false);
+  });
+});
+
+describe("zodToState / dbErrorMessage", () => {
+  it("mapeia erros por campo", () => {
+    const r = z.object({ a: z.string().min(2, "curto") }).safeParse({ a: "x" });
+    if (r.success) throw new Error();
+    expect(zodToState(r.error).fieldErrors).toEqual({ a: "curto" });
+  });
+  it("traduz limite de plano", () => {
+    expect(dbErrorMessage({ code: "P0001", message: "Limite do plano atingido (max_printers)" })).toMatch(/limite/i);
+    expect(dbErrorMessage({ code: "XX" })).toMatch(/Não foi possível/);
+  });
+});
