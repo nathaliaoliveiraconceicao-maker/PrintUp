@@ -502,8 +502,9 @@ alter table public.billing_checkouts enable row level security;
 alter table public.billing_charges enable row level security;
 alter table public.usage_events enable row level security;
 
--- Configuração: leitura para quem está logado (nada sensível aqui); escrita só service_role (ignora RLS).
-create policy platform_settings_select on public.platform_settings for select to authenticated using (true);
+-- Configuração: leitura pública (a página de planos precisa saber, por exemplo, se há teste grátis). NUNCA guardar segredos aqui.
+-- Escrita só service_role (ignora RLS).
+create policy platform_settings_select on public.platform_settings for select to anon, authenticated using (true);
 -- O cliente só LÊ o próprio histórico financeiro; ninguém altera plano, cobrança ou uso pelo navegador.
 create policy subscription_changes_select on public.subscription_changes for select to authenticated using (user_id = auth.uid());
 create policy billing_customers_select on public.billing_customers for select to authenticated using (user_id = auth.uid());

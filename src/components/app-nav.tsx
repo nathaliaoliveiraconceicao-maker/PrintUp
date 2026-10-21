@@ -18,7 +18,7 @@ export const MAIN_NAV: Item[] = [
   { href: "/estoque", label: "Estoque", icon: Boxes },
   { href: "/impressoras", label: "Impressoras", icon: Printer },
   { href: "/filamentos", label: "Filamentos", icon: Layers },
-  { href: "/configuracoes", label: "Configurações", icon: Settings, also: ["/negocio", "/historico", "/boas-vindas"] },
+  { href: "/configuracoes", label: "Configurações", icon: Settings, also: ["/negocio", "/historico", "/boas-vindas", "/assinatura"] },
 ];
 
 /** Módulos planejados: aparecem só como aviso, sem link, para não parecerem disponíveis. */
@@ -31,7 +31,7 @@ const BOTTOM: Item[] = [
   { href: "/orcamentos", label: "Orçamentos", icon: FileText },
   { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
   { href: "/producao", label: "Produção", icon: KanbanSquare },
-  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/produtos", "/estoque", "/importar", "/impressoras", "/filamentos", "/configuracoes", "/negocio", "/historico", "/boas-vindas"] },
+  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/produtos", "/estoque", "/importar", "/impressoras", "/filamentos", "/configuracoes", "/negocio", "/historico", "/boas-vindas", "/assinatura"] },
 ];
 
 const isActive = (path: string, { href, also = [] }: Item) =>

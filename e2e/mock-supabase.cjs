@@ -10,11 +10,11 @@ const jwt = () => `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: USER.id, ro
 const session = () => ({ access_token: jwt(), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + ++n, user: USER });
 
 let PASSWORD = "senha-de-teste-123";
-const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles", "orders", "order_items", "order_payments", "production_jobs", "job_reservations", "filament_spools", "stock_movements"];
+const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles", "orders", "order_items", "order_payments", "production_jobs", "job_reservations", "filament_spools", "stock_movements", "plans", "subscriptions", "platform_settings", "subscription_changes", "billing_customers", "billing_checkouts", "billing_charges", "billing_events", "usage_events"];
 const db = Object.fromEntries(TABLES.map((t) => [t, []]));
 const LIMITS = { printers: 1, filaments: 5, products: 10 };
 // Valores padrão das colunas (o banco real os aplica; o dublê precisa imitar para os testes não enxergarem `undefined`).
-const DEFAULTS = { printers: { purchase_price: 0, lifespan_hours: null, power_watts: 0, hourly_cost: 0, hourly_includes_energy: false, hourly_includes_wear: false, hourly_includes_fixed: false, wear_per_hour: 0 }, filaments: { material: "PLA", spool_weight_g: 1000, min_stock_g: 250 }, cost_settings: { monthly_fixed_costs: 0, fixed_allocation: "per_hour", productive_hours_per_month: 160, monthly_units: 0, energy_price_per_kwh: 0.9, labor_hourly_rate: 0, loss_percent: 5, sale_fee_percent: 0, sale_fee_fixed: 0, tax_percent: 0, margin_percent: 30 }, products: { stock_qty: 0, archived_at: null }, business_profiles: { brand_color: "#d94e1b", default_validity_days: 7 } };
+const DEFAULTS = { billing_checkouts: { status: "aberto" }, printers: { purchase_price: 0, lifespan_hours: null, power_watts: 0, hourly_cost: 0, hourly_includes_energy: false, hourly_includes_wear: false, hourly_includes_fixed: false, wear_per_hour: 0 }, filaments: { material: "PLA", spool_weight_g: 1000, min_stock_g: 250 }, cost_settings: { monthly_fixed_costs: 0, fixed_allocation: "per_hour", productive_hours_per_month: 160, monthly_units: 0, energy_price_per_kwh: 0.9, labor_hourly_rate: 0, loss_percent: 5, sale_fee_percent: 0, sale_fee_fixed: 0, tax_percent: 0, margin_percent: 30 }, products: { stock_qty: 0, archived_at: null }, business_profiles: { brand_color: "#d94e1b", default_validity_days: 7 } };
 const AUDITED = ["printers", "filaments", "products", "pricings", "imported_models"];
 db.profiles.push({ id: "11111111-1111-1111-1111-111111111111", full_name: "Teste Mock", business_name: null, onboarding_done_at: null });
 const objects = new Map(); // caminho no bucket -> { bytes, contentType }
@@ -39,6 +39,9 @@ function filter(rows, q) {
     if (m) rows = rows.filter((r) => String(r[k]) === m[1]);
     m = /^neq\.(.*)$/.exec(v);
     if (m) rows = rows.filter((r) => String(r[k]) !== m[1]);
+    m = /^gte\.(.*)$/.exec(v);
+    if (m) rows = rows.filter((r) => String(r[k] ?? "") >= m[1]);
+    if (v === "not.is.null") rows = rows.filter((r) => r[k] != null);
     if (v === "is.null") rows = rows.filter((r) => r[k] == null);
     if (v === "is.not.null") rows = rows.filter((r) => r[k] != null);
     m = /^in\.\((.*)\)$/.exec(v);
@@ -141,6 +144,9 @@ async function storage(req, res, p) {
 
 
 const stage5 = require("./mock-stage5.cjs")({ db, USER, tick: () => ++n });
+const stage6 = require("./mock-stage6.cjs")({ db, USER, tick: () => ++n });
+const STAGE6_RPC = ["current_entitlements", "consume_quota", "apply_billing_event", "storage_used_bytes"];
+const FEATURE_OF_RPC = { save_order: "orders", create_spool: "stock", create_job: "production" };
 const STAGE5_RPC = ["save_order", "convert_quote_to_order", "create_spool", "adjust_spool", "create_job", "reserve_job", "set_job_stage", "complete_job", "report_failure", "cancel_job", "cancel_order"];
 const rpcResponse = (res, req, r) => (r.error ? send(req, res, r.error.status, r.error.body) : send(req, res, 200, r.ok === undefined ? null : r.ok));
 
@@ -191,11 +197,11 @@ http.createServer(async (req, res) => {
   if (p === "/auth/v1/logout") return send(req, res, 204);
   if (p === "/rest/v1/rpc/save_quote") return saveQuoteRpc(req, res);
   const rpcName = /^\/rest\/v1\/rpc\/(\w+)$/.exec(p)?.[1];
+  if (rpcName && STAGE6_RPC.includes(rpcName)) return rpcResponse(res, req, stage6.rpc(rpcName, await readBody(req)));
   if (rpcName && STAGE5_RPC.includes(rpcName)) {
+    if (FEATURE_OF_RPC[rpcName] && !stage6.hasFeature(FEATURE_OF_RPC[rpcName])) { await readBody(req); return rpcResponse(res, req, stage6.featureErr(FEATURE_OF_RPC[rpcName])); }
     return rpcResponse(res, req, stage5.rpc(rpcName, await readBody(req)));
   }
-  if (p === "/rest/v1/rpc/current_entitlements") return send(req, res, 200, [{ plan_code: "trial", status: "trialing", limits: { max_printers: 1, max_filaments: 5 }, features: {}, active: true }]);
-  if (p === "/rest/v1/subscriptions") return send(req, res, 200, { status: "trialing", trial_ends_at: new Date(Date.now() + 13 * 864e5).toISOString(), plan: { name: "Teste grátis" } });
   // Só para os testes: volta o assistente de primeiro acesso ao estado "pendente".
   // Só para os testes: simula a passagem do tempo (prazo vencido) sem esperar dias.
   if (p === "/__set_order_due") { const b = await readBody(req); const o = db.orders.find((r) => r.number === b.number); if (o) o.due_date = b.due; return send(req, res, 200, {}); }
@@ -218,6 +224,8 @@ http.createServer(async (req, res) => {
 
   if (req.method === "GET" || req.method === "HEAD") {
     let rows = filter(db[t], q);
+    if (t === "subscriptions") rows = rows.map((r) => ({ ...r, plan: { name: db.plans.find((pl) => pl.id === r.plan_id)?.name } }));
+    if (t === "billing_checkouts") rows = rows.map((r) => ({ ...r, plan: db.plans.find((pl) => pl.id === r.plan_id) }));
     if (q.get("order")) rows = sortRows(rows, q.get("order"));
     if (q.get("limit")) rows = rows.slice(0, Number(q.get("limit")));
     if (req.method === "HEAD") return send(req, res, 200, undefined, { "content-range": `*/${rows.length}` });

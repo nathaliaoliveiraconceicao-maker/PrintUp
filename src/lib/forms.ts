@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { featureMessage } from "./billing/state";
 import { parseDecimal } from "./utils";
 
 export type FormState = {
@@ -33,6 +34,8 @@ export function zodToState(error: z.ZodError): FormState {
 /** Traduz erros do Postgres/Supabase para mensagens ao usuário (sem vazar detalhes internos). */
 export function dbErrorMessage(err: { code?: string; message?: string }): string {
   if (err.code === "P0001") {
+    const feat = /^Recurso não disponível no seu plano \((\w+)\)/.exec(err.message ?? "");
+    if (feat) return featureMessage(feat[1]);
     // Mensagens próprias das regras de pedidos, produção e estoque (migration 0008): escritas por nós, seguras para mostrar.
     if (err.message && /^(Estoque (insuficiente|físico)|Quantidade (maior|do lote)|O valor (passa|recebido)|O estorno|Pedido (cancelado|em produção|entregue)|Só pedidos|Só orçamentos|Tarefa|Informe|Escolha|Este (pedido|item)|Há tarefas|Bobina|Use Concluir|Para cancelar|O saldo|O pedido precisa|Os totais do pedido)/.test(err.message)) {
       return err.message;

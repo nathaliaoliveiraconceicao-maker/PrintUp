@@ -7,6 +7,8 @@ import { OrderStatusBadge, OverdueBadge, PaymentBadge } from "@/features/orders/
 import { loadOrders } from "@/features/orders/server";
 import { isOrderOverdue, ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_STATUSES, PAYMENT_STATUS_LABEL } from "@/features/orders/status";
 import { formatDateBR, formatQuoteNumber, todayBR } from "@/features/quotes/status";
+import { PlanNotice } from "@/components/plan-notice";
+import { loadEntitlements } from "@/features/billing/server";
 import { createClient } from "@/lib/supabase/server";
 import { cn, formatBRL } from "@/lib/utils";
 
@@ -18,6 +20,7 @@ const OPEN = ["novo", "aguardando_pagamento", "em_producao", "pronto"];
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const supabase = await createClient();
+  const entitlement = await loadEntitlements(supabase);
   const [{ orders, jobs, fin }, printers] = await Promise.all([loadOrders(supabase), supabase.from("printers").select("id, name").order("name")]);
   const today = todayBR();
   const q = (sp.q ?? "").trim().toLowerCase();
@@ -39,6 +42,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
+      <PlanNotice entitlement={entitlement} feature="orders" />
       <PageHeader title="Pedidos" description="Do orçamento aprovado até a entrega, com produção e pagamento acompanhados separadamente." action={<Button asChild><Link href="/pedidos/novo"><Plus size={18} />Novo pedido</Link></Button>} />
 
       <div className="mb-4 grid grid-cols-3 gap-3" data-testid="resumo-pedidos">

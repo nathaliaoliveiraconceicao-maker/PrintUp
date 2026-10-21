@@ -37,6 +37,10 @@ async function main() {
     NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${MOCK_PORT}`,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "chave-publica-FALSA-apenas-para-teste-local",
     NEXT_DIST_DIR: ".next-e2e",
+    // Cobrança: só o SIMULADOR (nunca um gateway real) e chaves FALSAS de teste.
+    SUPABASE_SERVICE_ROLE_KEY: "chave-servidor-FALSA-apenas-para-teste-local",
+    BILLING_GATEWAY: "simulado",
+    BILLING_WEBHOOK_SECRET: "segredo-de-teste-local-0123456789",
   };
   // E2E_REUSE_BUILD=1 reaproveita o build anterior (guardado quando E2E_KEEP_BUILD=1): só para iterar rápido no desenvolvimento.
   if (process.env.E2E_REUSE_BUILD === "1" && require("node:fs").existsSync(path.join(__dirname, "..", ".next-e2e"))) {
@@ -966,6 +970,51 @@ async function main() {
   await p.locator('[data-testid="exemplo-exemplo-sintetico-invalido-nao-e-3mf.3mf"]').click();
   await p.waitForFunction(() => document.body.innerText.includes("não é um 3MF válido"));
   ok(true, "exemplo inválido (texto .3mf): recusado");
+
+
+  // ── Etapa 6: planos, assinatura e webhooks (simulador; nenhuma cobrança real) ──
+  p.on("dialog", (d) => d.accept());
+  await p.goto(B + "/planos");
+  ok((await p.locator('[data-testid^="card-"]').count()) === 3, "página pública de planos mostra Gratuito, Pro e Business (preços vêm do banco)");
+  const planosTxt = (await p.locator('[data-testid="planos"]').innerText()).replace(/\s+/g, " ");
+  ok(/49,90/.test(planosTxt) && /99,90/.test(planosTxt), "planos: preços mensais exibidos em BRL");
+  await p.goto(B + "/assinatura");
+  ok((await p.locator('[data-testid="estado-assinatura"]').innerText()).includes("Em teste"), "Minha assinatura: conta nova começa em teste");
+  ok((await p.locator('[data-testid="uso-limites"]').innerText()).length > 20, "Minha assinatura: mostra limites e consumo");
+  // webhook inválido é recusado e não muda nada
+  const whBad = await fetch(B + "/api/webhooks/billing", { method: "POST", headers: { "content-type": "application/json", "x-simulated-signature": "00" }, body: JSON.stringify({ events: [] }) });
+  ok(whBad.status === 401, "webhook com assinatura inválida: 401");
+  await p.goto(B + "/assinatura");
+  ok((await p.locator('[data-testid="estado-assinatura"]').innerText()).includes("Em teste"), "webhook inválido não altera a assinatura");
+  // contratar: o front sozinho NÃO ativa; só o webhook
+  await p.goto(B + "/planos");
+  await p.locator('[data-testid="plano-pro"]').click();
+  await p.waitForURL(/assinatura\/simulador\//);
+  await p.goto(B + "/assinatura");
+  ok(!(await p.locator('[data-testid="estado-assinatura"]').innerText()).includes("Ativa"), "abrir o checkout não ativa o plano");
+  await p.goBack();
+  await p.getByRole("button", { name: "Simular pagamento aprovado" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Situação do checkout: pago"));
+  await p.goto(B + "/assinatura");
+  ok((await p.locator('[data-testid="nome-plano"]').innerText()).includes("Pro") && (await p.locator('[data-testid="estado-assinatura"]').innerText()).includes("Ativa"), "pagamento aprovado (webhook assinado) ativa o Pro");
+  ok((await p.locator('[data-testid="historico-cobrancas"]').innerText()).includes("49,90"), "histórico de cobranças mostra o pagamento");
+  const act = async (label, expectState) => {
+    await p.goto(B + "/assinatura");
+    await p.getByRole("button", { name: label }).click();
+    await p.waitForSelector('[data-testid="simulador"] [role=status]');
+    await p.goto(B + "/assinatura");
+    ok((await p.locator('[data-testid="estado-assinatura"]').innerText()).includes(expectState), `${label} → ${expectState}`);
+  };
+  await act("Webhook duplicado", "Ativa");
+  await act("Cobrança falhou", "Pagamento pendente");
+  await act("Renovação paga", "Ativa");
+  await act("Cancelamento no fim do período", "Cancelamento agendado");
+  ok((await p.locator("main").innerText()).includes("Pro"), "cancelamento agendado mantém o Pro até o fim do período");
+  await act("Cancelamento imediato", "Plano Gratuito");
+  await p.goto(B + "/pedidos");
+  ok((await p.locator("main").innerText()).includes("plano"), "recurso pago sem permissão: aviso de plano em Pedidos");
+  await p.goto(B + "/produtos");
+  ok(!(await main$()).includes("Nenhum produto"), "dados continuam acessíveis após o cancelamento (produtos preservados)");
 
   require("node:fs").rmSync(fx.dir, { recursive: true, force: true });
 

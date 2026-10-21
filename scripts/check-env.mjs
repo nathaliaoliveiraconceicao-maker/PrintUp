@@ -14,7 +14,9 @@ const get = (k) => process.env[k] || fromFile[k] || "";
 const checks = [
   ["NEXT_PUBLIC_SUPABASE_URL", "obrigatória", (v) => /^https?:\/\/.+/.test(v)],
   ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "obrigatória", (v) => v.length >= 20],
-  ["SUPABASE_SERVICE_ROLE_KEY", "só a partir da etapa 5 (webhooks)", (v) => v.length >= 20],
+  ["SUPABASE_SERVICE_ROLE_KEY", "só para pagamentos/webhooks (servidor)", (v) => v.length >= 20],
+  ["BILLING_GATEWAY", "opcional: 'simulado' só em desenvolvimento", (v) => v === "simulado"],
+  ["BILLING_WEBHOOK_SECRET", "opcional: segredo do webhook (≥ 16 caracteres)", (v) => v.length >= 16],
 ];
 
 console.log(file ? `Lendo ${file}` : "Nenhum .env.local encontrado (usando apenas o ambiente).");

@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/field";
 import { QUOTE_COLUMNS, type QuoteRow } from "@/features/quotes/schema";
 import { StatusBadge } from "@/features/quotes/status-badge";
 import { effectiveStatus, formatDateBR, formatQuoteNumber, QUOTE_STATUSES, STATUS_LABEL, todayBR, type QuoteStatus } from "@/features/quotes/status";
+import { PlanNotice } from "@/components/plan-notice";
+import { loadEntitlements } from "@/features/billing/server";
 import { createClient } from "@/lib/supabase/server";
 import { cn, formatBRL } from "@/lib/utils";
 
@@ -16,6 +18,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
   const filter = QUOTE_STATUSES.find((s) => s === sp.status) ?? null;
   const q = (sp.q ?? "").trim().toLowerCase();
   const supabase = await createClient();
+  const entitlement = await loadEntitlements(supabase);
   const { data } = await supabase.from("quotes").select(QUOTE_COLUMNS).order("number", { ascending: false });
   const today = todayBR();
   const all = ((data ?? []) as QuoteRow[]).map((r) => ({ ...r, shown: effectiveStatus(r.status, r.valid_until, today) as QuoteStatus }));
@@ -26,6 +29,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
+      <PlanNotice entitlement={entitlement} feature="quotes" />
       <PageHeader
         title="Orçamentos"
         description="Histórico dos orçamentos que você criou, com o status de cada um."

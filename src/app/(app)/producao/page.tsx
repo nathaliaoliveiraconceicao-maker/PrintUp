@@ -7,6 +7,8 @@ import { JobCard } from "@/features/production/job-card";
 import { JOB_COLUMNS, ORDER_COLUMNS, type JobRow, type OrderRow } from "@/features/orders/schema";
 import { isJobOverdue, JOB_STAGE_LABEL, JOB_STAGES, type JobStage } from "@/features/orders/status";
 import { todayBR } from "@/features/quotes/status";
+import { PlanNotice } from "@/components/plan-notice";
+import { loadEntitlements } from "@/features/billing/server";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +19,7 @@ const RECENT_DONE = 20;
 export default async function ProductionPage({ searchParams }: { searchParams: Promise<{ impressora?: string; atrasados?: string; q?: string }> }) {
   const sp = await searchParams;
   const supabase = await createClient();
+  const entitlement = await loadEntitlements(supabase);
   const [jobsRes, ordersRes, resv, printers] = await Promise.all([
     supabase.from("production_jobs").select(JOB_COLUMNS).neq("stage", "cancelado").order("created_at"),
     supabase.from("orders").select(ORDER_COLUMNS),
@@ -44,6 +47,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
 
   return (
     <>
+      <PlanNotice entitlement={entitlement} feature="production" />
       <PageHeader title="Produção" description="Acompanhe cada lote do pedido até ficar pronto. Crie os lotes dentro do pedido." action={<Button asChild variant="secondary"><Link href="/pedidos">Ver pedidos</Link></Button>} />
 
       {(overdueCount > 0 || noReserveCount > 0) && (

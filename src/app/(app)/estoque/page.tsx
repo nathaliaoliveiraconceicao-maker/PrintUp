@@ -8,6 +8,8 @@ import { MinStockEditor, SpoolForm } from "@/features/stock/stock-forms";
 import { SPOOL_COLUMNS, SPOOL_STATUS_LABEL, type SpoolRow } from "@/features/stock/schema";
 import { isOverCommitted, isSpoolLow, stockByFilament } from "@/features/stock/summary";
 import { formatDateBR } from "@/features/quotes/status";
+import { PlanNotice } from "@/components/plan-notice";
+import { loadEntitlements } from "@/features/billing/server";
 import { createClient } from "@/lib/supabase/server";
 import { cn, formatBRL } from "@/lib/utils";
 
@@ -18,6 +20,7 @@ const g = (n: number) => `${(Math.round(n * 10) / 10).toLocaleString("pt-BR")} g
 export default async function StockPage({ searchParams }: { searchParams: Promise<{ filamento?: string; status?: string }> }) {
   const sp = await searchParams;
   const supabase = await createClient();
+  const entitlement = await loadEntitlements(supabase);
   const [spoolsRes, filRes] = await Promise.all([
     supabase.from("filament_spools").select(SPOOL_COLUMNS).order("created_at", { ascending: false }),
     supabase.from("filaments").select("*").eq("is_active", true).order("name"),
@@ -33,6 +36,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
+      <PlanNotice entitlement={entitlement} feature="stock" />
       <PageHeader title="Estoque de filamento" description="Bobinas, saldo e material reservado para os pedidos. Orçamento não baixa estoque: só a produção." />
 
       {(lows.length > 0 || over.length > 0) && (

@@ -40,6 +40,10 @@ describe("zodToState / dbErrorMessage", () => {
     expect(dbErrorMessage({ code: "P0002", message: "x" })).toMatch(/não encontrado/);
     expect(dbErrorMessage({ code: "P0001", message: "relation foo violates something" })).not.toMatch(/relation/);
   });
+  it("recurso fora do plano vira orientação amigável", () => {
+    expect(dbErrorMessage({ code: "P0001", message: "Recurso não disponível no seu plano (orders)" })).toMatch(/Gestão de pedidos.*plano/);
+    expect(dbErrorMessage({ code: "P0001", message: "Recurso não disponível no seu plano (quotes)" })).not.toMatch(/quotes\)/);
+  });
   it("traduz as regras de orçamento sem vazar texto técnico", () => {
     expect(dbErrorMessage({ code: "P0001", message: "Orçamento enviado ou decidido não pode ser alterado. Duplique-o." })).toMatch(/Duplique/);
     expect(dbErrorMessage({ code: "P0001", message: "Mudança de status não permitida (aprovado -> rascunho)" })).not.toMatch(/->/);

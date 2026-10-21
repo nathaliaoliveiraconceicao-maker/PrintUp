@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, Calculator, FilePlus2, FileUp, Layers, PackagePlus, Printer, RefreshCw } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
+import { needsAttention, STATE_ACCESS, STATE_LABEL, type EntitlementRow } from "@/lib/billing/state";
 import { quoteMetrics, type QuoteForMetrics } from "@/features/dashboard/metrics";
 import { summarizeOrders } from "@/features/orders/financials";
 import { loadOrders } from "@/features/orders/server";
@@ -20,7 +21,7 @@ import { daysUntil, formatBRL, formatDateTime, formatPercent } from "@/lib/utils
 
 export const metadata = { title: "Painel" };
 
-type Entitlement = { plan_code: string; status: string; limits: Record<string, number | null>; active: boolean };
+type Entitlement = EntitlementRow;
 type Latest = Pick<PricingRow, "product_id" | "unit_price" | "unit_profit" | "margin_percent">;
 type Recent = Pick<PricingRow, "id" | "product_id" | "unit_price" | "margin_percent" | "created_at">;
 
@@ -220,16 +221,18 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <Card className="flex flex-wrap items-center justify-between gap-3">
+      <Card className="flex flex-wrap items-center justify-between gap-3" data-testid="cartao-plano">
         <div>
           <p className="text-sm text-muted">Seu plano</p>
           <p className="font-medium">
-            {(sub.data?.plan as { name?: string } | null)?.name ?? "Sem assinatura ativa"}
-            {daysLeft != null && <span className="ml-2 text-sm text-muted">· {daysLeft} dias de teste restantes</span>}
+            {entitlement?.plan_code === "trial" ? "Teste grátis" : ((sub.data?.plan as { name?: string } | null)?.name ?? (entitlement?.plan_code === "gratuito" ? "Gratuito" : (entitlement?.plan_code ?? "Gratuito")))}
+            <span className="ml-2 text-sm text-muted">· {entitlement ? STATE_LABEL[entitlement.state] : "Gratuito"}</span>
+            {daysLeft != null && entitlement?.state === "em_teste" && <span className="ml-2 text-sm text-muted">· {daysLeft} dias de teste restantes</span>}
           </p>
         </div>
-        {entitlement && !entitlement.active && (
-          <p role="alert" className="text-sm text-danger">Assinatura inativa: novos cadastros estão bloqueados.</p>
+        <Link href="/assinatura" className="flex h-11 items-center rounded-xl border border-line px-4 text-sm font-medium hover:bg-paper">Minha assinatura</Link>
+        {entitlement && needsAttention(entitlement.state) && (
+          <p role="alert" className="w-full text-sm text-danger">{STATE_ACCESS[entitlement.state]}</p>
         )}
       </Card>
     </>

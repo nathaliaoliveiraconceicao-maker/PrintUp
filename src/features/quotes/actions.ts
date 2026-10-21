@@ -212,6 +212,8 @@ export async function createShareLink(id: string): Promise<QuoteActionState> {
   const loaded = await loadQuotePdfData(supabase, id);
   if (!loaded) return { error: "Orçamento não encontrado." };
   const { quote, data } = loaded;
+  const { error: quotaErr } = await supabase.rpc("consume_quota", { p_metric: "pdf_month", p_ref: id });
+  if (quotaErr) return { error: dbErrorMessage(quotaErr) };
 
   const pdf = await buildQuotePdf(data);
   const path = `${user.id}/${quote.id}.pdf`;

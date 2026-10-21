@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/env";
 
-const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/auth"];
+// /planos é a página comercial (pública); /api/webhooks recebe o gateway (autenticado pela ASSINATURA do corpo, não por login).
+const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/auth", "/planos", "/api/webhooks"];
 
 /** Renova a sessão e redireciona visitantes anônimos para /login. A autorização real continua no RLS. */
 export async function updateSession(request: NextRequest) {

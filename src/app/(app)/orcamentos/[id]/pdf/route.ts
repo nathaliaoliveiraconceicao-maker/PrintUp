@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorMessage } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/server";
 import { buildQuotePdf } from "@/features/quotes/pdf";
 import { loadQuotePdfData } from "@/features/quotes/server";
@@ -17,6 +18,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // RLS: só orçamentos do próprio usuário são encontrados.
   const loaded = await loadQuotePdfData(supabase, id);
   if (!loaded) return new NextResponse("Não encontrado", { status: 404 });
+  // Cota mensal de PDFs do plano (cada orçamento conta uma vez por mês; a trava é no banco, resistente a requisições simultâneas).
+  const { error: quotaErr } = await supabase.rpc("consume_quota", { p_metric: "pdf_month", p_ref: id });
+  if (quotaErr) return new NextResponse(dbErrorMessage(quotaErr), { status: 403, headers: { "content-type": "text/plain; charset=utf-8" } });
   const pdf = await buildQuotePdf(loaded.data);
   return new NextResponse(Buffer.from(pdf), {
     headers: {

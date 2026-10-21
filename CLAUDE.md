@@ -65,3 +65,8 @@ Identidade (Etapa 4): **grafite** (`--ink`), **laranja vibrante** (`--accent`) e
 - Painel só mostra dados reais (`features/dashboard/metrics.ts`). Orçado ≠ vendido: sem módulo de vendas, nada é apresentado como faturamento; lucro estimado = aprovado − custo de produção, só dos aprovados com custo conhecido.
 - Calculadora: modo rápido e avançado usam o **mesmo** `calculatePricing`; o modo só muda o que aparece. Desconto ao cliente é simulação (`applyDiscount`), não altera o motor nem o que é salvo. Acabamento soma com embalagem.
 - Onboarding (`/boas-vindas`): cada passo grava no Supabase; pular não grava; `profiles.onboarding_done_at` (migration 0007) impede que volte sozinho. Refazer não duplica impressora/filamento (atualiza o primeiro).
+
+## Assinaturas e cobrança (Etapa 6) — `docs/ASSINATURAS.md`, `docs/GATEWAY.md`
+- Plano/limites/recursos vivem em `plans` (jsonb), nunca em constantes. O acesso efetivo vem de `current_entitlements()`; limites por trigger com `pg_advisory_xact_lock`; PDFs por `consume_quota`.
+- **Nunca** ativar plano pago por ação do frontend: só `apply_billing_event` (service_role), chamado pelo webhook verificado (HMAC no corpo bruto, idempotente, fora de ordem ignorado). Usuário/plano vêm do nosso banco, não do payload.
+- Cancelar/rebaixar não apaga dados. Simulador (`BILLING_GATEWAY=simulado`) é bloqueado em produção. Cobrança real só com autorização do usuário; gateway recomendado: Asaas (não integrado).

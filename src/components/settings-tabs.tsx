@@ -4,12 +4,13 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/configuracoes", label: "Custos e margens" },
   { href: "/negocio", label: "Meu negócio" },
+  { href: "/assinatura", label: "Minha assinatura" },
   { href: "/historico", label: "Histórico" },
   { href: "/boas-vindas?refazer=1", label: "Configuração guiada" },
 ] as const;
 
 /** Abas do grupo "Configurações". */
-export function SettingsTabs({ current }: { current: "/configuracoes" | "/negocio" | "/historico" }) {
+export function SettingsTabs({ current }: { current: "/configuracoes" | "/negocio" | "/historico" | "/assinatura" }) {
   return (
     <nav aria-label="Configurações" className="-mx-1 mb-6 flex gap-2 overflow-x-auto px-1 pb-1">
       {TABS.map((t) => (
