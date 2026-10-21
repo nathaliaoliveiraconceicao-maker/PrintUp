@@ -1,19 +1,27 @@
 import Link from "next/link";
-import { ArrowRight, Calculator, Layers, Printer, Settings } from "lucide-react";
+import { ArrowRight, Calculator, Layers, Package, Printer, Settings } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
+import type { PricingRow } from "@/features/products/schema";
 import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
 import { createClient } from "@/lib/supabase/server";
-import { daysUntil, formatBRL, formatPercent } from "@/lib/utils";
+import { daysUntil, formatBRL, formatDateTime, formatPercent } from "@/lib/utils";
 
 export const metadata = { title: "Início" };
 
 type Entitlement = { plan_code: string; status: string; limits: Record<string, number | null>; active: boolean };
+type Latest = Pick<PricingRow, "product_id" | "unit_price" | "unit_profit" | "margin_percent">;
+type Recent = Pick<PricingRow, "id" | "product_id" | "unit_price" | "margin_percent" | "created_at">;
+
+const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const [printers, filaments, settingsRes, ent, sub, profile] = await Promise.all([
+  const [printers, filaments, products, latestRes, recentRes, settingsRes, ent, sub, profile] = await Promise.all([
     supabase.from("printers").select("id", { count: "exact", head: true }),
     supabase.from("filaments").select("id", { count: "exact", head: true }),
+    supabase.from("products").select("id, name"),
+    supabase.from("latest_pricings").select("product_id, unit_price, unit_profit, margin_percent"),
+    supabase.from("pricings").select("id, product_id, unit_price, margin_percent, created_at").order("created_at", { ascending: false }).limit(5),
     supabase.from("cost_settings").select("*").maybeSingle(),
     supabase.rpc("current_entitlements"),
     supabase.from("subscriptions").select("status, trial_ends_at, plan:plans(name)").in("status", ["trialing", "active", "past_due"]).maybeSingle(),
@@ -21,11 +29,14 @@ export default async function DashboardPage() {
   ]);
 
   const s = (settingsRes.data as SettingsRow | null) ?? DEFAULT_SETTINGS;
+  const latest = (latestRes.data ?? []) as Latest[];
+  const recent = (recentRes.data ?? []) as Recent[];
+  const names = new Map(((products.data ?? []) as { id: string; name: string }[]).map((p) => [p.id, p.name]));
+  const belowTarget = latest.filter((l) => l.margin_percent < s.margin_percent - 1).length;
+
   const entitlement = (ent.data as Entitlement[] | null)?.[0];
   const trialEnds = sub.data?.status === "trialing" && sub.data.trial_ends_at ? new Date(sub.data.trial_ends_at) : null;
   const daysLeft = trialEnds ? daysUntil(trialEnds) : null;
-  const fixedPerHour =
-    s.fixed_allocation === "per_hour" && s.productive_hours_per_month > 0 ? s.monthly_fixed_costs / s.productive_hours_per_month : null;
   const firstName = profile.data?.full_name?.split(" ")[0];
 
   return (
@@ -45,17 +56,51 @@ export default async function DashboardPage() {
         </span>
       </Link>
 
-      <section aria-label="Seus parâmetros de custo" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="Margem padrão" value={formatPercent(s.margin_percent)} />
-        <Kpi label="Energia" value={`${formatBRL(s.energy_price_per_kwh)}/kWh`} />
-        <Kpi label="Custo fixo / hora" value={fixedPerHour != null ? formatBRL(fixedPerHour) : "por peça"} />
-        <Kpi label="Taxas + impostos" value={formatPercent(s.sale_fee_percent + s.tax_percent)} />
-      </section>
+      {latest.length === 0 ? (
+        <Card className="mb-6 text-sm text-muted">
+          <p className="font-medium text-ink">Seus indicadores aparecem aqui.</p>
+          <p className="mt-1">Calcule um preço e use <strong>Salvar precificação</strong> para ver preço médio, margem e lucro por unidade.</p>
+        </Card>
+      ) : (
+        <section aria-label="Indicadores dos seus produtos" className="mb-6">
+          <p className="mb-2 text-xs text-muted">Baseado no último preço salvo de cada produto</p>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Kpi label="Produtos precificados" value={String(latest.length)} />
+            <Kpi label="Preço médio" value={formatBRL(avg(latest.map((l) => l.unit_price)))} />
+            <Kpi label="Margem média" value={formatPercent(avg(latest.map((l) => l.margin_percent)))} />
+            <Kpi label="Lucro médio / unid." value={formatBRL(avg(latest.map((l) => l.unit_profit)))} tone="ok" />
+          </div>
+          {belowTarget > 0 && (
+            <p className="mt-3 rounded-xl bg-accent-soft px-3 py-2 text-sm text-warn">
+              {belowTarget} produto{belowTarget > 1 ? "s estão" : " está"} abaixo da sua margem padrão de {formatPercent(s.margin_percent)}.{" "}
+              <Link href="/produtos" className="font-medium underline">Ver produtos</Link>
+            </p>
+          )}
+        </section>
+      )}
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+      {recent.length > 0 && (
+        <Card className="mb-6 p-0">
+          <h2 className="px-4 pb-1 pt-4 text-sm font-semibold">Últimas precificações</h2>
+          <ul className="divide-y divide-line">
+            {recent.map((r) => (
+              <li key={r.id}>
+                <Link href={`/produtos/${r.product_id}`} className="flex items-baseline justify-between gap-3 px-4 py-3 text-sm hover:bg-paper">
+                  <span className="min-w-0 truncate font-medium">{names.get(r.product_id) ?? "Produto"}</span>
+                  <span className="num shrink-0">{formatBRL(r.unit_price)} <span className="text-muted">· {formatPercent(r.margin_percent)}</span></span>
+                </Link>
+                <p className="num -mt-2 px-4 pb-2 text-xs text-muted">{formatDateTime(r.created_at)}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Shortcut href="/produtos" icon={<Package size={20} />} title="Produtos" detail={`${products.data?.length ?? 0} cadastrados`} />
         <Shortcut href="/impressoras" icon={<Printer size={20} />} title="Impressoras" detail={usage(printers.count, entitlement?.limits.max_printers)} />
         <Shortcut href="/filamentos" icon={<Layers size={20} />} title="Filamentos" detail={usage(filaments.count, entitlement?.limits.max_filaments)} />
-        <Shortcut href="/configuracoes" icon={<Settings size={20} />} title="Custos e margens" detail="Ajustar padrões" />
+        <Shortcut href="/configuracoes" icon={<Settings size={20} />} title="Custos e margens" detail={`Margem padrão ${formatPercent(s.margin_percent)}`} />
       </div>
 
       <Card className="flex flex-wrap items-center justify-between gap-3">
@@ -70,22 +115,19 @@ export default async function DashboardPage() {
           <p role="alert" className="text-sm text-danger">Assinatura inativa: novos cadastros estão bloqueados.</p>
         )}
       </Card>
-      <p className="mt-4 text-xs text-muted">
-        Indicadores de vendas e lucro aparecem aqui quando você começar a salvar produtos e orçamentos.
-      </p>
     </>
   );
 }
 
 function usage(count: number | null, limit: number | null | undefined) {
-  return `${count ?? 0}${limit == null ? "" : ` de ${limit}`} cadastrad${count === 1 ? "a" : "as"}`.replace("cadastradas", "cadastrados").replace("cadastrada", "cadastrado");
+  return `${count ?? 0}${limit == null ? "" : ` de ${limit}`} cadastrado(s)`;
 }
 
-function Kpi({ label, value }: { label: string; value: string }) {
+function Kpi({ label, value, tone }: { label: string; value: string; tone?: "ok" }) {
   return (
     <Card className="p-4">
       <p className="text-xs text-muted">{label}</p>
-      <p className="num mt-1 text-lg font-semibold">{value}</p>
+      <p className={`num mt-1 text-lg font-semibold ${tone === "ok" ? "text-ok" : ""}`}>{value}</p>
     </Card>
   );
 }

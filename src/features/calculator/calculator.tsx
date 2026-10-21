@@ -6,9 +6,11 @@ import { AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/field";
 import { calculatePricing, pricingInputSchema } from "@/lib/pricing";
+import { COST_LABELS } from "@/lib/pricing/labels";
 import type { SettingsRow } from "@/features/settings/schema";
 import type { PrinterRow } from "@/features/printers/schema";
 import type { FilamentRow } from "@/features/filaments/schema";
+import { SavePricing } from "./save-pricing";
 import { cn, formatBRL, formatPercent, parseDecimal } from "@/lib/utils";
 
 const num = (s: string) => {
@@ -16,25 +18,16 @@ const num = (s: string) => {
   return Number.isNaN(n) ? (s.trim() === "" ? 0 : NaN) : n;
 };
 
-const COST_LABELS: [string, string][] = [
-  ["filament", "Filamento"],
-  ["machineHour", "Hora da máquina"],
-  ["energy", "Energia"],
-  ["wear", "Desgaste e manutenção"],
-  ["fixed", "Custos fixos (rateio)"],
-  ["losses", "Perdas e desperdício"],
-  ["labor", "Mão de obra"],
-  ["packaging", "Embalagem e acabamento"],
-];
-
 export function Calculator({
   printers,
   filaments,
   settings,
+  products,
 }: {
   printers: PrinterRow[];
   filaments: FilamentRow[];
   settings: SettingsRow;
+  products: { id: string; name: string }[];
 }) {
   const [printerId, setPrinterId] = useState(printers[0]?.id ?? "");
   const [filamentId, setFilamentId] = useState(filaments[0]?.id ?? "");
@@ -59,7 +52,7 @@ export function Calculator({
 
   const effectivePricePerKg = pricePerKg ?? (filament ? String(filament.price_per_kg).replace(".", ",") : "");
 
-  const { result, errors } = useMemo(() => {
+  const { result, errors, input } = useMemo(() => {
     const draft = {
       quantity: Math.max(1, Math.floor(num(quantity) || 1)),
       printMinutesPerUnit: num(hours) * 60 + num(minutes),
@@ -92,8 +85,8 @@ export function Calculator({
           : { mode: "markup" as const, markupPercent: num(target) },
     };
     const parsed = pricingInputSchema.safeParse(draft);
-    if (!parsed.success) return { result: null, errors: parsed.error.issues.map((i) => i.message) };
-    return { result: calculatePricing(parsed.data), errors: [] as string[] };
+    if (!parsed.success) return { result: null, input: null, errors: parsed.error.issues.map((i) => i.message) };
+    return { result: calculatePricing(parsed.data), input: parsed.data, errors: [] as string[] };
   }, [quantity, hours, minutes, grams, effectivePricePerKg, printer, settings, loss, laborRate, laborMin, setupMin, packaging, feePct, feeFixed, taxPct, mode, target]);
 
   const qty = Math.max(1, Math.floor(num(quantity) || 1));
@@ -120,13 +113,13 @@ export function Calculator({
               </Select>
             </Field>
           </div>
-          <div className="grid grid-cols-2 items-end gap-4 sm:grid-cols-4">
-            <Field label="Tempo (h)"><Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="0" /></Field>
-            <Field label="Tempo (min)"><Input inputMode="decimal" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="0" /></Field>
-            <Field label="Peso (g)" hint="Peça + suportes"><Input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} placeholder="0" /></Field>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Field label="Horas"><Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="0" /></Field>
+            <Field label="Minutos"><Input inputMode="decimal" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="0" /></Field>
+            <Field label="Peso (g)"><Input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} placeholder="0" /></Field>
             <Field label="Unidades"><Input inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
           </div>
-          <p className="text-xs text-muted">Tempo e peso são de <strong>uma</strong> unidade; o lote multiplica pela quantidade.</p>
+          <p className="text-xs text-muted">Tempo e peso (com suportes) são de <strong>uma</strong> unidade; o lote multiplica pela quantidade.</p>
           <Field label="Preço do filamento (R$/kg)" hint="Preenchido pelo filamento escolhido; edite se precisar.">
             <Input inputMode="decimal" value={effectivePricePerKg} onChange={(e) => setPricePerKg(e.target.value)} />
           </Field>
@@ -134,19 +127,19 @@ export function Calculator({
 
         <Card className="space-y-4">
           <h2 className="font-semibold">Mão de obra, perdas e embalagem</h2>
-          <div className="grid items-end gap-4 sm:grid-cols-3">
-            <Field label="Mão de obra (min/unid.)"><Input inputMode="decimal" value={laborMin} onChange={(e) => setLaborMin(e.target.value)} /></Field>
-            <Field label="Preparo do lote (min)"><Input inputMode="decimal" value={setupMin} onChange={(e) => setSetupMin(e.target.value)} /></Field>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Mão de obra (min)"><Input inputMode="decimal" value={laborMin} onChange={(e) => setLaborMin(e.target.value)} /></Field>
+            <Field label="Preparo (min)"><Input inputMode="decimal" value={setupMin} onChange={(e) => setSetupMin(e.target.value)} /></Field>
             <Field label="Valor da hora (R$)"><Input inputMode="decimal" value={laborRate} onChange={(e) => setLaborRate(e.target.value)} /></Field>
             <Field label="Perdas (%)"><Input inputMode="decimal" value={loss} onChange={(e) => setLoss(e.target.value)} /></Field>
-            <Field label="Embalagem (R$/unid.)"><Input inputMode="decimal" value={packaging} onChange={(e) => setPackaging(e.target.value)} /></Field>
+            <Field label="Embalagem (R$)"><Input inputMode="decimal" value={packaging} onChange={(e) => setPackaging(e.target.value)} /></Field>
           </div>
         </Card>
 
         <Card className="space-y-4">
           <h2 className="font-semibold">Venda</h2>
-          <div className="grid items-end gap-4 sm:grid-cols-3">
-            <Field label="Taxa de venda (%)"><Input inputMode="decimal" value={feePct} onChange={(e) => setFeePct(e.target.value)} /></Field>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Taxa (%)"><Input inputMode="decimal" value={feePct} onChange={(e) => setFeePct(e.target.value)} /></Field>
             <Field label="Taxa fixa (R$)"><Input inputMode="decimal" value={feeFixed} onChange={(e) => setFeeFixed(e.target.value)} /></Field>
             <Field label="Impostos (%)"><Input inputMode="decimal" value={taxPct} onChange={(e) => setTaxPct(e.target.value)} /></Field>
           </div>
@@ -175,6 +168,8 @@ export function Calculator({
         <p className="text-xs text-muted">
           Custos fixos, energia e demais padrões vêm das <Link href="/configuracoes" className="underline">configurações</Link> e da impressora escolhida.
         </p>
+
+        <SavePricing products={products} input={input} printerId={printer?.id} filamentId={filament?.id} />
       </div>
 
       {/* Resultado: coluna lateral no desktop, barra fixa no celular */}
@@ -240,7 +235,7 @@ function ResultBody({
         <h3 className="mb-2 text-sm font-semibold">Custo por unidade</h3>
         <ul className="divide-y divide-line text-sm">
           {COST_LABELS.map(([key, label]) => {
-            const value = result.unit[key as keyof typeof result.unit];
+            const value = result.unit[key];
             return (
               <li key={key} className="flex justify-between py-1.5">
                 <span className={value === 0 ? "text-muted" : ""}>{label}</span>

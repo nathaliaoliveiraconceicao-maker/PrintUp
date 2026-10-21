@@ -23,3 +23,6 @@ export function parseDecimal(value: string | null | undefined): number {
 export function daysUntil(date: Date, now: Date = new Date()): number {
   return Math.max(0, Math.ceil((date.getTime() - now.getTime()) / 86_400_000));
 }
+
+const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));

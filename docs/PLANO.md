@@ -50,8 +50,9 @@ docs/
 
 ## 3. Modelo de dados
 
-Implementado (`0001_core.sql`): `profiles`, `plans`, `subscriptions`, `billing_events`, `printers`, `filaments`, `cost_settings`, `audit_log`.
-Planejado (rascunho em `0002_catalog_planned.sql.draft`): `imported_models`, `print_profiles`, `products`, `pricings` (snapshot imutável de entrada + resultado + versão do motor), `quotes`, `quote_items`.
+Implementado: `0001_core.sql` (`profiles`, `plans`, `subscriptions`, `billing_events`, `printers`, `filaments`, `cost_settings`, `audit_log`) e `0002_products_pricings.sql` (`products`, `pricings`, view `latest_pricings`).
+`pricings` é um **snapshot imutável** (entrada + resultado + versão do motor; sem policy de UPDATE); o servidor recalcula o resultado antes de gravar, nunca confia no navegador.
+Planejado (rascunho em `0003_catalog_planned.sql.draft`): `imported_models`, `print_profiles`, `quotes`, `quote_items`.
 
 Pontos de projeto:
 - `printers.hourly_cost` + flags `hourly_includes_{energy,wear,fixed}` formalizam o "não contar duas vezes".
@@ -67,7 +68,9 @@ Pontos de projeto:
 4. Filamentos (idem)
 5. Configurações de custo (fixos, energia, mão de obra, perdas, taxas, impostos, margem)
 6. Calculadora (resultado ao vivo; no celular, preço fixo na base da tela)
-7. Etapas seguintes: Produtos, Orçamentos, Importar modelo, Conta/Plano, Admin
+7. Produtos (lista com último preço e alerta de margem; histórico de precificações com composição do custo)
+8. Histórico de operações e menu "Mais" (celular)
+9. Etapas seguintes: Orçamentos, Importar modelo, Conta/Plano, Admin
 
 ## 5. Fórmulas (`src/lib/pricing`)
 
@@ -107,7 +110,7 @@ Regras: campo ausente = `undefined` (**nunca** inventar valor); cada dado import
 | # | Entrega | Status |
 |---|---|---|
 | 1 | Auth, impressoras, filamentos, configurações, calculadora, motor testado, RLS, limites por plano | **feito** |
-| 2 | Salvar precificações e produtos (`pricings`, `products`), dashboard financeiro real, histórico | |
+| 2 | Salvar precificações e produtos (`pricings`, `products`), dashboard financeiro real, histórico | **feito** |
 | 3 | Orçamentos (itens, validade, PDF/compartilhar) | |
 | 4 | Importação: parser 3MF/G-code → perfis de impressão; STL separado; spike do conector MakerWorld | |
 | 5 | Billing: webhook idempotente, gateway (ex.: Stripe/Asaas/Mercado Pago), portal da assinatura, bloqueio por status | |

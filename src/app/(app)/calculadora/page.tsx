@@ -10,10 +10,11 @@ export const metadata = { title: "Calculadora" };
 
 export default async function CalculatorPage() {
   const supabase = await createClient();
-  const [printers, filaments, settings] = await Promise.all([
+  const [printers, filaments, settings, products] = await Promise.all([
     supabase.from("printers").select("*").eq("is_active", true).order("name"),
     supabase.from("filaments").select("*").eq("is_active", true).order("name"),
     supabase.from("cost_settings").select("*").maybeSingle(),
+    supabase.from("products").select("id, name").order("name"),
   ]);
 
   return (
@@ -29,6 +30,7 @@ export default async function CalculatorPage() {
         printers={(printers.data ?? []) as PrinterRow[]}
         filaments={(filaments.data ?? []) as FilamentRow[]}
         settings={(settings.data as SettingsRow | null) ?? DEFAULT_SETTINGS}
+        products={(products.data ?? []) as { id: string; name: string }[]}
       />
     </>
   );

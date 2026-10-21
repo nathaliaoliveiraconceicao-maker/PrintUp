@@ -6,7 +6,7 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - `npm run dev` · `npm run build`
 - `npm run lint` · `npm run typecheck` · `npm test` (Vitest) — rodar os três antes de concluir qualquer tarefa
 - `npm run check:env` — confere variáveis de ambiente sem imprimir valores
-- `npm run test:db` — valida migrations + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
+- `npm run test:db` — valida migrations (0001 e 0002) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
 
 ## Next.js 16 (leia `node_modules/next/dist/docs/` antes de usar APIs novas)
 - `middleware` agora é `src/proxy.ts`. `params`, `searchParams`, `cookies()`, `headers()` são **assíncronos**.
@@ -24,6 +24,7 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - Use `supabase.auth.getUser()` (valida o token), não `getSession()`, para decisões de acesso.
 - `SUPABASE_SERVICE_ROLE_KEY` só em código de servidor (webhooks/admin). Nunca `NEXT_PUBLIC_`.
 - Formulários com Server Action usam `useActionForm` (`src/lib/use-action-form.ts`), **não** `<form action>` puro: o React 19 apaga os campos quando a action devolve erro.
+- Precificações salvas (`pricings`) são snapshots imutáveis: o servidor **recalcula** com `calculatePricing` antes de gravar. Mudou a fórmula? Incremente `PRICING_ENGINE_VERSION`.
 - Mutações = Server Actions com validação Zod no servidor; erros do banco passam por `dbErrorMessage` (sem vazar detalhes).
 - Webhooks: verificar assinatura no corpo bruto + idempotência via `billing_events`.
 
