@@ -7,7 +7,7 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - `npm run lint` · `npm run typecheck` · `npm test` (Vitest) — rodar os três antes de concluir qualquer tarefa
 - `npm run check:env` — confere variáveis de ambiente sem imprimir valores
 - `npm run test:e2e` — fluxos no navegador contra um Supabase **falso** local (`e2e/`); constrói o app sozinho (pasta `.next-e2e`) e exige Chromium (`PLAYWRIGHT_CHROMIUM_PATH`)
-- `npm run test:db` — valida migrations (0001, 0002, 0004–0008), RLS e **concorrência real** (`concurrency.sh`) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
+- `npm run test:db` — valida migrations (0001, 0002, 0004–0010), RLS e **concorrência real** (`concurrency.sh`) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
 
 ## Importador
 - Leitura no navegador (`parseBlob`); servidor revalida tudo (`saveImportSchema`) e confere os objetos no Storage. Arquivos em `model-files/<user_id>/…`; o original só é guardado se o usuário pedir.
@@ -70,3 +70,9 @@ Identidade (Etapa 4): **grafite** (`--ink`), **laranja vibrante** (`--accent`) e
 - Plano/limites/recursos vivem em `plans` (jsonb), nunca em constantes. O acesso efetivo vem de `current_entitlements()`; limites por trigger com `pg_advisory_xact_lock`; PDFs por `consume_quota`.
 - **Nunca** ativar plano pago por ação do frontend: só `apply_billing_event` (service_role), chamado pelo webhook verificado (HMAC no corpo bruto, idempotente, fora de ordem ignorado). Usuário/plano vêm do nosso banco, não do payload.
 - Cancelar/rebaixar não apaga dados. Simulador (`BILLING_GATEWAY=simulado`) é bloqueado em produção. Cobrança real só com autorização do usuário; gateway escolhido: **Mercado Pago** (`lib/billing/mercadopago.ts`; token não-`TEST-` bloqueado sem `BILLING_ALLOW_LIVE=sim`). O webhook do MP traz só o id: o estado vem da API, nunca do corpo.
+
+## Superadmin (Etapa 7) — `docs/SUPERADMIN.md`
+- Papel `superadmin` só via `grant_superadmin(email)` (SQL Editor/service_role); o app nunca altera papéis. Sem e-mail fixo. Toda troca de papel é auditada por gatilho.
+- O superadmin **não** tem RLS amplo nas tabelas de clientes: consulta só por funções `admin_*` (autorizam com `assert_superadmin()`, paginadas, só contagens/metadados). Nova função administrativa = `assert_superadmin()` + `admin_log()` na escrita + teste em `rls_admin.test.sql`.
+- Páginas `/admin/*` usam `requireAdminPage()` (404 para não admin); Server Actions usam `currentAdmin()`. Nenhuma ação marca pagamento como recebido.
+- Preço de plano não altera assinaturas existentes; limites/recursos valem para todos do plano. `admin_audit_log` é imutável. Logs operacionais: `logEvent()` (só ids/códigos, nunca dados pessoais ou segredos).

@@ -1,5 +1,6 @@
 "use server";
 
+import { logEvent } from "@/features/admin/log";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dbErrorMessage } from "@/lib/forms";
@@ -104,6 +105,7 @@ export async function saveImport(payload: unknown): Promise<SaveImportState> {
     .single();
   if (error || !model) {
     await cleanup();
+    await logEvent("importacao", error?.code === "P0001" ? "aviso" : "erro", error?.code === "P0001" ? "Importação recusada por limite/recurso do plano" : "Falha ao salvar modelo importado", { code: error?.code ?? "desconhecido" }, user.id);
     return { error: dbErrorMessage(error ?? {}) };
   }
 
@@ -114,6 +116,7 @@ export async function saveImport(payload: unknown): Promise<SaveImportState> {
   if (profileError || !profiles) {
     await supabase.from("imported_models").delete().eq("id", model.id);
     await cleanup();
+    await logEvent("importacao", "erro", "Falha ao salvar os perfis do modelo importado", { code: profileError?.code ?? "desconhecido" }, user.id);
     return { error: dbErrorMessage(profileError ?? {}) };
   }
 

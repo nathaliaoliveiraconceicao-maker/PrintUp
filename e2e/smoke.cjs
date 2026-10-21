@@ -1001,9 +1001,14 @@ async function main() {
   const act = async (label, expectState) => {
     await p.goto(B + "/assinatura");
     await p.getByRole("button", { name: label }).click();
-    await p.waitForSelector('[data-testid="simulador"] [role=status]');
-    await p.goto(B + "/assinatura");
-    ok((await p.locator('[data-testid="estado-assinatura"]').innerText()).includes(expectState), `${label} → ${expectState}`);
+    // o painel some após o refresh (a situação muda), então confere a situação recarregando a página
+    let got = "";
+    for (let i = 0; i < 20 && !got.includes(expectState); i++) {
+      await p.waitForTimeout(300);
+      await p.goto(B + "/assinatura");
+      got = await p.locator('[data-testid="estado-assinatura"]').innerText();
+    }
+    ok(got.includes(expectState), `${label} → ${expectState}`);
   };
   await act("Webhook duplicado", "Ativa");
   await act("Cobrança falhou", "Pagamento pendente");
@@ -1015,6 +1020,81 @@ async function main() {
   ok((await p.locator("main").innerText()).includes("plano"), "recurso pago sem permissão: aviso de plano em Pedidos");
   await p.goto(B + "/produtos");
   ok(!(await main$()).includes("Nenhum produto"), "dados continuam acessíveis após o cancelamento (produtos preservados)");
+
+  // ── Etapa 7: Superadmin (papel só por procedimento seguro; aqui o papel é alternado no Supabase falso) ──
+  const setAdmin = (admin) => fetch(`http://127.0.0.1:${MOCK_PORT}/__set_admin`, { method: "POST", body: JSON.stringify({ admin }) });
+  await setAdmin(false);
+  const errorsBefore404 = errors.length;
+  for (const path of ["/admin", "/admin/usuarios", "/admin/planos", "/admin/assinaturas", "/admin/cupons", "/admin/uso", "/admin/monitoramento", "/admin/auditoria", "/admin/configuracoes"]) {
+    const r = await p.goto(B + path);
+    if (r.status() !== 404 || (await p.locator('[data-testid="admin-main"]').count()) !== 0) ok(false, `usuário comum acessou ${path}`);
+  }
+  errors.splice(errorsBefore404); // os 404 acima são o resultado esperado (não são erros do app)
+  ok(true, "usuário comum: todas as rotas /admin respondem 404");
+  await p.goto(B + "/");
+  ok((await p.locator("aside").getByRole("link", { name: "Administração" }).count()) === 0, "menu do cliente comum não mostra Administração");
+
+  await setAdmin(true);
+  await p.goto(B + "/");
+  ok((await p.locator("aside").getByRole("link", { name: "Administração" }).count()) === 1, "superadmin vê o atalho Administração");
+  await p.goto(B + "/admin");
+  ok((await p.locator('[data-testid="mrr"]').innerText()).includes("91,48") && (await p.locator('[data-testid="recebido"]').innerText()).includes("548,90"), "visão geral: MRR (contratado) e recebido (efetivo) separados");
+  ok((await p.locator('[data-testid="usuarios-total"]').innerText()).includes("7") && (await p.locator('[data-testid="distribuicao-planos"]').count()) === 1, "visão geral: usuários e distribuição por plano");
+  await p.goto(B + "/admin?periodo=7d");
+  ok((await main$()).includes("Últimos 7 dias"), "filtro de período");
+  await p.goto(B + "/admin/usuarios");
+  ok((await p.locator('[data-testid="linha-usuario"]').count()) === 1 && (await main$()).includes("nunca aparecem aqui"), "usuários: lista só com contagens (aviso de privacidade)");
+
+  // plano: exige confirmação; preço novo aparece na página pública
+  await p.goto(B + "/admin/planos");
+  const pro = p.locator('[data-testid="plano-pro"]');
+  await pro.getByLabel("Preço mensal (R$)").fill("39,90");
+  await pro.getByRole("button", { name: "Salvar plano" }).click();
+  await pro.getByText("Marque a confirmação").waitFor();
+  ok(true, "plano: alteração sem confirmação é recusada");
+  await pro.getByLabel("Confirmo:", { exact: false }).check();
+  await pro.getByRole("button", { name: "Salvar plano" }).click();
+  await pro.getByText("Plano atualizado").waitFor();
+  await p.goto(B + "/planos");
+  ok(/39,90/.test(await p.locator('[data-testid="card-pro"]').innerText()), "plano editado: novo preço na página pública");
+
+  // cupom: criar, resgatar como cliente, uso único
+  await p.goto(B + "/admin/cupons");
+  await p.getByLabel("Código", { exact: false }).first().fill("bemvindo7");
+  await p.locator('[data-testid="novo-cupom"]').getByLabel("Dias de acesso").fill("7");
+  await p.locator('[data-testid="novo-cupom"]').getByLabel("Limite de usos", { exact: false }).fill("1");
+  await p.getByRole("button", { name: "Criar cupom" }).click();
+  await p.getByText("Cupom BEMVINDO7 criado").waitFor();
+  await p.reload();
+  ok((await p.locator('[data-testid="linha-cupom"]').first().innerText()).includes("BEMVINDO7"), "cupom criado aparece na lista");
+  await p.goto(B + "/admin/auditoria");
+  const audTxt = await main$();
+  ok(audTxt.includes("cupom.criado") && audTxt.includes("plano.alterado"), "auditoria registrou a edição do plano e a criação do cupom");
+
+  // configurações refletem na página pública
+  await p.goto(B + "/admin/configuracoes");
+  await p.getByLabel("E-mail de suporte").fill("suporte@printup.test");
+  await p.getByRole("button", { name: "Salvar configurações" }).click();
+  await p.getByText("Configurações salvas").waitFor();
+  await p.goto(B + "/planos");
+  ok((await p.locator("footer").innerText()).includes("suporte@printup.test"), "e-mail de suporte aparece no rodapé público");
+
+  // cliente resgata o cupom (sem ser admin)
+  await setAdmin(false);
+  await p.goto(B + "/assinatura");
+  await p.locator('[data-testid="resgatar-codigo"]').getByLabel("Tenho um código").fill("NAO-EXISTE");
+  await p.getByRole("button", { name: "Aplicar código" }).click();
+  await p.getByText("Código inválido ou expirado").waitFor();
+  ok(true, "cupom inexistente: mensagem genérica");
+  await p.locator('[data-testid="resgatar-codigo"]').getByLabel("Tenho um código").fill("bemvindo7");
+  await p.getByRole("button", { name: "Aplicar código" }).click();
+  await p.getByText("Código aplicado").waitFor();
+  await p.reload();
+  ok((await p.locator('[data-testid="estado-assinatura"]').innerText()).includes("Em teste"), "cupom resgatado: cliente fica em teste no plano do cupom");
+  const errorsBefore404b = errors.length;
+  await p.goto(B + "/admin");
+  ok((await p.locator('[data-testid="admin-main"]').count()) === 0, "depois de perder o papel, /admin volta a 404");
+  errors.splice(errorsBefore404b);
 
   require("node:fs").rmSync(fx.dir, { recursive: true, force: true });
 

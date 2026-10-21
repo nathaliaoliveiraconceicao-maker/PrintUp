@@ -8,6 +8,7 @@ import { resolveGateway, type BillingCycle, type BillingGateway, type CanonicalE
 import { SimulatedGateway } from "@/lib/billing/simulated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { couponCodeSchema } from "@/features/admin/schema";
 import { PLAN_COLUMNS, type PlanRow } from "./server";
 
 export type BillingActionState = { ok?: true; error?: string; url?: string; message?: string };
@@ -157,6 +158,23 @@ export async function reconcileMine(): Promise<BillingActionState> {
   }
   revalidatePath("/assinatura");
   return { ok: true, message: applied > 0 ? `Situação atualizada (${applied} ajuste${applied > 1 ? "s" : ""}).` : "Situação conferida: nenhuma diferença encontrada." };
+}
+
+/** O cliente resgata um cupom de acesso (teste/cortesia/convite). Quem decide é o banco (validade, limite, e-mail do convite, concorrência). */
+export async function redeemCoupon(_: BillingActionState, formData: FormData): Promise<BillingActionState> {
+  const code = couponCodeSchema.safeParse(formData.get("code"));
+  if (!code.success) return { error: code.error.issues[0]?.message ?? "Informe o código." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessão expirada. Entre novamente." };
+  const { data, error } = await supabase.rpc("redeem_coupon", { p_code: code.data });
+  if (error) return { error: error.code === "P0001" && error.message ? error.message : "Não foi possível usar o código agora. Tente novamente." };
+  revalidatePath("/assinatura");
+  revalidatePath("/");
+  const r = data as { plan_name?: string; days?: number } | null;
+  return { ok: true, message: `Código aplicado: acesso ao plano ${r?.plan_name ?? ""} por ${r?.days ?? ""} dias.` };
 }
 
 // ───────── Simulador (só desenvolvimento/testes; bloqueado em produção por `resolveGateway`) ─────────

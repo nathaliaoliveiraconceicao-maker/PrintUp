@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { cancelSubscription, reconcileMine, simulate, type BillingActionState, type SimKind } from "./actions";
+import { Field, Input } from "@/components/ui/field";
+import { useActionForm } from "@/lib/use-action-form";
+import { cancelSubscription, reconcileMine, redeemCoupon, simulate, type BillingActionState, type SimKind } from "./actions";
 
 export function SubscriptionActions({ canCancel, hasGatewaySub }: { canCancel: boolean; hasGatewaySub: boolean }) {
   const router = useRouter();
@@ -55,5 +57,23 @@ export function SimulatorPanel({ checkoutId }: { checkoutId?: string }) {
       {state.error && <p role="alert" className="text-sm text-danger">{state.error}</p>}
       {state.ok && <p role="status" className="text-sm text-ok">{state.message}</p>}
     </div>
+  );
+}
+
+/** "Tenho um código": teste grátis, cortesia ou convite. */
+export function RedeemCoupon() {
+  const router = useRouter();
+  const { state, onSubmit, pending } = useActionForm(async (prev: BillingActionState, fd: FormData) => {
+    const r = await redeemCoupon(prev, fd);
+    if (r.ok) router.refresh();
+    return r;
+  }, {} as BillingActionState);
+  return (
+    <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2" data-testid="resgatar-codigo">
+      <Field label="Tenho um código" className="min-w-52 flex-1"><Input name="code" required maxLength={40} autoCapitalize="characters" autoComplete="off" /></Field>
+      <Button variant="secondary" disabled={pending}>{pending ? "Aplicando…" : "Aplicar código"}</Button>
+      {state.error && <p role="alert" className="w-full text-sm text-danger">{state.error}</p>}
+      {state.ok && <p role="status" className="w-full text-sm text-ok">{state.message}</p>}
+    </form>
   );
 }

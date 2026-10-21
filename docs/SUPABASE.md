@@ -14,6 +14,7 @@ Legenda: ✅ confirmado · ⏳ ação pendente · ❓ não verificado (confira n
 | `0007_onboarding.sql` | ⏳ **rodar no SQL Editor** | coluna `profiles.onboarding_done_at` (quem já usa o app não volta ao assistente) |
 | `0008_orders_production_stock.sql` | ⏳ **rodar no SQL Editor** | `orders`, `order_items`, `order_payments`, `production_jobs`, `job_reservations`, `filament_spools`, `stock_movements`, funções de estoque/produção, `filaments.min_stock_g` |
 | `0009_billing_plans.sql` | ⏳ **rodar no SQL Editor** | `platform_settings`, planos configuráveis, `subscription_changes`, `billing_*`, `usage_events`, `current_entitlements`, limites por trigger, `apply_billing_event`, `consume_quota` |
+| `0010_superadmin.sql` | ⏳ **rodar no SQL Editor** (depois, criar o 1º superadmin: `docs/SUPERADMIN.md`) | `admin_audit_log`, `app_events`, `coupons`, `coupon_redemptions`, funções `admin_*`, `redeem_coupon`, `grant_superadmin` |
 | Buckets `user-images` e `quote-pdfs` privados | ⏳ | criados pela 0006; conferir em *Storage* que ambos estão **Private** (5 MB por arquivo) |
 | Bucket `model-files` privado | ⏳ | criado pela 0005; conferir em *Storage* que está **Private** e com limite de 50 MB |
 | Trigger de novo usuário (perfil + teste grátis) | ✅ | cadastro real funcionou |

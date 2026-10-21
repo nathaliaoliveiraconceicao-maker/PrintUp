@@ -10,7 +10,7 @@ const jwt = () => `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: USER.id, ro
 const session = () => ({ access_token: jwt(), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + ++n, user: USER });
 
 let PASSWORD = "senha-de-teste-123";
-const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles", "orders", "order_items", "order_payments", "production_jobs", "job_reservations", "filament_spools", "stock_movements", "plans", "subscriptions", "platform_settings", "subscription_changes", "billing_customers", "billing_checkouts", "billing_charges", "billing_events", "usage_events"];
+const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles", "orders", "order_items", "order_payments", "production_jobs", "job_reservations", "filament_spools", "stock_movements", "plans", "subscriptions", "platform_settings", "subscription_changes", "billing_customers", "billing_checkouts", "billing_charges", "billing_events", "usage_events", "coupons", "coupon_redemptions", "admin_audit_log", "app_events"];
 const db = Object.fromEntries(TABLES.map((t) => [t, []]));
 const LIMITS = { printers: 1, filaments: 5, products: 10 };
 // Valores padrão das colunas (o banco real os aplica; o dublê precisa imitar para os testes não enxergarem `undefined`).
@@ -145,6 +145,7 @@ async function storage(req, res, p) {
 
 const stage5 = require("./mock-stage5.cjs")({ db, USER, tick: () => ++n });
 const stage6 = require("./mock-stage6.cjs")({ db, USER, tick: () => ++n });
+const stage7 = require("./mock-stage7.cjs")({ db, USER, tick: () => ++n });
 const STAGE6_RPC = ["current_entitlements", "consume_quota", "apply_billing_event", "storage_used_bytes"];
 const FEATURE_OF_RPC = { save_order: "orders", create_spool: "stock", create_job: "production" };
 const STAGE5_RPC = ["save_order", "convert_quote_to_order", "create_spool", "adjust_spool", "create_job", "reserve_job", "set_job_stage", "complete_job", "report_failure", "cancel_job", "cancel_order"];
@@ -197,6 +198,7 @@ http.createServer(async (req, res) => {
   if (p === "/auth/v1/logout") return send(req, res, 204);
   if (p === "/rest/v1/rpc/save_quote") return saveQuoteRpc(req, res);
   const rpcName = /^\/rest\/v1\/rpc\/(\w+)$/.exec(p)?.[1];
+  if (rpcName && stage7.names.includes(rpcName)) return rpcResponse(res, req, stage7.rpc(rpcName, await readBody(req)));
   if (rpcName && STAGE6_RPC.includes(rpcName)) return rpcResponse(res, req, stage6.rpc(rpcName, await readBody(req)));
   if (rpcName && STAGE5_RPC.includes(rpcName)) {
     if (FEATURE_OF_RPC[rpcName] && !stage6.hasFeature(FEATURE_OF_RPC[rpcName])) { await readBody(req); return rpcResponse(res, req, stage6.featureErr(FEATURE_OF_RPC[rpcName])); }
@@ -205,6 +207,7 @@ http.createServer(async (req, res) => {
   // Só para os testes: volta o assistente de primeiro acesso ao estado "pendente".
   // Só para os testes: simula a passagem do tempo (prazo vencido) sem esperar dias.
   if (p === "/__set_order_due") { const b = await readBody(req); const o = db.orders.find((r) => r.number === b.number); if (o) o.due_date = b.due; return send(req, res, 200, {}); }
+  if (p === "/__set_admin") { const b = await readBody(req); stage7.state.admin = Boolean(b && b.admin); return send(req, res, 200, {}); }
   if (p === "/__reset_onboarding") { db.profiles.forEach((r) => { r.onboarding_done_at = null; }); return send(req, res, 200, {}); }
 
   const t = /^\/rest\/v1\/(\w+)$/.exec(p)?.[1];

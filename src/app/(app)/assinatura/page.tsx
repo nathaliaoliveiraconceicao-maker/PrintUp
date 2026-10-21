@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
 import { SettingsTabs } from "@/components/settings-tabs";
-import { SubscriptionActions, SimulatorPanel } from "@/features/billing/subscription-actions";
+import { RedeemCoupon, SubscriptionActions, SimulatorPanel } from "@/features/billing/subscription-actions";
 import { loadCharges, loadEntitlements, loadPublicPlans, loadUsage } from "@/features/billing/server";
 import { resolveGateway } from "@/lib/billing/gateway";
 import { FEATURES, LIMIT_LABEL, limitText, needsAttention, percentUsed, STATE_ACCESS, STATE_LABEL, formatPriceCents } from "@/lib/billing/state";
@@ -64,6 +64,7 @@ export default async function SubscriptionPage() {
           <Link href="/planos" className="inline-flex h-11 items-center rounded-xl bg-accent px-5 text-sm font-semibold text-ink hover:brightness-95">{paying ? "Alterar plano" : "Ver planos"}</Link>
         </div>
         <SubscriptionActions canCancel={paying && !ent?.cancel_at_period_end} hasGatewaySub={paying} />
+        {!paying && <div className="border-t border-line pt-4"><RedeemCoupon /></div>}
       </Card>
 
       <section aria-labelledby="h-uso" className="mb-6 space-y-3" data-testid="uso-limites">

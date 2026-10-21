@@ -7,6 +7,14 @@ export default async function PublicLayout({ children }: { children: React.React
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const { data: settings } = await supabase.from("platform_settings").select("key, value").in("key", ["support_email", "terms_url", "privacy_url"]);
+  const setting = (k: string) => {
+    const v = settings?.find((r) => r.key === k)?.value;
+    return typeof v === "string" && v ? v : null;
+  };
+  const support = setting("support_email");
+  const terms = setting("terms_url");
+  const privacy = setting("privacy_url");
   return (
     <div className="min-h-dvh">
       <header className="border-b border-line bg-surface">
@@ -28,7 +36,16 @@ export default async function PublicLayout({ children }: { children: React.React
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-5 py-10">{children}</main>
-      <footer className="border-t border-line py-6 text-center text-xs text-muted">PrintUp · precificação e gestão para impressão 3D</footer>
+      <footer className="space-y-1 border-t border-line py-6 text-center text-xs text-muted">
+        <p>PrintUp · precificação e gestão para impressão 3D</p>
+        {(support || terms || privacy) && (
+          <p className="flex flex-wrap justify-center gap-x-4">
+            {support && <a className="underline" href={`mailto:${support}`}>Suporte: {support}</a>}
+            {terms && <a className="underline" href={terms} rel="noopener noreferrer">Termos de uso</a>}
+            {privacy && <a className="underline" href={privacy} rel="noopener noreferrer">Privacidade</a>}
+          </p>
+        )}
+      </footer>
     </div>
   );
 }
