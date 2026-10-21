@@ -14,3 +14,6 @@ psql -q -v ON_ERROR_STOP=1 -d "$DB" -f 00_supabase_stub.sql -f ../migrations/000
   -f ../migrations/0007_onboarding.sql -f rls_onboarding.test.sql \
   -f ../migrations/0008_orders_production_stock.sql -f rls_pedidos.test.sql
 bash concurrency.sh "$DB"
+# Etapa 6 (cobrança): migration 0009 + testes + concorrência de cotas e webhooks
+psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0009_billing_plans.sql -f rls_billing.test.sql
+bash concurrency_billing.sh "$DB"
