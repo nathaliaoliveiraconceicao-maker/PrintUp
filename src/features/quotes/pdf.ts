@@ -166,7 +166,7 @@ export async function buildQuotePdf(d: QuotePdfData): Promise<Uint8Array> {
     text("Unitário", 0, y, { size: 9, bold: true, color: w, right: colUnit + 40 });
     text("Desc.", 0, y, { size: 9, bold: true, color: w, right: colDisc + 30 });
     text("Total", 0, y, { size: 9, bold: true, color: w, right: colTotal - 8 });
-    y -= 26;
+    y -= 8; // topo da primeira linha, logo abaixo da faixa do cabeçalho
   };
   ensure(60);
   header();
@@ -175,25 +175,27 @@ export async function buildQuotePdf(d: QuotePdfData): Promise<Uint8Array> {
     const nameLines = wrap(bold, 10, it.name, colQty - M - 64);
     const descLines = it.description ? wrap(font, 8.5, it.description, colQty - M - 64) : [];
     const photo = await embed(doc, it.photo);
-    const h = Math.max(nameLines.length * 12 + descLines.length * 10.5 + 8, photo ? 44 : 0, 24);
+    const h = Math.max(nameLines.length * 12 + descLines.length * 10.5 + 12, photo ? 50 : 0, 28);
     if (y - h < M + 30) {
       ensure(h + 40);
       header();
     }
+    const top = y;
+    const base = top - 14; // linha de base do texto
     const left = photo ? M + 52 : M + 8;
     if (photo) {
       const s = Math.min(40 / photo.width, 40 / photo.height);
-      page.drawImage(photo, { x: M + 6, y: y - 4 - photo.height * s + 12, width: photo.width * s, height: photo.height * s });
+      page.drawImage(photo, { x: M + 6, y: top - 4 - photo.height * s, width: photo.width * s, height: photo.height * s });
     }
-    let ty = y;
+    let ty = base;
     for (const l of nameLines) { text(l, left, ty, { size: 10, bold: true }); ty -= 12; }
     for (const l of descLines) { text(l, left, ty, { size: 8.5, color: MUTED }); ty -= 10.5; }
-    text(String(it.quantity), 0, y, { right: colQty + 20 });
-    text(formatBRL(it.unitPrice), 0, y, { right: colUnit + 40 });
-    text(it.discountPercent > 0 ? `${String(it.discountPercent).replace(".", ",")}%` : "—", 0, y, { right: colDisc + 30, color: it.discountPercent > 0 ? INK : MUTED });
-    text(formatBRL(it.lineTotal), 0, y, { right: colTotal - 8, bold: true });
-    y -= h;
-    page.drawLine({ start: { x: M, y: y + 6 }, end: { x: PAGE_W - M, y: y + 6 }, thickness: 0.5, color: LINE });
+    text(String(it.quantity), 0, base, { right: colQty + 20 });
+    text(formatBRL(it.unitPrice), 0, base, { right: colUnit + 40 });
+    text(it.discountPercent > 0 ? `${String(it.discountPercent).replace(".", ",")}%` : "—", 0, base, { right: colDisc + 30, color: it.discountPercent > 0 ? INK : MUTED });
+    text(formatBRL(it.lineTotal), 0, base, { right: colTotal - 8, bold: true });
+    y = top - h;
+    page.drawLine({ start: { x: M, y }, end: { x: PAGE_W - M, y }, thickness: 0.5, color: LINE });
   }
 
   // ── Totais ──

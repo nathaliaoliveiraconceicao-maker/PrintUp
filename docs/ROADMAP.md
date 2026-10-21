@@ -18,6 +18,10 @@ Diretrizes: a **precificação automatizada** é o principal diferencial comerci
 
 ---
 
+> **Atualização (Etapa 3 concluída em desenvolvimento):** catálogo "Meus produtos", orçamentos em PDF com compartilhamento por WhatsApp e "Meu negócio" estão implementados e testados (ver `docs/CATALOGO-ORCAMENTOS.md`). Dependem da migration `0006`. Próximas: experiência visual (item 4) e assinaturas/pagamentos/superadmin (item 5).
+
+---
+
 ## 1. Situação real
 
 ### 1.1 Código e testes (verificado agora, do zero)

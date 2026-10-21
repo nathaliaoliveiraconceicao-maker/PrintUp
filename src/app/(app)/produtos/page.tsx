@@ -7,6 +7,7 @@ import { CATALOG_COLUMNS, type CatalogProduct } from "@/features/products/catalo
 import { imageUrls } from "@/features/products/image-urls";
 import { ProductButtons } from "@/features/products/product-buttons";
 import { loadStaleness } from "@/features/products/queries";
+import { DEFAULT_SETTINGS } from "@/features/settings/schema";
 import { createClient } from "@/lib/supabase/server";
 import { cn, formatBRL, formatPercent } from "@/lib/utils";
 
@@ -28,7 +29,11 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const cat = (sp.cat ?? "").trim();
 
   const supabase = await createClient();
-  const { data } = await supabase.from("products").select(CATALOG_COLUMNS).order("name");
+  const [{ data }, settingsRes] = await Promise.all([
+    supabase.from("products").select(CATALOG_COLUMNS).order("name"),
+    supabase.from("cost_settings").select("margin_percent").maybeSingle(),
+  ]);
+  const target = (settingsRes.data as { margin_percent: number } | null)?.margin_percent ?? DEFAULT_SETTINGS.margin_percent;
   const all = (data ?? []) as CatalogProduct[];
   const stale = await loadStaleness(supabase, all.filter((p) => !p.archived_at));
   const categories = [...new Set(all.map((p) => p.category).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -62,7 +67,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       />
 
       {staleCount > 0 && (
-        <Card className="mb-4 flex flex-wrap items-center gap-3 border-warn/40 bg-accent-soft/50" data-testid="aviso-desatualizados">
+        <Card className="mb-4 flex flex-col gap-3 border-warn/40 bg-accent-soft/50 sm:flex-row sm:items-center" data-testid="aviso-desatualizados">
           <AlertTriangle size={18} className="text-warn" aria-hidden="true" />
           <p className="min-w-0 flex-1 text-sm">
             <strong>{staleCount} produto{staleCount > 1 ? "s" : ""}</strong> com custos diferentes do que você cadastrou hoje (filamento, impressora…).
@@ -143,6 +148,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                       <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-warn" data-testid="selo-desatualizado">
                         Custos mudaram: hoje seria {formatBRL(s.newPrice)}
                       </span>
+                    )}
+                    {p.margin_basis === "liquida" && p.margin_percent !== null && p.margin_percent < target - 1 && (
+                      <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-warn">Abaixo da sua margem padrão ({formatPercent(target)})</span>
                     )}
                     {p.stock_qty === 0 && !p.archived_at && <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">Sem estoque</span>}
                     {p.archived_at && <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">Arquivado</span>}

@@ -143,7 +143,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </div>
         </Card>
       )}
-      <h2 className="mb-3 font-semibold">Histórico de preços</h2>
+      <h2 className="mb-3 font-semibold">Histórico de preços ({pricings.length})</h2>
       {pricings.length === 0 ? (
         <Card className="text-center text-muted">Este produto ainda não tem precificações.</Card>
       ) : (

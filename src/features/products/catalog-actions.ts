@@ -86,7 +86,8 @@ export async function saveProduct(id: string | null, _: ProductActionState, form
     category: v.category ?? null,
     description: v.description ?? null,
     printer_id: printerRow?.id ?? null,
-    printer_name: printerRow?.name ?? (v.printerId ? null : (existing?.printer_name ?? null)),
+    // Impressora já excluída (id nulo, nome guardado) mantém o nome; "Não informar" numa impressora existente limpa os dois.
+    printer_name: printerRow?.name ?? (existing && !existing.printer_id ? existing.printer_name : null),
     filament_id: filamentRow?.id ?? null,
     filament_type: v.filamentType ?? filamentRow?.material ?? null,
     filament_color: v.filamentColor ?? filamentRow?.color ?? null,

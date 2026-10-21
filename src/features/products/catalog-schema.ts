@@ -2,6 +2,9 @@ import { z } from "zod";
 import { decimal, optionalText } from "@/lib/forms";
 
 /** Campos da ficha de produto (formulário). Custos só entram quando o produto não veio de um cálculo. */
+/** Campo numérico que pode nem existir no formulário (ex.: custos de um produto vindo de cálculo): ausente = 0. */
+const dec = (max: number) => z.preprocess((v) => (v === undefined ? "" : v), decimal({ max }));
+
 export const productFormSchema = z.object({
   name: z.string().trim().min(1, "Dê um nome ao produto.").max(120),
   category: optionalText(60),
@@ -11,13 +14,13 @@ export const productFormSchema = z.object({
   filamentType: optionalText(60),
   filamentColor: optionalText(40),
   weightG: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), decimal({ max: 100_000 }).optional()),
-  printHours: decimal({ max: 10_000 }),
-  printMinutes: decimal({ max: 59 }),
-  materialCost: decimal({ max: 1_000_000 }),
-  machineCost: decimal({ max: 1_000_000 }),
-  otherCosts: decimal({ max: 1_000_000 }),
+  printHours: dec(10_000),
+  printMinutes: dec(59),
+  materialCost: dec(1_000_000),
+  machineCost: dec(1_000_000),
+  otherCosts: dec(1_000_000),
   salePrice: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), decimal({ max: 1_000_000 }).optional()),
-  stockQty: decimal({ max: 1_000_000 }),
+  stockQty: dec(1_000_000),
   sourceUrl: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
     z

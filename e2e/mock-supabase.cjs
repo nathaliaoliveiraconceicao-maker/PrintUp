@@ -10,9 +10,11 @@ const jwt = () => `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: USER.id, ro
 const session = () => ({ access_token: jwt(), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + ++n, user: USER });
 
 let PASSWORD = "senha-de-teste-123";
-const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles"];
+const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items"];
 const db = Object.fromEntries(TABLES.map((t) => [t, []]));
 const LIMITS = { printers: 1, filaments: 5, products: 10 };
+// Valores padrão das colunas (o banco real os aplica; o dublê precisa imitar para os testes não enxergarem `undefined`).
+const DEFAULTS = { products: { stock_qty: 0, archived_at: null }, business_profiles: { brand_color: "#d94e1b", default_validity_days: 7 } };
 const AUDITED = ["printers", "filaments", "products", "pricings", "imported_models"];
 const objects = new Map(); // caminho no bucket -> { bytes, contentType }
 let n = 0;
@@ -34,6 +36,8 @@ function filter(rows, q) {
     if (["select", "order", "limit", "offset", "on_conflict"].includes(k)) continue;
     let m = /^eq\.(.*)$/.exec(v);
     if (m) rows = rows.filter((r) => String(r[k]) === m[1]);
+    if (v === "is.null") rows = rows.filter((r) => r[k] == null);
+    if (v === "is.not.null") rows = rows.filter((r) => r[k] != null);
     m = /^in\.\((.*)\)$/.exec(v);
     if (m) { const set = new Set(m[1].split(",").map((x) => x.replace(/^"|"$/g, ""))); rows = rows.filter((r) => set.has(String(r[k]))); }
   }
@@ -54,43 +58,109 @@ function sortRows(rows, order) {
   });
 }
 
+const BUCKETS = ["model-files", "user-images", "quote-pdfs"];
+const key = (bucket, path) => `${bucket}/${path}`;
+const hasObj = (bucket, path) => objects.has(bucket === "model-files" ? path : key(bucket, path));
+// model-files mantém as chaves antigas (caminho puro) para não mexer nos testes do importador; os novos buckets usam "bucket/caminho".
+const okey = (bucket, path) => (bucket === "model-files" ? path : key(bucket, path));
+
 async function storage(req, res, p) {
-  if (p.startsWith("/storage/v1/object/sign/model-files/") && req.method === "GET") {
-    const path = decodeURIComponent(p.slice("/storage/v1/object/sign/model-files/".length));
-    const o = objects.get(path);
+  if (p === "/storage/v1/object/copy" && req.method === "POST") {
+    const b = await readBody(req);
+    const from = objects.get(okey(b.bucketId, b.sourceKey));
+    if (!from) return send(req, res, 404, { message: "Object not found" });
+    if (!b.destinationKey.startsWith(USER.id + "/")) return send(req, res, 403, { message: "new row violates row-level security policy" });
+    objects.set(okey(b.bucketId, b.destinationKey), { bytes: Buffer.from(from.bytes), contentType: from.contentType });
+    return send(req, res, 200, { Key: `${b.bucketId}/${b.destinationKey}` });
+  }
+  const m = /^\/storage\/v1\/object\/(?:(sign|list)\/)?([a-z-]+)(?:\/(.*))?$/.exec(p);
+  if (!m || !BUCKETS.includes(m[2])) return send(req, res, 404, { message: "storage: rota não suportada no dublê" });
+  const [, verb, bucket, rest] = m;
+  const path = rest ? decodeURIComponent(rest) : "";
+  if (verb === "sign" && req.method === "GET") {
+    const o = objects.get(okey(bucket, path));
     if (!o) return send(req, res, 404, { message: "not found" });
     res.writeHead(200, { "content-type": o.contentType, ...cors(req) });
     return res.end(o.bytes);
   }
-  if (p === "/storage/v1/object/sign/model-files" && req.method === "POST") {
+  if (verb === "sign" && req.method === "POST" && !path) {
     const b = await readBody(req);
-    return send(req, res, 200, b.paths.map((path) => objects.has(path)
-      ? { error: null, path, signedURL: `/object/sign/model-files/${encodeURIComponent(path).replace(/%2F/g, "/")}?token=t` }
-      : { error: "Object not found", path, signedURL: null }));
+    return send(req, res, 200, b.paths.map((pp) => objects.has(okey(bucket, pp))
+      ? { error: null, path: pp, signedURL: `/object/sign/${bucket}/${encodeURIComponent(pp).replace(/%2F/g, "/")}?token=t` }
+      : { error: "Object not found", path: pp, signedURL: null }));
   }
-  if (p === "/storage/v1/object/list/model-files" && req.method === "POST") {
+  if (verb === "sign" && req.method === "POST") {
+    if (!objects.has(okey(bucket, path))) return send(req, res, 404, { message: "Object not found" });
+    return send(req, res, 200, { signedURL: `/object/sign/${bucket}/${encodeURIComponent(path).replace(/%2F/g, "/")}?token=t` });
+  }
+  if (verb === "list" && req.method === "POST") {
     const b = await readBody(req);
     const prefix = b.prefix || "";
     const out = [...objects.entries()]
-      .filter(([path]) => path.slice(0, path.lastIndexOf("/")) === prefix && (!b.search || path.includes(b.search)))
-      .map(([path, o]) => ({ name: path.slice(path.lastIndexOf("/") + 1), id: path, metadata: { size: o.bytes.length, mimetype: o.contentType } }));
+      .filter(([k]) => k.startsWith(bucket === "model-files" ? "" : bucket + "/"))
+      .map(([k, o]) => [bucket === "model-files" ? k : k.slice(bucket.length + 1), o])
+      .filter(([pp]) => pp.slice(0, pp.lastIndexOf("/")) === prefix && (!b.search || pp.includes(b.search)))
+      .map(([pp, o]) => ({ name: pp.slice(pp.lastIndexOf("/") + 1), id: pp, metadata: { size: o.bytes.length, mimetype: o.contentType } }));
     return send(req, res, 200, out);
   }
-  if (p === "/storage/v1/object/model-files" && req.method === "DELETE") {
+  if (!verb && !path && req.method === "DELETE") {
     const b = await readBody(req);
     const removed = [];
-    for (const path of b.prefixes || []) if (objects.delete(path)) removed.push({ name: path });
+    for (const pp of b.prefixes || []) if (objects.delete(okey(bucket, pp))) removed.push({ name: pp });
     return send(req, res, 200, removed);
   }
-  if (p.startsWith("/storage/v1/object/model-files/") && (req.method === "POST" || req.method === "PUT")) {
-    const path = decodeURIComponent(p.slice("/storage/v1/object/model-files/".length));
+  if (!verb && path && req.method === "GET") {
+    const o = objects.get(okey(bucket, path));
+    if (!o) return send(req, res, 400, { statusCode: "404", error: "not_found", message: "Object not found" });
+    res.writeHead(200, { "content-type": o.contentType, ...cors(req) });
+    return res.end(o.bytes);
+  }
+  if (!verb && path && (req.method === "POST" || req.method === "PUT")) {
     if (!path.startsWith(USER.id + "/")) return send(req, res, 403, { message: "new row violates row-level security policy", statusCode: "403" });
-    const bytes = await readRaw(req);
-    if (objects.has(path)) return send(req, res, 409, { message: "The resource already exists" });
-    objects.set(path, { bytes, contentType: req.headers["content-type"] || "application/octet-stream" });
-    return send(req, res, 200, { Key: `model-files/${path}`, Id: crypto.randomUUID() });
+    let bytes = await readRaw(req);
+    let contentType = req.headers["content-type"] || "application/octet-stream";
+    // O storage-js envia Blob/File como multipart/form-data: guardamos só o conteúdo do arquivo, como o Storage real faz.
+    const mp = /^multipart\/form-data;\s*boundary=(.+)$/.exec(contentType);
+    if (mp) {
+      const raw = bytes.toString("latin1");
+      const start = raw.indexOf("\r\n\r\n", raw.indexOf("filename=")) + 4;
+      const end = raw.lastIndexOf(`\r\n--${mp[1]}`);
+      const head = raw.slice(raw.indexOf("filename="), start);
+      contentType = /Content-Type:\s*([^\r\n]+)/i.exec(head)?.[1] ?? "application/octet-stream";
+      bytes = bytes.subarray(start, end);
+    }
+    if (objects.has(okey(bucket, path))) return send(req, res, 409, { message: "The resource already exists" });
+    objects.set(okey(bucket, path), { bytes, contentType });
+    return send(req, res, 200, { Key: `${bucket}/${path}`, Id: crypto.randomUUID() });
   }
   return send(req, res, 404, { message: "storage: rota não suportada no dublê" });
+}
+
+
+// Equivalente do `save_quote` do banco: número por usuário, travas de status e conferência da soma dos itens.
+async function saveQuoteRpc(req, res) {
+  const { p_quote_id: id, p_quote: q, p_items: items } = await readBody(req);
+  const bad = (message) => send(req, res, 400, { code: "P0001", message });
+  if (!Array.isArray(items) || items.length === 0) return bad("O orçamento precisa ter ao menos um item");
+  let row;
+  if (id) {
+    row = db.quotes.find((r) => r.id === id);
+    if (!row) return send(req, res, 400, { code: "P0002", message: "Orçamento não encontrado" });
+    if (row.status !== "rascunho") return bad("Orçamento enviado ou decidido não pode ser alterado. Duplique-o para fazer mudanças.");
+    Object.assign(row, q);
+    db.quote_items = db.quote_items.filter((i) => i.quote_id !== id);
+  } else {
+    const number = Math.max(0, ...db.quotes.map((r) => r.number)) + 1;
+    row = { id: crypto.randomUUID(), user_id: USER.id, number, status: "rascunho", created_at: new Date(Date.now() + ++n).toISOString(), share_path: null, shared_at: null, sent_at: null, decided_at: null, ...q };
+    db.quotes.push(row);
+  }
+  items.forEach((it, i) => db.quote_items.push({ id: crypto.randomUUID(), user_id: USER.id, quote_id: row.id, position: i, ...it }));
+  const sum = db.quote_items.filter((i) => i.quote_id === row.id).reduce((a, i) => a + i.line_total, 0);
+  if (Math.abs(sum - row.subtotal) > 0.005) {
+    if (!id) { db.quotes = db.quotes.filter((r) => r !== row); db.quote_items = db.quote_items.filter((i) => i.quote_id !== row.id); }
+    return bad("Os totais do orçamento não fecham com a soma dos itens");
+  }
+  return send(req, res, 200, row.id);
 }
 
 http.createServer(async (req, res) => {
@@ -112,6 +182,7 @@ http.createServer(async (req, res) => {
   if (p === "/auth/v1/user" && req.method === "PUT") { const b = await readBody(req); if (b && b.password) PASSWORD = b.password; return send(req, res, 200, USER); }
   if (p === "/auth/v1/user") return /Bearer .+\..+\./.test(req.headers.authorization || "") ? send(req, res, 200, USER) : send(req, res, 401, { code: 401, msg: "no token" });
   if (p === "/auth/v1/logout") return send(req, res, 204);
+  if (p === "/rest/v1/rpc/save_quote") return saveQuoteRpc(req, res);
   if (p === "/rest/v1/rpc/current_entitlements") return send(req, res, 200, [{ plan_code: "trial", status: "trialing", limits: { max_printers: 1, max_filaments: 5 }, features: {}, active: true }]);
   if (p === "/rest/v1/subscriptions") return send(req, res, 200, { status: "trialing", trial_ends_at: new Date(Date.now() + 13 * 864e5).toISOString(), plan: { name: "Teste grátis" } });
   if (p === "/rest/v1/profiles") return send(req, res, 200, { full_name: "Teste Mock" });
@@ -142,16 +213,31 @@ http.createServer(async (req, res) => {
   if (req.method === "POST") {
     const body = await readBody(req);
     const items = Array.isArray(body) ? body : [body];
-    if (pref.includes("merge-duplicates")) { db[t] = db[t].filter((r) => r.user_id !== items[0].user_id); db[t].push(...items); return send(req, res, 201); }
+    if (pref.includes("merge-duplicates")) {
+      const prev = db[t].find((r) => r.user_id === items[0].user_id);
+      db[t] = db[t].filter((r) => r.user_id !== items[0].user_id);
+      db[t].push({ ...(prev ? {} : DEFAULTS[t] || {}), ...(prev || {}), ...items[0] });
+      return send(req, res, 201);
+    }
     if (LIMITS[t] && db[t].length >= LIMITS[t]) return send(req, res, 400, { code: "P0001", message: `Limite do plano atingido (max_${t})` });
-    const created = items.map((it) => ({ id: crypto.randomUUID(), user_id: USER.id, is_active: true, created_at: new Date(Date.now() + ++n).toISOString(), ...it }));
+    const created = items.map((it) => ({ ...(DEFAULTS[t] || {}), id: crypto.randomUUID(), user_id: USER.id, is_active: true, created_at: new Date(Date.now() + ++n).toISOString(), ...it }));
     for (const it of created) { db[t].push(it); audit("insert", it); }
     if (pref.includes("return=representation")) return send(req, res, 201, single ? created[0] : created);
     return send(req, res, 201);
   }
   if (req.method === "PATCH") {
     const body = await readBody(req);
-    filter(db[t], q).forEach((r) => Object.assign(r, body));
+    const hit = filter(db[t], q);
+    if (t === "quotes") {
+      const NEXT = { rascunho: ["enviado", "aprovado", "recusado"], enviado: ["aprovado", "recusado", "rascunho"], recusado: ["rascunho"], expirado: ["rascunho"], aprovado: [] };
+      const META = ["share_path", "shared_at", "sent_at", "decided_at", "status"];
+      for (const r of hit) {
+        if (body.status && body.status !== r.status && !NEXT[r.status].includes(body.status)) return send(req, res, 400, { code: "P0001", message: `Mudança de status não permitida (${r.status} -> ${body.status})` });
+        if (r.status !== "rascunho" && (!body.status || body.status === r.status) && Object.keys(body).some((k) => !META.includes(k) && body[k] !== r[k])) return send(req, res, 400, { code: "P0001", message: "Orçamento enviado ou decidido não pode ser alterado. Duplique-o para fazer mudanças." });
+      }
+    }
+    hit.forEach((r) => Object.assign(r, body));
+    if (pref.includes("return=representation")) return send(req, res, 200, single ? hit[0] : hit);
     return send(req, res, 204);
   }
   if (req.method === "DELETE") {
@@ -160,7 +246,13 @@ http.createServer(async (req, res) => {
     db[t] = db[t].filter((r) => !del.has(r));
     const ids = new Set([...del].map((d) => d.id));
     // Cascatas equivalentes às do banco real
-    if (t === "products") db.pricings = db.pricings.filter((r) => !ids.has(r.product_id));
+    if (t === "products") {
+      db.pricings = db.pricings.filter((r) => !ids.has(r.product_id));
+      db.quote_items.forEach((r) => { if (ids.has(r.product_id)) r.product_id = null; });
+    }
+    if (t === "pricings") db.products.forEach((r) => { if (ids.has(r.pricing_id)) r.pricing_id = null; });
+    if (t === "customers") db.quotes.forEach((r) => { if (ids.has(r.customer_id)) r.customer_id = null; });
+    if (t === "quotes") db.quote_items = db.quote_items.filter((r) => !ids.has(r.quote_id));
     if (t === "imported_models") {
       const gone = new Set(db.print_profiles.filter((r) => ids.has(r.model_id)).map((r) => r.id));
       db.print_profiles = db.print_profiles.filter((r) => !ids.has(r.model_id));

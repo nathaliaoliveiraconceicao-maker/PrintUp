@@ -9,7 +9,9 @@ Legenda: ✅ confirmado · ⏳ ação pendente · ❓ não verificado (confira n
 | `0001_core.sql` | ✅ | perfis, planos, assinaturas, impressoras, filamentos, custos, auditoria, RLS |
 | `0002_products_pricings.sql` | ✅ | produtos, precificações imutáveis, view `latest_pricings` |
 | `0004_harden_functions.sql` | ✅ | corrige leitura de plano de outro usuário via RPC |
-| `0005_imports.sql` | ⏳ **rodar no SQL Editor** | importador: `imported_models`, `print_profiles`, bucket privado `model-files`, policies e limite de armazenamento por plano (valores provisórios) |
+| `0005_imports.sql` | ✅ | importador: `imported_models`, `print_profiles`, bucket privado `model-files`, policies e limite de armazenamento por plano (valores provisórios) |
+| `0006_catalog_quotes.sql` | ⏳ **rodar no SQL Editor** | catálogo (colunas novas em `products`), `customers`, `business_profiles`, `quotes`, `quote_items`, função `save_quote`, buckets privados `user-images` e `quote-pdfs`, cota de armazenamento somando os 3 buckets |
+| Buckets `user-images` e `quote-pdfs` privados | ⏳ | criados pela 0006; conferir em *Storage* que ambos estão **Private** (5 MB por arquivo) |
 | Bucket `model-files` privado | ⏳ | criado pela 0005; conferir em *Storage* que está **Private** e com limite de 50 MB |
 | Trigger de novo usuário (perfil + teste grátis) | ✅ | cadastro real funcionou |
 | Conta superadmin + plano Profissional | ✅ | |

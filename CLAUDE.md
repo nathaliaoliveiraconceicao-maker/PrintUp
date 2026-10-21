@@ -7,13 +7,19 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - `npm run lint` · `npm run typecheck` · `npm test` (Vitest) — rodar os três antes de concluir qualquer tarefa
 - `npm run check:env` — confere variáveis de ambiente sem imprimir valores
 - `npm run test:e2e` — fluxos no navegador contra um Supabase **falso** local (`e2e/`); constrói o app sozinho (pasta `.next-e2e`) e exige Chromium (`PLAYWRIGHT_CHROMIUM_PATH`)
-- `npm run test:db` — valida migrations (0001, 0002, 0004 e 0005) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
+- `npm run test:db` — valida migrations (0001, 0002, 0004, 0005 e 0006) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
 
 ## Importador
 - Leitura no navegador (`parseBlob`); servidor revalida tudo (`saveImportSchema`) e confere os objetos no Storage. Arquivos em `model-files/<user_id>/…`; o original só é guardado se o usuário pedir.
 - Migration `0005` cria o bucket e as policies; limite de armazenamento por plano em `plans.limits.max_storage_mb`.
 
 - Exemplos de teste em `public/exemplos/` são **sintéticos** (marcador `PRINTUP-SYNTHETIC`): nunca apresentá-los como exportações reais. Gerar com `npm run exemplos:gerar`; validar arquivos reais com `npm run validar:arquivo -- arquivo` (`docs/VALIDACAO-ARQUIVOS-REAIS.md`).
+
+## Catálogo e orçamentos (Etapa 3) — `docs/CATALOGO-ORCAMENTOS.md`
+- `products` guarda os valores ATUAIS do catálogo; o cálculo que os originou é `pricings` (imutável, `products.pricing_id`). Mudar filamento/impressora/custos **nunca** altera produto nem orçamento sozinho: só `recalculateProducts` (pedido pelo usuário) grava um novo cálculo.
+- Orçamento = **retrato**: itens guardam nome, preço, desconto, total e custo da época. Contas em **centavos** (`quotes/calc.ts`), refeitas no servidor; gravação atômica via RPC `save_quote`. Depois de `enviado`, o conteúdo é travado no banco (`quotes_guard`).
+- O PDF do cliente nunca tem custo, margem ou lucro: `QuotePdfData` nem possui esses campos e há teste que extrai o texto do PDF. Custo interno só na tela do vendedor.
+- Imagens (`user-images`) e PDFs (`quote-pdfs`) são privados, em `<user_id>/…`; o servidor confere o tipo real pelos bytes (`lib/image-type.ts`). `status = 'expirado'` é derivado da validade (não gravado).
 
 ## Next.js 16 (leia `node_modules/next/dist/docs/` antes de usar APIs novas)
 - `middleware` agora é `src/proxy.ts`. `params`, `searchParams`, `cookies()`, `headers()` são **assíncronos**.

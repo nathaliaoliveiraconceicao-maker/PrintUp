@@ -117,13 +117,6 @@ export async function savePricing(payload: unknown): Promise<SavePricingState> {
   return { ok: true, productId: targetId };
 }
 
-export async function deleteProduct(id: string) {
-  const supabase = await createClient();
-  await supabase.from("products").delete().eq("id", id);
-  revalidatePath("/produtos");
-  revalidatePath("/");
-}
-
 export async function deletePricing(id: string, productId: string) {
   const supabase = await createClient();
   await supabase.from("pricings").delete().eq("id", id);

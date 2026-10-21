@@ -18,7 +18,8 @@ const TSCONFIG = path.join(__dirname, "..", "tsconfig.json");
 const tsconfigBackup = require("node:fs").readFileSync(TSCONFIG, "utf8");
 
 function start(cmd, args, env) {
-  const c = spawn(cmd, args, { env: { ...process.env, ...env }, stdio: "ignore", shell: process.platform === "win32" });
+  // detached: o filho vira líder de um grupo de processos, para encerrar também o `next-server` que o npx cria.
+  const c = spawn(cmd, args, { env: { ...process.env, ...env }, stdio: "ignore", shell: process.platform === "win32", detached: process.platform !== "win32" });
   children.push(c);
   return c;
 }
@@ -37,8 +38,13 @@ async function main() {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "chave-publica-FALSA-apenas-para-teste-local",
     NEXT_DIST_DIR: ".next-e2e",
   };
-  console.log("Construindo o app para o teste (pode levar ~30 s)…");
-  execSync("npx next build", { cwd: path.join(__dirname, ".."), env: { ...process.env, ...appEnv }, stdio: "ignore" });
+  // E2E_REUSE_BUILD=1 reaproveita o build anterior (guardado quando E2E_KEEP_BUILD=1): só para iterar rápido no desenvolvimento.
+  if (process.env.E2E_REUSE_BUILD === "1" && require("node:fs").existsSync(path.join(__dirname, "..", ".next-e2e"))) {
+    console.log("Reaproveitando o build anterior (E2E_REUSE_BUILD=1).");
+  } else {
+    console.log("Construindo o app para o teste (pode levar ~30 s)…");
+    execSync("npx next build", { cwd: path.join(__dirname, ".."), env: { ...process.env, ...appEnv }, stdio: "ignore" });
+  }
   start("node", [path.join(__dirname, "mock-supabase.cjs")], { MOCK_PORT });
   start("npx", ["next", "start", "-p", String(APP_PORT)], appEnv);
   await waitFor(`http://127.0.0.1:${MOCK_PORT}/auth/v1/user`, "Supabase falso");
@@ -47,6 +53,7 @@ async function main() {
   const browser = await chromium.launch(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {});
   const p = await browser.newPage({ viewport: { width: 1200, height: 900 } });
   const errors = [];
+  globalThis.__debug = { p, errors };
   p.on("pageerror", (e) => errors.push(e.message));
   p.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   const main$ = async () => (await p.locator("main").innerText()).replace(/\s+/g, " ");
@@ -106,17 +113,17 @@ async function main() {
   ok(/Custo do lote \(10\) R\$\s?288,72/.test(t), "lote de 10: custo = R$ 288,72");
   await fill("Unidades", "1");
 
-  const saveBtn = p.getByRole("button", { name: "Salvar precificação" });
+  const saveBtn = p.getByRole("button", { name: /Salvar como produto|Atualizar produto/ });
   const productSelect = p.locator("select").last();
   ok(await saveBtn.isDisabled(), "salvar fica desabilitado até dar nome ao produto novo");
   await p.getByLabel("Nome do novo produto").fill("Suporte de celular");
   await saveBtn.click();
-  await p.waitForSelector("text=Precificação salva.");
+  await p.waitForSelector("text=Produto salvo no catálogo.");
   await p.waitForTimeout(800);
   ok((await productSelect.inputValue()) !== "__new__", "produto recém-criado fica selecionado na lista");
   await fill("Peso (g)", "100");
   await saveBtn.click();
-  await p.waitForFunction(() => document.body.innerText.includes("Precificação salva."));
+  await p.waitForFunction(() => document.body.innerText.includes("Produto salvo no catálogo."));
   await p.waitForTimeout(600);
 
   // 2º produto em markup; depois confere a regra de margem impossível
@@ -128,7 +135,7 @@ async function main() {
   await productSelect.selectOption("__new__");
   await p.getByLabel("Nome do novo produto").fill("Vaso espiral");
   await saveBtn.click();
-  await p.waitForSelector("text=Precificação salva.");
+  await p.waitForSelector("text=Produto salvo no catálogo.");
   await p.getByRole("radio", { name: /Margem/ }).click();
   await p.getByLabel("Margem de lucro (%)").fill("90");
   ok(/não existe preço que feche/i.test(await res()), "margem + taxas ≥ 100% é bloqueada com mensagem");
@@ -142,13 +149,13 @@ async function main() {
   await p.getByText("Suporte de celular").click();
   await p.waitForURL(/produtos\/[0-9a-f-]{36}/);
   t = await main$();
-  ok(t.includes("2 precificação(ões)") && t.includes("R$ 70,78") && t.includes("R$ 65,74"), "histórico do produto tem as 2 precificações");
+  ok(t.includes("Histórico de preços (2)") && t.includes("R$ 70,78") && t.includes("R$ 65,74"), "histórico do produto tem as 2 precificações");
   ok(t.includes("Impressora: Bambu A1") && t.includes("Filamento: PLA Preto"), "nomes de impressora e filamento gravados no histórico");
   await p.locator("summary", { hasText: "Composição do custo" }).first().click();
   ok((await main$()).includes("R$ 12,00"), "composição do custo expandida (filamento R$ 12,00)");
   p.once("dialog", (d) => d.accept());
   await p.getByRole("button", { name: /Excluir esta precificação/ }).first().click();
-  await p.waitForFunction(() => document.body.innerText.includes("1 precificação(ões)"));
+  await p.waitForFunction(() => document.body.innerText.includes("Histórico de preços (1)"));
   ok(true, "excluir precificação funciona");
 
   // ── Dashboard e histórico ──
@@ -170,12 +177,263 @@ async function main() {
   ok((await m.locator("main").innerText()).includes("Filamentos"), "celular: 'Mais' leva a Filamentos, Custos e Histórico");
   ok(!(await m.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)), "celular: sem rolagem horizontal");
 
-  // ── Exclusão de produto e logout ──
+  // ═══════════ ETAPA 3: catálogo, negócio e orçamentos ═══════════
+  const zlib = require("node:zlib");
+  const pdfText = (buf) => {
+    const out = [];
+    let at = 0;
+    for (;;) {
+      const st = buf.indexOf("stream", at, "latin1"); if (st < 0) break;
+      const en = buf.indexOf("endstream", st, "latin1"); if (en < 0) break;
+      at = en + 9;
+      try {
+        const body = buf.subarray(st + 6, en);
+        const c = zlib.inflateSync(body.subarray(body[0] === 0x0d ? 2 : 1)).toString("latin1");
+        for (const mm of c.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)) out.push(Buffer.from(mm[1], "hex").toString("latin1"));
+      } catch { /* não é fluxo de conteúdo */ }
+    }
+    return out.join("\n");
+  };
+  const shot = async (page, name) => { if (process.env.E2E_SHOTS) await page.screenshot({ path: path.join(process.env.E2E_SHOTS, name + ".png"), fullPage: true }); };
+  const idOf = async (name) => {
+    await p.goto(B + "/produtos");
+    const href = await p.locator("a", { hasText: name }).first().getAttribute("href");
+    return href.split("/").pop();
+  };
+
+  // Catálogo: busca, edição, validação de link, persistência
   await p.goto(B + "/produtos");
+  await p.getByRole("search").getByLabel("Buscar").fill("vaso");
+  await p.getByRole("search").getByRole("button", { name: "Filtrar" }).click();
+  await p.waitForURL(/q=vaso/);
+  t = await main$();
+  ok(t.includes("Vaso espiral") && !t.includes("Suporte de celular"), "catálogo: busca por nome filtra a lista");
+  const vasoId = await idOf("Vaso espiral");
+  const suporteId = await idOf("Suporte de celular");
+  await p.goto(`${B}/produtos/${vasoId}`);
+  await shot(p, "ficha-produto-desktop");
+  t = await main$();
+  ok(t.includes("Custo de produção") && t.includes("R$ 57,74") && t.includes("Margem líquida"), "ficha do produto: custo, preço e margem líquida vindos do cálculo");
+  await p.getByRole("link", { name: "Editar" }).click();
+  await p.waitForURL(/editar/);
+  await p.locator("input[name=category]").fill("Decoração");
+  await p.locator("input[name=stockQty]").fill("5");
+  await p.locator("input[name=sourceUrl]").fill("ftp://invalido");
+  await p.getByRole("button", { name: "Salvar produto" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("começando com http"));
+  ok(true, "catálogo: link que não é http(s) é recusado");
+  await p.locator("input[name=sourceUrl]").fill("https://makerworld.com/modelo/123");
+  await p.locator("textarea[name=licenseInfo]").fill("Uso comercial permitido (CC BY)");
+  await p.locator("textarea[name=description]").fill("Vaso decorativo em espiral");
+  await p.getByRole("button", { name: "Salvar produto" }).click();
+  await p.waitForURL(new RegExp(`/produtos/${vasoId}$`));
+  await p.reload();
+  t = await main$();
+  ok(t.includes("Decoração") && t.includes("Vaso decorativo em espiral") && t.includes("CC BY") && (await p.locator('a[href="https://makerworld.com/modelo/123"]').count()) === 1, "catálogo: edição persiste após recarregar a página");
+  ok((await p.locator("#estoque-" + vasoId).inputValue()) === "5", "catálogo: estoque 5 persiste");
+  ok((await p.locator('a[href="https://makerworld.com/modelo/123"]').getAttribute("rel")).includes("noopener"), "link externo abre com rel=noopener");
+
+  // Foto do produto (reduzida no navegador, conferida no servidor)
+  await p.goto(`${B}/produtos/${vasoId}/editar`);
+  await p.locator('input[aria-label="Foto do produto"]').setInputFiles({ name: "foto.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") });
+  await p.waitForFunction(() => document.body.innerText.includes("Trocar imagem"));
+  await p.goto(`${B}/produtos/${vasoId}`);
+  ok((await p.locator('[data-testid="ficha-produto"] img[alt="Foto de Vaso espiral"]').count()) === 1, "catálogo: foto enviada aparece na ficha");
+
+  // Duplicar, arquivar, restaurar
+  await p.getByRole("button", { name: "Duplicar" }).click();
+  await p.waitForFunction(() => /\(cópia\)/.test(document.querySelector("h1")?.textContent ?? ""));
+  const copyId = p.url().split("/").pop();
+  t = await main$();
+  ok(t.includes("Vaso espiral (cópia)") && t.includes("R$ 57,74") && (await p.locator("#estoque-" + copyId).inputValue()) === "0", "duplicar: cópia com os mesmos valores e estoque zerado");
+  ok((await p.locator('[data-testid="ficha-produto"] img').count()) === 1, "duplicar: a foto é copiada");
+  await p.getByRole("button", { name: "Arquivar" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Restaurar"));
+  await p.goto(B + "/produtos");
+  ok(!(await main$()).includes("(cópia)"), "arquivar: some da lista de ativos");
+  await p.goto(B + "/produtos?ver=arquivados");
+  ok((await main$()).includes("Vaso espiral (cópia)"), "arquivar: aparece em Arquivados");
+  await p.getByRole("button", { name: "Restaurar" }).click();
+  await p.waitForFunction(() => !document.body.innerText.includes("(cópia)"));
+  await p.goto(B + "/produtos?ver=estoque");
+  t = await main$();
+  ok(t.includes("Vaso espiral") && !t.includes("(cópia)") && !t.includes("Suporte de celular"), "filtro 'Com estoque' mostra só quem tem estoque [tela: " + t.slice(0, 400) + "]");
+  await p.goto(B + "/produtos?cat=Decora%C3%A7%C3%A3o");
+  t = await main$();
+  ok(t.includes("Vaso espiral") && !t.includes("Suporte de celular"), "filtro por categoria");
+
+  // Custos mudam: o produto NÃO muda sozinho; recalcular é opcional e vira novo item no histórico
+  await p.goto(B + "/filamentos");
+  await p.getByRole("link", { name: /PLA Preto/ }).first().click();
+  await p.waitForURL(/filamentos\/[0-9a-f-]{36}/);
+  await p.fill("input[name=pricePerKg]", "200");
+  await p.click("button[type=submit]");
+  await p.waitForURL(B + "/filamentos");
+  await p.goto(B + "/produtos");
+  t = await main$();
+  ok((await p.locator('[data-testid="aviso-desatualizados"]').count()) === 1, "custos mudaram: aviso de produtos desatualizados");
+  ok(t.includes("R$ 57,74") && t.includes("Custos mudaram: hoje seria"), "custos mudaram: preço salvo continua R$ 57,74 (não muda sozinho)");
+  await p.goto(`${B}/produtos/${vasoId}`);
+  ok((await p.locator('[data-testid="aviso-custos"]').count()) === 1 && (await main$()).includes("O preço salvo continua R$ 57,74"), "ficha mostra a diferença e mantém o preço salvo");
+  await p.goto(B + "/produtos/recalcular");
+  await shot(p, "recalcular-desktop");
+  t = await main$();
+  ok(t.includes("Preço do filamento") && t.includes("R$ 120,00/kg → R$ 200,00/kg") && t.includes("Vaso espiral"), "recalcular: mostra o que mudou (filamento 120 → 200) antes de confirmar");
+  const antes = t;
+  await p.locator('[data-testid="lista-recalcular"]').getByRole("button", { name: "Recalcular só este" }).first().click();
+  await p.waitForFunction(() => document.body.innerText.includes("recalculado"));
+  await p.goto(`${B}/produtos/${vasoId}`);
+  t = await main$();
+  ok(!t.includes("O preço salvo continua") && t.includes("Histórico de preços (2)") && !/R\$\s?57,74\s+preço de venda/.test(t), "recalcular: produto atualizado e novo item no histórico (o anterior permanece)");
+  ok(antes.length > 0 && (await p.locator('[data-testid="aviso-custos"]').count()) === 0, "recalcular: produto volta a ficar em dia");
+
+  // Meu negócio
+  await p.goto(B + "/orcamentos/novo");
+  ok((await p.locator('[data-testid="aviso-negocio"]').count()) === 1, "orçamento novo sem dados do negócio avisa para preenchê-los");
+  await p.goto(B + "/negocio");
+  await p.fill("input[name=businessName]", "Oficina Aurora 3D");
+  await p.fill("input[name=phone]", "(11) 98888-7777");
+  await p.fill("input[name=email]", "contato@aurora.example");
+  await p.fill("textarea[name=defaultPaymentTerms]", "50% na aprovação, 50% na entrega.");
+  await p.click('[data-testid="form-negocio"] button[type=submit]');
+  await p.waitForSelector('[data-testid="form-negocio"] [role=status]');
+  await p.reload();
+  ok((await p.inputValue("input[name=businessName]")) === "Oficina Aurora 3D" && (await p.inputValue("textarea[name=defaultPaymentTerms]")).includes("50%"), "meu negócio: dados persistem após recarregar");
+  await p.locator('input[aria-label="Logo do negócio"]').setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") });
+  await p.waitForFunction(() => document.body.innerText.includes("Trocar imagem"));
+
+  // Orçamento com vários itens, desconto e personalização
+  await p.goto(`${B}/orcamentos/novo?produto=${vasoId}`);
+  const itens = p.locator('[data-testid="item-orcamento"]');
+  ok((await itens.count()) === 1, "orçamento: produto escolhido no catálogo já entra como item");
+  await p.getByLabel("Adicionar produto").selectOption(suporteId);
+  await p.getByRole("button", { name: "Personalização" }).click();
+  ok((await itens.count()) === 3, "orçamento: 2 produtos + 1 personalização");
+  const setItem = async (i, qty, price) => {
+    await itens.nth(i).getByLabel("Qtd.").fill(String(qty));
+    await itens.nth(i).getByLabel("Preço unit. (R$)").fill(price);
+  };
+  await setItem(0, 2, "40,00");
+  await setItem(1, 1, "30,00");
+  await itens.nth(2).getByLabel("Personalização / serviço").fill("Nome gravado");
+  await setItem(2, 1, "25,00");
+  await p.getByLabel("Desconto no total").selectOption("percentual");
+  await p.getByLabel("Desconto (%)", { exact: true }).last().fill("10");
+  await p.getByLabel("Prazo de produção (dias)").fill("5");
+  t = (await p.locator('[data-testid="totais-orcamento"]').innerText()).replace(/\s+/g, " ");
+  ok(/Subtotal R\$\s?135,00/.test(t) && /Desconto - R\$\s?13,50/.test(t) && /Total R\$\s?121,50/.test(t), "orçamento: subtotal 135,00 − 10% = total 121,50 (contas na tela)");
+  await shot(p, "orcamento-editor-desktop");
+  await p.getByRole("button", { name: "Salvar orçamento" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Informe o nome do cliente"));
+  ok(true, "orçamento: sem cliente não salva e explica");
+  await p.getByLabel("Nome", { exact: true }).fill("Ana Souza");
+  await p.getByLabel("WhatsApp / telefone").fill("(11) 99999-0000");
+  await p.getByLabel("Guardar este cliente para os próximos orçamentos").check();
+  await p.getByRole("button", { name: "Salvar orçamento" }).click();
+  await p.waitForURL(/orcamentos\/[0-9a-f-]{36}$/);
+  const q1 = p.url().split("/").pop();
+  await shot(p, "orcamento-detalhe-desktop");
+  t = await main$();
+  ok(t.includes("Orçamento #0001") && t.includes("Rascunho") && t.includes("R$ 121,50") && t.includes("Ana Souza") && t.includes("Nome gravado"), "orçamento salvo: nº 0001, rascunho, total 121,50");
+  await p.reload();
+  t = await main$();
+  ok(t.includes("R$ 135,00") && t.includes("- R$ 13,50") && t.includes("5 dia(s)") && t.includes("50% na aprovação"), "orçamento: valores, desconto, prazo e pagamento persistem após recarregar");
+  ok((await p.locator('[data-testid="visao-vendedor"]').count()) === 1, "orçamento: custo interno aparece só na visão do vendedor");
+
+  // PDF: baixa, confere conteúdo e ausência de custos/margem
+  const pdfRes = await p.request.get(`${B}/orcamentos/${q1}/pdf`);
+  const pdfBytes = await pdfRes.body();
+  ok(pdfRes.status() === 200 && (pdfRes.headers()["content-type"] || "").includes("application/pdf") && pdfBytes.subarray(0, 5).toString() === "%PDF-", "PDF: gerado como application/pdf");
+  const txt = pdfText(pdfBytes).replace(/ /g, " ");
+  ok(["Oficina Aurora 3D", "#0001", "Ana Souza", "Vaso espiral", "Suporte de celular", "Nome gravado", "R$ 121,50", "R$ 135,00", "5 dias", "50% na aprovação"].every((x) => txt.includes(x)), "PDF: identidade, cliente, itens, valores, desconto, prazo e pagamento");
+  ok(!/custo|margem|lucro|markup/i.test(txt), "PDF: nenhum custo interno nem margem");
+  ok((await p.request.get(`${B}/orcamentos/00000000-0000-4000-8000-000000000000/pdf`)).status() === 404, "PDF de orçamento inexistente: 404");
+  await browser.newContext().then(async (c) => {
+    const anon = await c.request.get(`${B}/orcamentos/${q1}/pdf`, { maxRedirects: 0 });
+    ok(anon.status() !== 200, "PDF sem login não é entregue");
+    await c.close();
+  });
+
+  // Compartilhar por WhatsApp (link wa.me, sem API)
+  await p.getByRole("button", { name: "Compartilhar" }).click();
+  await p.waitForSelector('[data-testid="painel-compartilhar"]');
+  const wa = await p.locator('[data-testid="btn-whatsapp"]').getAttribute("href");
+  const waText = decodeURIComponent(wa.split("?text=")[1] || "").replace(/\u00a0/g, " ");
+  ok(wa.startsWith("https://wa.me/5511999990000?text=") && waText.includes("Ana Souza") && waText.includes("#0001") && waText.includes("R$ 121,50") && /PDF: http/.test(waText), "WhatsApp: link com telefone do cliente, texto e link do PDF");
+  ok(!/custo|margem|lucro/i.test(waText), "WhatsApp: mensagem sem custo interno");
+  const shared = await p.locator('input[aria-label="Link do PDF"]').inputValue();
+  const sharedRes = await p.request.get(shared.startsWith("http") ? shared : `http://127.0.0.1:${MOCK_PORT}/storage/v1${shared}`);
+  ok(sharedRes.status() === 200 && (await sharedRes.body()).subarray(0, 5).toString() === "%PDF-", "link compartilhado entrega o PDF");
+
+  // Status: enviado trava a edição; duplicar cria novo rascunho
+  await p.getByRole("button", { name: "Marcar como enviado" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Enviado") && !document.body.innerText.includes("Marcar como enviado"));
+  ok((await p.getByRole("link", { name: "Editar" }).count()) === 0, "enviado: botão Editar some");
+  await p.goto(`${B}/orcamentos/${q1}/editar`);
+  await p.waitForURL(new RegExp(`/orcamentos/${q1}$`));
+  ok(true, "enviado: abrir a edição redireciona para o orçamento (conteúdo travado)");
+  await p.getByRole("button", { name: "Duplicar" }).click();
+  await p.waitForFunction((id) => !location.pathname.endsWith(id), q1);
+  const q2 = p.url().split("/").pop();
+  t = await main$();
+  ok(t.includes("Orçamento #0002") && t.includes("Rascunho") && t.includes("R$ 121,50"), "duplicar orçamento: novo rascunho nº 0002 com os mesmos valores");
+  await p.getByRole("link", { name: "Editar" }).click();
+  await p.waitForURL(/editar/);
+  await p.locator('[data-testid="item-orcamento"]').nth(0).getByLabel("Qtd.").fill("3");
+  await p.getByRole("button", { name: "Salvar alterações" }).click();
+  await p.waitForURL(new RegExp(`/orcamentos/${q2}$`));
+  t = await main$();
+  ok(t.includes("R$ 157,50") && t.includes("R$ 175,00"), "editar rascunho: 3 × 40 + 30 + 25 = 175,00 − 10% = 157,50 recalculado");
+
+  // Mudar o preço do produto depois não altera o orçamento já feito (retrato)
+  await p.goto(`${B}/produtos/${vasoId}/editar`);
+  await p.locator("input[name=salePrice]").fill("999,00");
+  await p.getByRole("button", { name: "Salvar produto" }).click();
+  await p.waitForURL(new RegExp(`/produtos/${vasoId}$`));
+  await p.goto(`${B}/orcamentos/${q1}`);
+  t = await main$();
+  ok(t.includes("R$ 121,50") && t.includes("2 × R$ 40,00") && !t.includes("999,00"), "orçamento é um retrato: mudar o preço do produto depois não o altera");
+
+  // Aprovar, histórico por status, excluir rascunho
+  await p.getByRole("button", { name: "Marcar como aprovado" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Aprovado"));
+  ok(await p.getByRole("button", { name: /Transformar em pedido/ }).isDisabled(), "aprovado: 'transformar em pedido' aparece desabilitado (etapa futura)");
+  await p.goto(B + "/orcamentos");
+  t = await main$();
+  ok(t.includes("Todos (2)") && t.includes("Aprovado (1)") && t.includes("Rascunho (1)"), "histórico: contagem por status");
+  await p.goto(B + "/orcamentos?status=aprovado");
+  t = await main$();
+  ok(t.includes("#0001") && !t.includes("#0002"), "histórico: filtro por status");
+  await p.goto(B + "/orcamentos?q=ana");
+  ok((await main$()).includes("#0002"), "histórico: busca por cliente");
+  await p.goto(`${B}/orcamentos/${q2}`);
   p.once("dialog", (d) => d.accept());
-  await p.getByRole("button", { name: /Excluir Vaso espiral/ }).click();
-  await p.waitForFunction(() => !document.body.innerText.includes("Vaso espiral"));
-  ok(true, "excluir produto funciona");
+  await p.getByRole("button", { name: "Excluir rascunho" }).click();
+  await p.waitForURL(B + "/orcamentos");
+  ok(!(await main$()).includes("#0002"), "rascunho excluído some do histórico");
+  await p.goto(`${B}/orcamentos/${q1}`);
+  ok((await p.getByRole("button", { name: "Excluir rascunho" }).count()) === 0, "orçamento aprovado não oferece exclusão");
+
+  // Celular
+  const mq = await browser.newPage({ viewport: { width: 390, height: 800 } });
+  await mq.context().addCookies(await p.context().cookies());
+  for (const route of ["/orcamentos/novo", "/orcamentos", "/produtos", "/negocio"]) {
+    await mq.goto(B + route);
+    await shot(mq, "mobile" + route.replace(/\//g, "-"));
+    ok(await mq.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `celular: ${route} sem rolagem horizontal`);
+  }
+  await mq.goto(B + "/produtos");
+  ok((await mq.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Orçamentos" }).count()) === 1, "celular: Orçamentos na navegação inferior");
+  await mq.close();
+
+  // ── Exclusão de produto e logout ──
+  await p.goto(`${B}/produtos/${suporteId}`);
+  p.once("dialog", (d) => d.accept());
+  await p.getByRole("button", { name: /Excluir Suporte de celular/ }).click();
+  await p.waitForURL(B + "/produtos");
+  ok(!(await main$()).includes("Suporte de celular"), "excluir produto funciona");
+  await p.goto(`${B}/orcamentos/${q1}`);
+  ok((await main$()).includes("Suporte de celular"), "excluir produto não apaga orçamentos já feitos (retrato preservado)");
   await p.goto(B + "/");
   await p.getByRole("button", { name: "Sair" }).first().click();
   await p.waitForURL(/login/);
@@ -266,8 +524,8 @@ async function main() {
   ok(pageText.includes("editado") && pageText.includes("do arquivo"), "calculadora: peso 'editado' e tempo 'do arquivo'");
   ok(/R\$\s?\d+,\d\d/.test(await res()), "calculadora: preço calculado automaticamente");
   ok((await p.locator('input[placeholder="Ex.: Suporte de celular"]').inputValue()) === "Suporte de Celular", "calculadora: nome do produto sugerido pelo modelo");
-  await p.getByRole("button", { name: "Salvar precificação" }).click();
-  await p.waitForSelector("text=Precificação salva.");
+  await p.getByRole("button", { name: /Salvar como produto|Atualizar produto/ }).click();
+  await p.waitForSelector("text=Produto salvo no catálogo.");
   await p.getByRole("link", { name: "Ver produto" }).click();
   await p.waitForURL(/produtos\/[0-9a-f-]{36}/);
   t = await main$();
@@ -351,8 +609,8 @@ async function main() {
   await p.waitForSelector('[data-testid="perfil-banner"]');
   ok((await p.locator('[data-testid="perfil-banner"]').innerText()).includes("[EXEMPLO SINTÉTICO] Suporte de celular"), "exemplo 3MF → calculadora: dados chegam sem novo preenchimento");
   ok((await p.getByLabel("Peso (g)").first().inputValue()) === "25,5" && (await p.getByLabel("Horas").first().inputValue()) === "2", "exemplo 3MF → calculadora: peso 25,5 g e 2 h");
-  await p.getByRole("button", { name: "Salvar precificação" }).click();
-  await p.waitForSelector("text=Precificação salva.");
+  await p.getByRole("button", { name: /Salvar como produto|Atualizar produto/ }).click();
+  await p.waitForSelector("text=Produto salvo no catálogo.");
   await p.getByRole("link", { name: "Ver produto" }).click();
   await p.waitForURL(/produtos\/[0-9a-f-]{36}/);
   ok((await p.locator("main").innerText()).includes("[EXEMPLO SINTÉTICO] Suporte de celular"), "exemplo 3MF → produto: salvo no catálogo com a marcação de exemplo");
@@ -387,11 +645,23 @@ async function main() {
 }
 
 main()
-  .catch((e) => { console.error("FALHA:", e.message.split("\n")[0]); failures++; })
+  .catch(async (e) => {
+    console.error("FALHA:", e.message.split("\n")[0]);
+    const d = globalThis.__debug;
+    if (d) {
+      console.error("  URL:", d.p.url());
+      console.error("  Tela:", (await d.p.locator("body").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 400));
+      console.error("  Alertas:", (await d.p.locator("[role=alert]").allInnerTexts().catch(() => [])).join(" | "));
+      console.error("  Erros:", d.errors.slice(0, 3).join(" | "));
+    }
+    failures++;
+  })
   .finally(() => {
-    children.forEach((c) => c.kill());
+    children.forEach((c) => {
+      try { process.platform === "win32" ? c.kill() : process.kill(-c.pid); } catch { /* já encerrou */ }
+    });
     require("node:fs").writeFileSync(TSCONFIG, tsconfigBackup);
-    require("node:fs").rmSync(path.join(__dirname, "..", ".next-e2e"), { recursive: true, force: true });
+    if (process.env.E2E_KEEP_BUILD !== "1") require("node:fs").rmSync(path.join(__dirname, "..", ".next-e2e"), { recursive: true, force: true });
     console.log(failures ? `\n${failures} verificação(ões) falharam` : "\nE2E OK");
     process.exit(failures ? 1 : 0);
   });
