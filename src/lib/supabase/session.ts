@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/env";
 
-const PUBLIC_PATHS = ["/login", "/cadastro", "/auth"];
+const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/auth"];
 
 /** Renova a sessão e redireciona visitantes anônimos para /login. A autorização real continua no RLS. */
 export async function updateSession(request: NextRequest) {

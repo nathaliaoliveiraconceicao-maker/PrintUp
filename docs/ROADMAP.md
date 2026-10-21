@@ -90,6 +90,7 @@ Requisitos de experiência:
 | Português do Brasil, BRL | feito |
 | Celular e computador | feito (navegação inferior, preço fixo na calculadora) |
 | Configuração inicial guiada | **não existe** (só a tela técnica `/setup`) |
+| Recuperação de senha | **feito** (`/recuperar-senha`, `/redefinir-senha`; resposta neutra, sem revelar quais e-mails têm conta) |
 | Preenchimento automático | parcial (preço do filamento; padrões dos custos) |
 | Alterar qualquer estimativa importada | **a projetar**: todo valor importado precisa guardar *origem* e ser editável |
 | Avisar quando tempo/consumo é de outra impressora | **a projetar** (seção 5.3) |

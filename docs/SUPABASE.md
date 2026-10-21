@@ -22,7 +22,7 @@ Legenda: ✅ confirmado · ⏳ ação pendente · ❓ não verificado (confira n
 | "Confirm email" | ❓ | desligado em desenvolvimento; **ligar antes de lançar** |
 | Tamanho mínimo de senha | ❓ | o app exige 8; alinhe o Supabase (*Sign In / Providers → Email*) |
 | E-mail de confirmação/recuperação | ❓ | o remetente padrão do Supabase serve só para teste e tem limite baixo de envios; **configurar SMTP próprio antes de lançar** |
-| Recuperar senha ("esqueci a senha") | ⏳ | **não existe tela no app ainda**; entra na etapa do assistente/experiência |
+| Recuperar senha ("esqueci a senha") | ✅ no app / ⏳ no painel | telas `/recuperar-senha` e `/redefinir-senha` prontas e testadas (E2E). **No painel:** adicionar o curinga `http://localhost:3000/**` (e depois `https://SEU-DOMINIO/**`) em *Redirect URLs*, porque o link carrega `?next=/redefinir-senha`. Textos dos e-mails (em inglês por padrão) ainda não foram traduzidos |
 
 ## Operação (antes de cobrar clientes)
 | Item | Status | Observação |

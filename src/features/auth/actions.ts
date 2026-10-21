@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { forgotPasswordSchema, newPasswordSchema } from "./schema";
 
 export type AuthState = { error?: string; ok?: string };
 
@@ -48,4 +49,35 @@ export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+/**
+ * Envia o link de recuperação. A resposta é sempre a mesma, exista o e-mail ou não,
+ * para não revelar quais e-mails têm conta.
+ */
+export async function requestPasswordReset(_: AuthState, formData: FormData): Promise<AuthState> {
+  const parsed = forgotPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const h = await headers();
+  const origin = h.get("origin") ?? `https://${h.get("host")}`;
+  const supabase = await createClient();
+  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${origin}/auth/callback?next=/redefinir-senha`,
+  });
+  return { ok: "Se existir uma conta com esse e-mail, enviamos um link para redefinir a senha. Confira também o spam." };
+}
+
+/** Define a nova senha. Só funciona com a sessão aberta pelo link de recuperação (ou já logado). */
+export async function updatePassword(_: AuthState, formData: FormData): Promise<AuthState> {
+  const parsed = newPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "O link expirou. Peça um novo link de recuperação." };
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) return { error: "Não foi possível alterar a senha. Tente outra senha ou peça um novo link." };
+  redirect("/");
 }

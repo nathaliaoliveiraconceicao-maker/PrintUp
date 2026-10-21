@@ -172,6 +172,41 @@ async function main() {
   await p.getByRole("button", { name: "Sair" }).first().click();
   await p.waitForURL(/login/);
   ok(true, "logout leva ao login");
+  // ── Recuperação de senha ──
+  await p.getByRole("link", { name: "Esqueci minha senha" }).click();
+  await p.waitForURL(/recuperar-senha/);
+  await p.fill("input[name=email]", "alguem@exemplo.com");
+  await p.click("button[type=submit]");
+  await p.waitForSelector("form [role=status]");
+  ok((await p.textContent("form [role=status]")).includes("Se existir uma conta"), "recuperação: resposta neutra (não revela se o e-mail existe)");
+  await p.goto(B + "/auth/callback?code=codigo-de-teste&next=/redefinir-senha");
+  await p.waitForURL(/redefinir-senha/);
+  ok(true, "link do e-mail abre a tela de nova senha");
+  await p.fill("input[name=password]", "nova-senha-123");
+  await p.fill("input[name=confirm]", "outra-coisa-123");
+  await p.click("button[type=submit]");
+  await p.waitForSelector("form [role=alert]");
+  ok((await p.textContent("form [role=alert]")).includes("não são iguais"), "senhas diferentes são rejeitadas");
+  await p.fill("input[name=confirm]", "nova-senha-123");
+  await p.click("button[type=submit]");
+  await p.waitForURL(B + "/");
+  ok(true, "nova senha salva e usuário segue para o painel");
+  await p.getByRole("button", { name: "Sair" }).first().click();
+  await p.waitForURL(/login/);
+  await p.fill("input[name=email]", "teste@printup.local");
+  await p.fill("input[name=password]", "senha-de-teste-123");
+  await p.click("button[type=submit]");
+  await p.waitForSelector("form [role=alert]");
+  ok((await p.textContent("form [role=alert]")).includes("incorretos"), "a senha antiga deixa de funcionar");
+  await p.fill("input[name=password]", "nova-senha-123");
+  await p.click("button[type=submit]");
+  await p.waitForURL(B + "/");
+  ok(true, "login com a nova senha funciona");
+  await p.getByRole("button", { name: "Sair" }).first().click();
+  await p.waitForURL(/login/);
+  await p.goto(B + "/auth/callback?code=x&next=https://evil.com");
+  ok(p.url().startsWith(B), "callback não redireciona para endereço externo");
+
   ok(errors.length === 0, "sem erros no console/página" + (errors.length ? `: ${errors.slice(0, 3).join(" | ")}` : ""));
   await browser.close();
 }

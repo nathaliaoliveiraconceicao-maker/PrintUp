@@ -29,6 +29,11 @@ export function AuthForm({
       <Field label="Senha" hint={signup ? "Mínimo de 8 caracteres." : undefined}>
         <Input name="password" type="password" autoComplete={signup ? "new-password" : "current-password"} minLength={8} required />
       </Field>
+      {!signup && (
+        <p className="-mt-2 text-right text-sm">
+          <Link href="/recuperar-senha" className="font-medium text-accent-strong underline">Esqueci minha senha</Link>
+        </p>
+      )}
       <FormMessage error={state.error} ok={state.ok} />
       <SubmitButton pending={pending} className="w-full">{signup ? "Criar conta e testar grátis" : "Entrar"}</SubmitButton>
       <p className="text-center text-sm text-muted">

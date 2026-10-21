@@ -5,6 +5,7 @@ const http = require("http");
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const USER = { id: "11111111-1111-1111-1111-111111111111", aud: "authenticated", role: "authenticated", email: "teste@printup.local", app_metadata: {}, user_metadata: { full_name: "Teste Mock" }, created_at: new Date().toISOString() };
 const jwt = () => `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: USER.id, role: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+let PASSWORD = "senha-de-teste-123";
 const db = { printers: [], filaments: [], cost_settings: [], products: [], pricings: [], audit_log: [] };
 const LIMITS = { printers: 1, filaments: 5, products: 10 };
 let n = 0;
@@ -17,9 +18,12 @@ http.createServer(async (req, res) => {
   console.log(req.method, p + url.search.slice(0, 60));
   if (p === "/auth/v1/token") {
     const b = await readBody(req);
-    if (b.password !== "senha-de-teste-123") return send(res, 400, { code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials" });
+    if (req.url.includes("grant_type=pkce")) return send(res, 200, { access_token: jwt(), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + ++n, user: USER });
+    if (b.password !== PASSWORD) return send(res, 400, { code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials" });
     return send(res, 200, { access_token: jwt(), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + ++n, user: USER });
   }
+  if (p === "/auth/v1/recover") return send(res, 200, {});
+  if (p === "/auth/v1/user" && req.method === "PUT") { const b = await readBody(req); if (b && b.password) PASSWORD = b.password; return send(res, 200, USER); }
   if (p === "/auth/v1/user") return /Bearer .+\..+\./.test(req.headers.authorization || "") ? send(res, 200, USER) : send(res, 401, { code: 401, msg: "no token" });
   if (p === "/auth/v1/logout") return send(res, 204);
   if (p === "/rest/v1/rpc/current_entitlements") return send(res, 200, [{ plan_code: "trial", status: "trialing", limits: { max_printers: 1, max_filaments: 5 }, features: {}, active: true }]);
