@@ -1,3 +1,4 @@
+import { SettingsTabs } from "@/components/settings-tabs";
 import { PageHeader, Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { formatBRL, formatDateTime } from "@/lib/utils";
@@ -38,6 +39,7 @@ export default async function HistoryPage() {
   return (
     <>
       <PageHeader title="Histórico" description="Últimas 100 operações na sua conta." />
+      <SettingsTabs current="/historico" />
       {entries.length === 0 ? (
         <Card className="text-center text-muted">Nada por aqui ainda.</Card>
       ) : (

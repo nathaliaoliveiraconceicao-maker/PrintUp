@@ -53,4 +53,9 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - Sem dependências novas sem necessidade clara.
 
 ## Design
-Identidade "oficina": papel quente (`--paper`), tinta escura, laranja de bico (`--accent`); números com `.num` (mono, tabular). Evitar visual genérico de dashboard (gradientes roxos, cards idênticos sem hierarquia).
+Identidade (Etapa 4): **grafite** (`--ink`), **laranja vibrante** (`--accent`) e neutros (`--paper`, `--surface`, `--line`). Botão primário = laranja com texto grafite (contraste 5,4:1; texto branco sobre laranja não passa no AA). Links/ênfase em laranja usam `--accent-strong`. Números com `.num` (mono, tabular). Navegação em `components/app-nav.tsx`; módulos futuros (Pedidos, Estoque) aparecem só como "em breve", sem link. Evitar visual genérico de dashboard (gradientes roxos, cards idênticos sem hierarquia).
+
+## Painel, calculadora e onboarding (Etapa 4) — `docs/ETAPA4-UX.md`
+- Painel só mostra dados reais (`features/dashboard/metrics.ts`). Orçado ≠ vendido: sem módulo de vendas, nada é apresentado como faturamento; lucro estimado = aprovado − custo de produção, só dos aprovados com custo conhecido.
+- Calculadora: modo rápido e avançado usam o **mesmo** `calculatePricing`; o modo só muda o que aparece. Desconto ao cliente é simulação (`applyDiscount`), não altera o motor nem o que é salvo. Acabamento soma com embalagem.
+- Onboarding (`/boas-vindas`): cada passo grava no Supabase; pular não grava; `profiles.onboarding_done_at` (migration 0007) impede que volte sozinho. Refazer não duplica impressora/filamento (atualiza o primeiro).

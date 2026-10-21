@@ -10,12 +10,13 @@ const jwt = () => `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: USER.id, ro
 const session = () => ({ access_token: jwt(), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + ++n, user: USER });
 
 let PASSWORD = "senha-de-teste-123";
-const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items"];
+const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles"];
 const db = Object.fromEntries(TABLES.map((t) => [t, []]));
 const LIMITS = { printers: 1, filaments: 5, products: 10 };
 // Valores padrão das colunas (o banco real os aplica; o dublê precisa imitar para os testes não enxergarem `undefined`).
-const DEFAULTS = { products: { stock_qty: 0, archived_at: null }, business_profiles: { brand_color: "#d94e1b", default_validity_days: 7 } };
+const DEFAULTS = { printers: { purchase_price: 0, lifespan_hours: null, power_watts: 0, hourly_cost: 0, hourly_includes_energy: false, hourly_includes_wear: false, hourly_includes_fixed: false, wear_per_hour: 0 }, filaments: { material: "PLA", spool_weight_g: 1000 }, cost_settings: { monthly_fixed_costs: 0, fixed_allocation: "per_hour", productive_hours_per_month: 160, monthly_units: 0, energy_price_per_kwh: 0.9, labor_hourly_rate: 0, loss_percent: 5, sale_fee_percent: 0, sale_fee_fixed: 0, tax_percent: 0, margin_percent: 30 }, products: { stock_qty: 0, archived_at: null }, business_profiles: { brand_color: "#d94e1b", default_validity_days: 7 } };
 const AUDITED = ["printers", "filaments", "products", "pricings", "imported_models"];
+db.profiles.push({ id: "11111111-1111-1111-1111-111111111111", full_name: "Teste Mock", business_name: null, onboarding_done_at: null });
 const objects = new Map(); // caminho no bucket -> { bytes, contentType }
 let n = 0;
 
@@ -185,7 +186,8 @@ http.createServer(async (req, res) => {
   if (p === "/rest/v1/rpc/save_quote") return saveQuoteRpc(req, res);
   if (p === "/rest/v1/rpc/current_entitlements") return send(req, res, 200, [{ plan_code: "trial", status: "trialing", limits: { max_printers: 1, max_filaments: 5 }, features: {}, active: true }]);
   if (p === "/rest/v1/subscriptions") return send(req, res, 200, { status: "trialing", trial_ends_at: new Date(Date.now() + 13 * 864e5).toISOString(), plan: { name: "Teste grátis" } });
-  if (p === "/rest/v1/profiles") return send(req, res, 200, { full_name: "Teste Mock" });
+  // Só para os testes: volta o assistente de primeiro acesso ao estado "pendente".
+  if (p === "/__reset_onboarding") { db.profiles.forEach((r) => { r.onboarding_done_at = null; }); return send(req, res, 200, {}); }
 
   const t = /^\/rest\/v1\/(\w+)$/.exec(p)?.[1];
   if (t === "latest_pricings") {

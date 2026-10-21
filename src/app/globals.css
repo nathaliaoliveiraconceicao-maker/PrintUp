@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
-/* PrintUp — oficina de impressão 3D: papel quente, tinta escura, laranja de bico aquecido. */
+/* PrintUp — grafite, laranja vibrante e neutros. Contrastes conferidos (WCAG AA):
+   grafite sobre laranja 5,4:1 · laranja escuro (links) sobre branco 5,4:1 · texto secundário sobre fundo 5,2:1. */
 :root {
-  --paper: #f4efe6;
-  --surface: #fffcf6;
-  --ink: #1f1b16;
-  --muted: #6e665a;
-  --line: #e2dacb;
-  --accent: #d94e1b;
-  --accent-strong: #b83d10;
-  --accent-soft: #fbe3d6;
-  --ok: #2c7a4b;
-  --warn: #a5650d;
+  --paper: #f2f3f5;
+  --surface: #ffffff;
+  --ink: #1c1f24;
+  --muted: #5f6670;
+  --line: #dfe2e7;
+  --accent: #f26a1b;
+  --accent-strong: #b94400;
+  --accent-soft: #ffe8d9;
+  --ok: #1f7a45;
+  --warn: #9a5b00;
   --danger: #b3261e;
   /* Dados importados de arquivo (cor fria, distinta do laranja do que o usuário digita) */
   --import: #1d6b73;
@@ -32,7 +33,7 @@
   --color-danger: var(--danger);
   --color-import: var(--import);
   --color-import-soft: var(--import-soft);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 
@@ -41,6 +42,15 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { letter-spacing: -0.015em; }
+
+/* Foco visível e consistente em tudo que é interativo */
+:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
 /* Números financeiros alinhados */

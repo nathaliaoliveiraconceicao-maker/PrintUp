@@ -70,10 +70,67 @@ async function main() {
   ok((await p.inputValue("input[name=email]")) === "teste@printup.local", "o e-mail digitado é mantido após o erro");
   await p.fill("input[name=password]", "senha-de-teste-123");
   await p.click("button[type=submit]");
+  // ── Primeiro acesso: assistente de configuração (pode ser pulado) ──
+  await p.waitForURL(B + "/boas-vindas");
+  ok((await p.locator('[data-testid="onboarding"]').count()) === 1, "primeiro acesso leva ao assistente de configuração");
+  await p.getByRole("button", { name: "Configurar tudo depois" }).click();
   await p.waitForURL(B + "/");
-  ok((await main$()).includes("Seus indicadores aparecem aqui"), "dashboard vazio orienta a salvar a primeira precificação");
+  let t = await main$();
+  ok(t.includes("Nada precificado ainda") && t.includes("Nenhum orçamento ainda") && t.includes("Produtos cadastrados 0"), "pular o assistente: painel vazio com orientações (sem números inventados)");
+  ok(t.includes("não registra vendas ou pagamentos") && t.includes("Lucro estimado dos aprovados —"), "painel deixa claro que valores são orçados e que lucro ainda é desconhecido");
+  for (const a of ["Nova precificação", "Importar modelo", "Cadastrar produto", "Criar orçamento", "Cadastrar impressora", "Cadastrar filamento"]) {
+    if (!(await p.locator('section[aria-labelledby="h-atalhos"]').getByRole("link", { name: new RegExp(a) }).count())) ok(false, `atalho ausente: ${a}`);
+  }
+  ok(true, "painel tem os 6 atalhos");
+  await p.goto(B + "/");
+  ok(p.url() === B + "/", "depois de pular, o assistente não volta sozinho");
+  ok((await p.locator("aside").getByText("em breve").count()) >= 2 && (await p.locator("aside").getByRole("link", { name: /Pedidos|Estoque/ }).count()) === 0, "menu: Pedidos e Estoque aparecem como 'em breve', sem link");
 
-  // ── Configurações, impressora (com limite do plano) e filamento ──
+  // Refazer o assistente (a pedido), validando e salvando cada passo
+  await fetch(`http://127.0.0.1:${MOCK_PORT}/__reset_onboarding`);
+  await p.goto(B + "/");
+  await p.waitForURL(B + "/boas-vindas");
+  await p.getByRole("button", { name: "Continuar" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Informe o nome do seu negócio"));
+  ok(true, "assistente: nome vazio é recusado com mensagem");
+  await p.getByLabel("Nome do negócio").fill("Oficina Aurora 3D");
+  await p.getByRole("button", { name: "Continuar" }).click();
+  await p.getByLabel("Nome da impressora").fill("Bambu A1");
+  await p.getByLabel("Marca (opcional)").fill("Bambu Lab");
+  await p.getByRole("button", { name: "Continuar" }).click();
+  await p.getByRole("radio", { name: /Calcular para mim/ }).click();
+  await p.getByRole("button", { name: "Continuar" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Informe o preço de compra"));
+  ok(true, "assistente: custo da hora calculado exige preço e vida útil");
+  await p.getByLabel("Preço de compra (R$)").fill("1500");
+  await p.getByLabel("Vida útil estimada (horas)").fill("1000");
+  await p.getByLabel("Potência média (W)").fill("150");
+  await p.getByRole("button", { name: "Continuar" }).click();
+  await p.getByLabel("Cor (opcional)").fill("Preto");
+  await p.getByRole("button", { name: "Continuar" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Informe o preço por kg"));
+  await p.getByLabel("Preço por kg (R$)").fill("120");
+  await p.getByRole("button", { name: "Continuar" }).click();
+  await p.getByLabel("Margem de lucro padrão (%)").fill("100");
+  await p.getByRole("button", { name: "Salvar e concluir" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Valor alto demais"));
+  ok(true, "assistente: margem impossível (100%) é recusada");
+  await p.getByLabel("Margem de lucro padrão (%)").fill("30");
+  await p.getByRole("button", { name: "Salvar e concluir" }).click();
+  await p.waitForSelector("text=Tudo pronto");
+  ok((await p.getByText("Configurado", { exact: true }).count()) === 5, "assistente: os 5 passos aparecem como configurados");
+  await p.getByRole("button", { name: "Ir para o painel" }).click();
+  await p.waitForURL(B + "/");
+  await p.goto(B + "/boas-vindas?refazer=1");
+  ok((await p.getByLabel("Nome do negócio").inputValue()) === "Oficina Aurora 3D", "assistente: nome do negócio persistiu e volta preenchido");
+  await p.getByRole("button", { name: "Continuar" }).click();
+  ok((await p.getByLabel("Nome da impressora").inputValue()) === "Bambu A1", "assistente: impressora persistiu (atualiza, não duplica)");
+  await p.goto(B + "/impressoras");
+  ok(((await main$()).match(/Bambu A1/g) ?? []).length === 1, "assistente refeito não duplica a impressora");
+  await p.goto(B + "/filamentos");
+  ok((await main$()).includes("PLA Preto"), "assistente criou o filamento 'PLA Preto'");
+
+  // ── Configurações ──
   await p.goto(B + "/configuracoes");
   const cfg = { monthlyFixedCosts: "480", productiveHoursPerMonth: "160", laborHourlyRate: "30", lossPercent: "5", saleFeePercent: "14", saleFeeFixed: "4", taxPercent: "6", marginPercent: "30", energyPricePerKwh: "0,90" };
   for (const [k, v] of Object.entries(cfg)) await p.fill(`input[name=${k}]`, v);
@@ -81,10 +138,6 @@ async function main() {
   await p.waitForSelector("form [role=status]");
   ok(true, "configurações salvas");
 
-  await p.goto(B + "/impressoras/nova");
-  await p.fill("input[name=name]", "Bambu A1"); await p.fill("input[name=powerWatts]", "150"); await p.fill("input[name=wearPerHour]", "1,50");
-  await p.click("button[type=submit]");
-  await p.waitForURL(B + "/impressoras");
   await p.goto(B + "/impressoras/nova");
   await p.fill("input[name=name]", "Segunda");
   await p.click("button[type=submit]");
@@ -95,20 +148,43 @@ async function main() {
   await p.waitForFunction(() => document.body.innerText.includes("Informe um número válido"));
   ok(true, "campo numérico inválido é rejeitado com mensagem");
 
-  await p.goto(B + "/filamentos/novo");
-  await p.fill("input[name=name]", "PLA Preto"); await p.fill("input[name=pricePerKg]", "120");
-  await p.click("button[type=submit]");
-  await p.waitForURL(B + "/filamentos");
-
-  // ── Calculadora: caso conferido à mão (mesmo do teste unitário) ──
+  // ── Calculadora: modo rápido × avançado, caso conferido à mão (mesmo do teste unitário) ──
   await p.goto(B + "/calculadora");
-  await fill("Horas", "2"); await fill("Minutos", "30"); await fill("Peso (g)", "80");
-  await fill("Mão de obra (min)", "10"); await fill("Embalagem (R$)", "2");
   const res = async () => (await p.locator("main aside").first().innerText()).replace(/\s+/g, " ");
-  let t = await res();
+  ok((await p.getByRole("radio", { name: /Modo rápido/ }).getAttribute("aria-checked")) === "true", "calculadora abre no modo rápido");
+  ok((await p.getByLabel("Mão de obra (min)").count()) === 0 && (await p.getByLabel("Perdas (%)").count()) === 0 && (await p.getByLabel("Impostos (%)").count()) === 0, "modo rápido esconde mão de obra, perdas e impostos");
+  ok((await p.getByLabel("Margem de lucro (%)").count()) === 1 && (await p.getByLabel("Unidades", { exact: true }).count()) === 1, "modo rápido mostra margem e unidades");
+  ok((await p.locator('[data-testid="padroes-rapido"]').innerText()).includes("padrões já estão aplicados"), "modo rápido avisa que os padrões configurados foram carregados");
+  await fill("Horas", "2"); await fill("Minutos", "30"); await fill("Peso (g)", "80");
+  t = await res();
+  ok(/Perdas|5%/.test(await p.locator('[data-testid="padroes-rapido"]').innerText()) && /R\$\s?\d+,\d\d/.test(t), "modo rápido calcula com os padrões já carregados (perdas 5%)");
+  const quickPrice = (await p.locator('[data-testid="preco-sugerido"]').first().innerText()).replace(/\s+/g, " ");
+  await p.getByRole("radio", { name: /Modo avançado/ }).click();
+  await fill("Mão de obra (min)", "10"); await fill("Embalagem (R$/unid.)", "2");
+  t = await res();
   ok(/R\$\s?65,74/.test(t), "preço sugerido = R$ 65,74");
   ok(/Custo unitário R\$\s?28,87/.test(t), "custo unitário = R$ 28,87");
   ok(/Lucro \/ unid\. R\$\s?19,73/.test(t), "lucro = R$ 19,73");
+  ok(/Custo do filamento R\$\s?9,60/.test(t) && /Custo da impressora/.test(t) && /Custos adicionais/.test(t), "resultado mostra filamento, impressora, adicionais, custo total, lucro e margem");
+  ok((await p.locator('[data-testid="grafico-custos"]').count()) >= 1 && (await p.locator('[data-testid="grafico-custos"] [role=img]').first().getAttribute("aria-label")).includes("Composição do custo por unidade"), "gráfico de composição do custo presente e descrito");
+  await p.getByLabel("Acabamento (R$/unid.)").fill("1");
+  t = await res();
+  ok(/Custo unitário R\$\s?29,87/.test(t), "acabamento soma ao custo (R$ 28,87 + 1,00)");
+  await p.getByLabel("Acabamento (R$/unid.)").fill("0");
+  await p.getByLabel("Desconto ao cliente (%) — simulação").fill("10");
+  ok((await p.locator('[data-testid="simulacao-desconto"]').first().innerText()).includes("Com 10% de desconto"), "modo avançado: simula desconto ao cliente");
+  ok(/R\$\s?65,74/.test(await p.locator('[data-testid="preco-sugerido"]').first().innerText()), "desconto é só simulação: preço sugerido não muda");
+  await p.getByLabel("Desconto ao cliente (%) — simulação").fill("60");
+  ok((await p.locator('[data-testid="simulacao-desconto"]').first().innerText()).includes("não cobre custo"), "desconto que dá prejuízo é sinalizado");
+  await p.getByLabel("Desconto ao cliente (%) — simulação").fill("0");
+  await p.getByLabel("Potência (W)").fill("300");
+  ok(!/Custo unitário R\$\s?28,87/.test(await res()), "ajustar potência no modo avançado muda o custo");
+  await p.getByRole("button", { name: "Voltar aos padrões" }).click();
+  ok(/Custo unitário R\$\s?28,87/.test(await res()), "voltar aos padrões restaura o custo da impressora");
+  await p.getByRole("radio", { name: /Modo rápido/ }).click();
+  ok(/Custo unitário R\$\s?28,87/.test(await res()) && /R\$\s?65,74/.test(await p.locator('[data-testid="preco-sugerido"]').first().innerText()), "mesmo motor: voltar ao modo rápido mantém exatamente o mesmo resultado");
+  ok(quickPrice.length > 0, "modo rápido sem ajustes avançados mostrou um preço");
+  await p.getByRole("radio", { name: /Modo avançado/ }).click();
   await fill("Unidades", "10"); t = await res();
   ok(/Custo do lote \(10\) R\$\s?288,72/.test(t), "lote de 10: custo = R$ 288,72");
   await fill("Unidades", "1");
@@ -161,8 +237,7 @@ async function main() {
   // ── Dashboard e histórico ──
   await p.goto(B + "/");
   t = await main$();
-  ok(t.includes("Produtos precificados 2"), "dashboard: 2 produtos precificados");
-  ok(t.includes("Preço médio R$ 61,74"), "dashboard: preço médio = média do último preço de cada produto (R$ 61,74)");
+  ok(t.includes("Produtos cadastrados 2"), "dashboard: 2 produtos cadastrados");
   ok(t.includes("1 produto está abaixo"), "dashboard: alerta de produto abaixo da margem");
   await p.goto(B + "/historico");
   t = await main$();
@@ -174,7 +249,8 @@ async function main() {
   await m.goto(B + "/produtos");
   await m.getByRole("link", { name: "Mais" }).click();
   await m.waitForURL(/mais/);
-  ok((await m.locator("main").innerText()).includes("Filamentos"), "celular: 'Mais' leva a Filamentos, Custos e Histórico");
+  const maisTxt = await m.locator("main").innerText();
+  ok(["Importar modelo", "Filamentos", "Configurações", "Histórico", "Configuração guiada"].every((x) => maisTxt.includes(x)) && maisTxt.includes("Pedidos") && maisTxt.includes("em breve"), "celular: 'Mais' leva a Importar, Filamentos, Configurações, Histórico e mostra Pedidos/Estoque como 'em breve'");
   ok(!(await m.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)), "celular: sem rolagem horizontal");
 
   // ═══════════ ETAPA 3: catálogo, negócio e orçamentos ═══════════
@@ -289,7 +365,7 @@ async function main() {
 
   // Meu negócio
   await p.goto(B + "/orcamentos/novo");
-  ok((await p.locator('[data-testid="aviso-negocio"]').count()) === 1, "orçamento novo sem dados do negócio avisa para preenchê-los");
+  ok((await p.locator('[data-testid="aviso-negocio"]').count()) === 0, "nome do negócio informado no assistente já vale para os orçamentos (sem aviso)");
   await p.goto(B + "/negocio");
   await p.fill("input[name=businessName]", "Oficina Aurora 3D");
   await p.fill("input[name=phone]", "(11) 98888-7777");
@@ -398,6 +474,14 @@ async function main() {
   await p.getByRole("button", { name: "Marcar como aprovado" }).click();
   await p.waitForFunction(() => document.body.innerText.includes("Aprovado"));
   ok(await p.getByRole("button", { name: /Transformar em pedido/ }).isDisabled(), "aprovado: 'transformar em pedido' aparece desabilitado (etapa futura)");
+  const sellerView = (await p.goto(`${B}/orcamentos/${q1}`) && (await p.locator('[data-testid="visao-vendedor"]').innerText())).replace(/\s+/g, " ");
+  const profitShown = /Resultado sobre o custo (R\$\s?[\d.]+,\d\d)/.exec(sellerView)?.[1];
+  await p.goto(B + "/");
+  t = (await p.locator('[data-testid="indicadores"]').innerText()).replace(/\s+/g, " ");
+  ok(t.includes("Orçamentos criados 2") && t.includes("Orçamentos aprovados 1") && /Valor aprovado \(orçado\) R\$\s?121,50/.test(t), "dashboard: orçamentos criados, aprovados e valor aprovado vêm dos dados reais");
+  ok(profitShown && t.includes("Lucro estimado dos aprovados " + profitShown), "dashboard: lucro estimado dos aprovados = valor do orçamento − custo de produção (igual à visão do vendedor)");
+  ok(t.includes("não significa recebido"), "dashboard: separa orçado de venda realizada");
+  await shot(p, "painel-desktop");
   await p.goto(B + "/orcamentos");
   t = await main$();
   ok(t.includes("Todos (2)") && t.includes("Aprovado (1)") && t.includes("Rascunho (1)"), "histórico: contagem por status");
@@ -417,13 +501,14 @@ async function main() {
   // Celular
   const mq = await browser.newPage({ viewport: { width: 390, height: 800 } });
   await mq.context().addCookies(await p.context().cookies());
-  for (const route of ["/orcamentos/novo", "/orcamentos", "/produtos", "/negocio"]) {
+  for (const route of ["/", "/calculadora", "/calculadora?modo=avancado", "/boas-vindas?refazer=1", "/orcamentos/novo", "/orcamentos", "/produtos", "/negocio", "/mais"]) {
     await mq.goto(B + route);
-    await shot(mq, "mobile" + route.replace(/\//g, "-"));
+    await shot(mq, "mobile" + route.replace(/[/?=]/g, "-"));
     ok(await mq.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `celular: ${route} sem rolagem horizontal`);
   }
   await mq.goto(B + "/produtos");
-  ok((await mq.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Orçamentos" }).count()) === 1, "celular: Orçamentos na navegação inferior");
+  const bottom = mq.getByRole("navigation", { name: "Principal" });
+  ok((await Promise.all(["Painel", "Precificar", "Produtos", "Orçamentos", "Mais"].map((l) => bottom.getByRole("link", { name: l }).count()))).every((c) => c === 1), "celular: navegação inferior com Painel, Precificar, Produtos, Orçamentos e Mais");
   await mq.close();
 
   // ── Exclusão de produto e logout ──

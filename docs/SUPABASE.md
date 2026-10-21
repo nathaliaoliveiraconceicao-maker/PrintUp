@@ -11,6 +11,7 @@ Legenda: ✅ confirmado · ⏳ ação pendente · ❓ não verificado (confira n
 | `0004_harden_functions.sql` | ✅ | corrige leitura de plano de outro usuário via RPC |
 | `0005_imports.sql` | ✅ | importador: `imported_models`, `print_profiles`, bucket privado `model-files`, policies e limite de armazenamento por plano (valores provisórios) |
 | `0006_catalog_quotes.sql` | ⏳ **rodar no SQL Editor** | catálogo (colunas novas em `products`), `customers`, `business_profiles`, `quotes`, `quote_items`, função `save_quote`, buckets privados `user-images` e `quote-pdfs`, cota de armazenamento somando os 3 buckets |
+| `0007_onboarding.sql` | ⏳ **rodar no SQL Editor** | coluna `profiles.onboarding_done_at` (quem já usa o app não volta ao assistente) |
 | Buckets `user-images` e `quote-pdfs` privados | ⏳ | criados pela 0006; conferir em *Storage* que ambos estão **Private** (5 MB por arquivo) |
 | Bucket `model-files` privado | ⏳ | criado pela 0005; conferir em *Storage* que está **Private** e com limite de 50 MB |
 | Trigger de novo usuário (perfil + teste grátis) | ✅ | cadastro real funcionou |

@@ -10,10 +10,10 @@ import { createClient } from "@/lib/supabase/server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const metadata = { title: "Calculadora" };
+export const metadata = { title: "Nova precificação" };
 
-export default async function CalculatorPage({ searchParams }: { searchParams: Promise<{ perfil?: string; impressora?: string }> }) {
-  const { perfil, impressora } = await searchParams;
+export default async function CalculatorPage({ searchParams }: { searchParams: Promise<{ perfil?: string; impressora?: string; modo?: string }> }) {
+  const { perfil, impressora, modo } = await searchParams;
   const supabase = await createClient();
   const [printers, filaments, settings, products] = await Promise.all([
     supabase.from("printers").select("*").eq("is_active", true).order("name"),
@@ -51,7 +51,7 @@ export default async function CalculatorPage({ searchParams }: { searchParams: P
 
   return (
     <>
-      <PageHeader title="Calculadora" description="Custo e preço de venda, atualizados enquanto você digita." />
+      <PageHeader title="Nova precificação" description="Custo e preço de venda, atualizados enquanto você digita." />
       {(printers.data?.length ?? 0) === 0 && (
         <Card className="mb-6 bg-accent-soft text-sm">
           Para usar o custo real da máquina, <Link className="font-medium underline" href="/impressoras/nova">cadastre uma impressora</Link>.
@@ -65,6 +65,7 @@ export default async function CalculatorPage({ searchParams }: { searchParams: P
         products={(products.data ?? []) as { id: string; name: string }[]}
         profile={profile}
         initialPrinterId={impressora && UUID.test(impressora) ? impressora : undefined}
+        initialMode={modo === "avancado" ? "avancado" : "rapido"}
         key={profile?.id ?? "livre"}
       />
     </>

@@ -1,3 +1,4 @@
+import { SettingsTabs } from "@/components/settings-tabs";
 import { PageHeader } from "@/components/ui/card";
 import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
 import { SettingsForm } from "@/features/settings/settings-form";
@@ -11,6 +12,7 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHeader title="Configurações de custo" description="Padrões usados em todos os cálculos." />
+      <SettingsTabs current="/configuracoes" />
       <SettingsForm settings={(data as SettingsRow | null) ?? DEFAULT_SETTINGS} />
     </>
   );
