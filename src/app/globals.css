@@ -13,6 +13,9 @@
   --ok: #2c7a4b;
   --warn: #a5650d;
   --danger: #b3261e;
+  /* Dados importados de arquivo (cor fria, distinta do laranja do que o usuário digita) */
+  --import: #1d6b73;
+  --import-soft: #dbeff0;
 }
 
 @theme inline {
@@ -27,6 +30,8 @@
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
+  --color-import: var(--import);
+  --color-import-soft: var(--import-soft);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }

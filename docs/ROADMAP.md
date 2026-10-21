@@ -134,7 +134,7 @@ Regra de trabalho: **uma etapa por vez; cada etapa termina com critério de acei
 - Filamento: **carretéis** (peso inicial, saldo, preço pago) e ajuste manual de estoque.
 - **Aceite:** conta nova chega ao primeiro preço calculado em poucos minutos, guiada; testes do cálculo de depreciação; RLS das novas tabelas.
 
-### Etapa 2 — Importação de arquivo 3MF/G-code (G)
+### Etapa 2 — Importação de arquivo 3MF/G-code (G) — **implementada (validar com arquivos reais); ver `docs/IMPORTADOR.md`**
 - Upload privado (Storage com RLS por usuário), parser, perfis de impressão detectados, escolha do perfil, **preenchimento automático** de peso/tempo na calculadora.
 - Cada dado importado guarda `origem` (arquivo 3MF, G-code, manual) e vira campo editável.
 - Aviso "este tempo foi fatiado para **outra impressora**" (seção 5.3).

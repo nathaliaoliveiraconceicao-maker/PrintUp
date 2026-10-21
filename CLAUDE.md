@@ -6,8 +6,12 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - `npm run dev` · `npm run build`
 - `npm run lint` · `npm run typecheck` · `npm test` (Vitest) — rodar os três antes de concluir qualquer tarefa
 - `npm run check:env` — confere variáveis de ambiente sem imprimir valores
-- `npm run test:e2e` — fluxos no navegador contra um Supabase **falso** local (`e2e/`); exige `npm run build` antes e Chromium (`PLAYWRIGHT_CHROMIUM_PATH`)
+- `npm run test:e2e` — fluxos no navegador contra um Supabase **falso** local (`e2e/`); constrói o app sozinho (pasta `.next-e2e`) e exige Chromium (`PLAYWRIGHT_CHROMIUM_PATH`)
 - `npm run test:db` — valida migrations (0001, 0002 e 0004) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
+
+## Importador
+- Leitura no navegador (`parseBlob`); servidor revalida tudo (`saveImportSchema`) e confere os objetos no Storage. Arquivos em `model-files/<user_id>/…`; o original só é guardado se o usuário pedir.
+- Migration `0005` cria o bucket e as policies; limite de armazenamento por plano em `plans.limits.max_storage_mb`.
 
 ## Next.js 16 (leia `node_modules/next/dist/docs/` antes de usar APIs novas)
 - `middleware` agora é `src/proxy.ts`. `params`, `searchParams`, `cookies()`, `headers()` são **assíncronos**.
@@ -17,7 +21,8 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - Lógica por domínio em `src/features/<dominio>/` (`schema.ts`, `actions.ts`, formulários). Rotas em `src/app` só compõem.
 - **Motor financeiro** em `src/lib/pricing`: funções puras, sem I/O, sem React. Toda mudança de fórmula exige teste em `calculate.test.ts`. Valores em reais, percentuais em pontos (12 = 12%), tempo em minutos, massa em gramas.
 - Não contar custo duas vezes (flags `hourlyCostIncludes`). Margem = sobre o preço; markup = sobre o custo. Nunca misturar os termos na UI.
-- **Nunca inventar dados ausentes** (importações): campo desconhecido é `undefined` e a origem do dado é registrada.
+- **Nunca inventar dados ausentes** (importações): campo desconhecido é `null`/em branco e a origem do dado (`arquivo` | `manual`) é registrada; o banco exige origem para peso/tempo presentes. Detalhes e limites: `docs/IMPORTADOR.md`.
+- Arquivos importados (3MF/G-code) são **não confiáveis**: leitores só em `src/features/imports/readers`, ZIP só via `safe-zip.ts` (limites de bytes), nada executado, textos limpos com `cleanText`. Não declarar compatibilidade com um programa sem teste que a comprove.
 
 ## Segurança (inegociável)
 - Funções `SECURITY DEFINER` nunca confiam em ids vindos do chamador e têm `EXECUTE` revogado de `public`/`anon` (o Supabase concede a `anon` por padrão). Teste em `supabase/tests/rls_etapa0.test.sql`.

@@ -11,6 +11,11 @@ import type { SettingsRow } from "@/features/settings/schema";
 import type { PrinterRow } from "@/features/printers/schema";
 import type { FilamentRow } from "@/features/filaments/schema";
 import { SavePricing } from "./save-pricing";
+import type { CalcProfile } from "./profile";
+import { Tag } from "@/features/imports/provenance-tag";
+import { comparePrinters, printerMatchMessage } from "@/features/imports/printer-match";
+import { storedTag, type ProvenanceTag } from "@/features/imports/provenance";
+import { valuesFromMinutes } from "@/features/imports/profile-values";
 import { cn, formatBRL, formatPercent, parseDecimal } from "@/lib/utils";
 
 const num = (s: string) => {
@@ -23,20 +28,33 @@ export function Calculator({
   filaments,
   settings,
   products,
+  profile = null,
+  initialPrinterId,
 }: {
   printers: PrinterRow[];
   filaments: FilamentRow[];
   settings: SettingsRow;
   products: { id: string; name: string }[];
+  profile?: CalcProfile | null;
+  initialPrinterId?: string;
 }) {
-  const [printerId, setPrinterId] = useState(printers[0]?.id ?? "");
-  const [filamentId, setFilamentId] = useState(filaments[0]?.id ?? "");
+  const [printerId, setPrinterId] = useState(() => {
+    if (initialPrinterId && printers.some((p) => p.id === initialPrinterId)) return initialPrinterId;
+    const same = printers.filter((p) => comparePrinters(profile?.slicerPrinterName, p) === "igual");
+    return same.length === 1 ? same[0].id : (printers[0]?.id ?? "");
+  });
+  // Material do arquivo => filamento: só pré-seleciona se houver UM filamento cadastrado com esse material (continua editável).
+  const [filamentId, setFilamentId] = useState(() => {
+    const type = profile?.filamentType?.trim().toLowerCase();
+    const same = type && !type.includes("+") ? filaments.filter((f) => f.material.toLowerCase() === type) : [];
+    return same.length === 1 ? same[0].id : (filaments[0]?.id ?? "");
+  });
   const printer = printers.find((p) => p.id === printerId);
   const filament = filaments.find((f) => f.id === filamentId);
 
-  const [hours, setHours] = useState("");
-  const [minutes, setMinutes] = useState("");
-  const [grams, setGrams] = useState("");
+  const [hours, setHours] = useState(() => valuesFromMinutes(profile?.printMinutes ?? null).hours);
+  const [minutes, setMinutes] = useState(() => valuesFromMinutes(profile?.printMinutes ?? null).minutes);
+  const [grams, setGrams] = useState(() => (profile?.weightG != null ? String(profile.weightG).replace(".", ",") : ""));
   const [quantity, setQuantity] = useState("1");
   const [pricePerKg, setPricePerKg] = useState<string | null>(null); // null = usar o do filamento escolhido
   const [loss, setLoss] = useState(String(settings.loss_percent).replace(".", ","));
@@ -91,11 +109,58 @@ export function Calculator({
 
   const qty = Math.max(1, Math.floor(num(quantity) || 1));
 
+  // Origem dos dados vindos do perfil: "do arquivo" só enquanto o valor não for alterado aqui.
+  const currentWeight = parseDecimal(grams);
+  const currentMinutes = (parseDecimal(hours) || 0) * 60 + (parseDecimal(minutes) || 0);
+  const same = (a: number, b: number) => Math.abs(a - b) < 0.005;
+  const weightTag: ProvenanceTag | null = profile
+    ? profile.weightG === null
+      ? Number.isNaN(currentWeight) ? "em branco" : "informado por você"
+      : !Number.isNaN(currentWeight) && same(profile.weightG, currentWeight)
+        ? storedTag(true, profile.weightOrigin, profile.editedFields.includes("weight"))
+        : "editado"
+    : null;
+  const timeTag: ProvenanceTag | null = profile
+    ? profile.printMinutes === null
+      ? currentMinutes > 0 ? "informado por você" : "em branco"
+      : same(profile.printMinutes, currentMinutes)
+        ? storedTag(true, profile.timeOrigin, profile.editedFields.includes("time"))
+        : "editado"
+    : null;
+  const printerWarning = profile ? printerMatchMessage(comparePrinters(profile.slicerPrinterName, printer), profile.slicerPrinterName, printer?.name) : null;
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_24rem]">
       <div className="space-y-6 pb-28 lg:pb-0">
         <Card className="space-y-4">
           <h2 className="font-semibold">Peça</h2>
+          {profile && (
+            <div className="space-y-2 rounded-xl border border-import/30 bg-import-soft/40 p-3 text-sm" data-testid="perfil-banner">
+              <div className="flex items-start gap-3">
+                {profile.thumbUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.thumbUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg border border-line bg-surface object-contain" />
+                )}
+                <p>
+                  Dados do perfil <strong>“{profile.name}”</strong> do modelo <strong>“{profile.modelTitle}”</strong>.{" "}
+                  <Link href={`/importar/${profile.modelId}`} className="font-medium text-import underline">Ver ficha</Link>
+                </p>
+              </div>
+              {(profile.filamentType || profile.pieceCount || profile.slicerPrinterName) && (
+                <p className="text-xs text-muted">
+                  {[profile.filamentType && `Material: ${profile.filamentType}`, profile.pieceCount && `${profile.pieceCount} peça(s) na placa`, profile.slicerPrinterName && `Fatiado para: ${profile.slicerPrinterName}`]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+              <p className="text-xs text-muted">Edite qualquer valor abaixo: a etiqueta mostra o que veio do arquivo e o que foi alterado.</p>
+              {printerWarning && (
+                <p role="alert" className="flex gap-2 rounded-lg bg-accent-soft px-3 py-2 text-warn">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" /> {printerWarning}
+                </p>
+              )}
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Impressora">
               <Select value={printerId} onChange={(e) => setPrinterId(e.target.value)}>
@@ -114,9 +179,9 @@ export function Calculator({
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Field label="Horas"><Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="0" /></Field>
+            <Field label="Horas" tag={timeTag ? <Tag value={timeTag} /> : undefined}><Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="0" /></Field>
             <Field label="Minutos"><Input inputMode="decimal" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="0" /></Field>
-            <Field label="Peso (g)"><Input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} placeholder="0" /></Field>
+            <Field label="Peso (g)" tag={weightTag ? <Tag value={weightTag} /> : undefined}><Input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} placeholder="0" /></Field>
             <Field label="Unidades"><Input inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
           </div>
           <p className="text-xs text-muted">Tempo e peso (com suportes) são de <strong>uma</strong> unidade; o lote multiplica pela quantidade.</p>
@@ -169,7 +234,14 @@ export function Calculator({
           Custos fixos, energia e demais padrões vêm das <Link href="/configuracoes" className="underline">configurações</Link> e da impressora escolhida.
         </p>
 
-        <SavePricing products={products} input={input} printerId={printer?.id} filamentId={filament?.id} />
+        <SavePricing
+          products={products}
+          input={input}
+          printerId={printer?.id}
+          filamentId={filament?.id}
+          profileId={profile?.id}
+          defaultName={profile?.modelTitle}
+        />
       </div>
 
       {/* Resultado: coluna lateral no desktop, barra fixa no celular */}

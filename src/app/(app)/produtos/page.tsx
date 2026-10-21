@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, PageHeader } from "@/components/ui/card";
 import { deleteProduct } from "@/features/products/actions";
 import type { PricingRow, ProductRow } from "@/features/products/schema";
+import { signedUrls } from "@/features/imports/storage";
 import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
 import { createClient } from "@/lib/supabase/server";
 import { formatBRL, formatDateTime, formatPercent } from "@/lib/utils";
@@ -14,11 +15,15 @@ export const metadata = { title: "Produtos" };
 export default async function ProductsPage() {
   const supabase = await createClient();
   const [products, latest, settings] = await Promise.all([
-    supabase.from("products").select("id, name, notes, created_at").order("name"),
+    supabase.from("products").select("id, name, notes, created_at, model_id").order("name"),
     supabase.from("latest_pricings").select("product_id, unit_price, unit_cost, unit_profit, margin_percent, quantity, created_at"),
     supabase.from("cost_settings").select("margin_percent").maybeSingle(),
   ]);
   const rows = (products.data ?? []) as ProductRow[];
+  const modelIds = [...new Set(rows.map((r) => r.model_id).filter((x): x is string => !!x))];
+  const { data: models } = modelIds.length > 0 ? await supabase.from("imported_models").select("id, thumb_path").in("id", modelIds) : { data: [] };
+  const thumbPathByModel = new Map(((models ?? []) as { id: string; thumb_path: string | null }[]).map((m) => [m.id, m.thumb_path]));
+  const thumbs = await signedUrls(supabase, [...thumbPathByModel.values()]);
   const byProduct = new Map(((latest.data ?? []) as PricingRow[]).map((p) => [p.product_id, p]));
   const target = (settings.data as Pick<SettingsRow, "margin_percent"> | null)?.margin_percent ?? DEFAULT_SETTINGS.margin_percent;
 
@@ -41,6 +46,13 @@ export default async function ProductsPage() {
             return (
               <li key={p.id}>
                 <Card className="flex items-center gap-3 p-4">
+                  {(() => {
+                    const url = thumbs.get(thumbPathByModel.get(p.model_id ?? "") ?? "");
+                    return url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={url} alt="" className="h-12 w-12 shrink-0 rounded-lg border border-line bg-paper object-contain" />
+                    ) : null;
+                  })()}
                   <Link href={`/produtos/${p.id}`} className="min-w-0 flex-1">
                     <p className="truncate font-medium">{p.name}</p>
                     {l ? (

@@ -8,6 +8,8 @@ export const savePricingSchema = z
     newProductName: z.string().trim().min(1, "Dê um nome ao produto.").max(120).optional(),
     printerId: z.uuid().nullish(),
     filamentId: z.uuid().nullish(),
+    /** Perfil de impressão (importado ou manual) que originou os dados; o servidor confere e registra a origem. */
+    profileId: z.uuid().nullish(),
     input: pricingInputSchema,
   })
   .refine((v) => Boolean(v.productId) !== Boolean(v.newProductName), {
@@ -18,7 +20,20 @@ export const savePricingSchema = z
 export type SavePricingPayload = z.input<typeof savePricingSchema>;
 export type SavePricingState = { ok?: true; productId?: string; error?: string };
 
-export type ProductRow = { id: string; name: string; notes: string | null; created_at: string };
+export type ProductRow = { id: string; name: string; notes: string | null; created_at: string; model_id?: string | null };
+
+/** Registro de onde vieram os dados de uma precificação (gravado em `pricings.import_info`). */
+export interface ImportInfo {
+  profileName: string;
+  modelId: string | null;
+  modelTitle: string | null;
+  slicerPrinterName: string | null;
+  weightOrigin: "arquivo" | "manual" | null;
+  timeOrigin: "arquivo" | "manual" | null;
+  weightEdited: boolean;
+  timeEdited: boolean;
+  printerMatch: "igual" | "diferente" | "desconhecida";
+}
 
 export type PricingRow = {
   id: string;
@@ -34,6 +49,8 @@ export type PricingRow = {
   markup_percent: number;
   input: PricingInput;
   result: PricingResult;
+  import_info: ImportInfo | null;
+  print_profile_id: string | null;
   engine_version: number;
   created_at: string;
 };

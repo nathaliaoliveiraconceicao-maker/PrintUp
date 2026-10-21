@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calculator, Home, Layers, Package, Printer, Settings, History, MoreHorizontal } from "lucide-react";
+import { Calculator, FileUp, Home, Layers, Package, Printer, Settings, History, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: string; icon: typeof Home; also?: string[] };
 
 const SIDE: Item[] = [
   { href: "/", label: "Início", icon: Home },
+  { href: "/importar", label: "Importar", icon: FileUp },
   { href: "/calculadora", label: "Calculadora", icon: Calculator },
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/impressoras", label: "Impressoras", icon: Printer },
@@ -20,10 +21,10 @@ const SIDE: Item[] = [
 // No celular cabem 5 itens; o resto fica em "Mais".
 const BOTTOM: Item[] = [
   { href: "/", label: "Início", icon: Home },
+  { href: "/importar", label: "Importar", icon: FileUp },
   { href: "/calculadora", label: "Calculadora", icon: Calculator },
   { href: "/produtos", label: "Produtos", icon: Package },
-  { href: "/impressoras", label: "Impressoras", icon: Printer },
-  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/filamentos", "/configuracoes", "/historico"] },
+  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/impressoras", "/filamentos", "/configuracoes", "/historico"] },
 ];
 
 const isActive = (path: string, { href, also = [] }: Item) =>

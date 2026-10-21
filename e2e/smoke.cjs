@@ -1,11 +1,11 @@
 // Teste E2E de fumaça do PrintUp: sobe o Supabase falso + `next start` e percorre os fluxos principais.
-// Pré-requisitos: `npm run build` já executado; Chromium disponível
+// Pré-requisitos: Chromium disponível
 //   (PLAYWRIGHT_CHROMIUM_PATH=/caminho/chrome  OU  `npx playwright-core install chromium`).
 // Uso: npm run test:e2e
-const { spawn } = require("node:child_process");
-const { existsSync } = require("node:fs");
+const { spawn, execSync } = require("node:child_process");
 const path = require("node:path");
 const { chromium } = require("playwright-core");
+const fixtures = require("./fixtures.cjs");
 
 const MOCK_PORT = 54399;
 const APP_PORT = 3199;
@@ -13,6 +13,9 @@ const B = `http://localhost:${APP_PORT}`;
 let failures = 0;
 const ok = (cond, msg) => { console.log(`${cond ? "✓" : "✗"} ${msg}`); if (!cond) failures++; };
 const children = [];
+// O `next build` reescreve o tsconfig.json (inclui a pasta de build do teste); guardamos o original e restauramos ao final.
+const TSCONFIG = path.join(__dirname, "..", "tsconfig.json");
+const tsconfigBackup = require("node:fs").readFileSync(TSCONFIG, "utf8");
 
 function start(cmd, args, env) {
   const c = spawn(cmd, args, { env: { ...process.env, ...env }, stdio: "ignore", shell: process.platform === "win32" });
@@ -27,12 +30,17 @@ async function waitFor(url, label) {
 }
 
 async function main() {
-  if (!existsSync(path.join(__dirname, "..", ".next"))) throw new Error("Rode `npm run build` antes do E2E.");
-  start("node", [path.join(__dirname, "mock-supabase.cjs")], { MOCK_PORT });
-  start("npx", ["next", "start", "-p", String(APP_PORT)], {
+  // As variáveis NEXT_PUBLIC_* entram no código do NAVEGADOR no momento do build, então o app é construído aqui,
+  // com o Supabase falso, numa pasta própria (não mexe no seu `.next`).
+  const appEnv = {
     NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${MOCK_PORT}`,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "chave-publica-FALSA-apenas-para-teste-local",
-  });
+    NEXT_DIST_DIR: ".next-e2e",
+  };
+  console.log("Construindo o app para o teste (pode levar ~30 s)…");
+  execSync("npx next build", { cwd: path.join(__dirname, ".."), env: { ...process.env, ...appEnv }, stdio: "ignore" });
+  start("node", [path.join(__dirname, "mock-supabase.cjs")], { MOCK_PORT });
+  start("npx", ["next", "start", "-p", String(APP_PORT)], appEnv);
   await waitFor(`http://127.0.0.1:${MOCK_PORT}/auth/v1/user`, "Supabase falso");
   await waitFor(B + "/login", "app");
 
@@ -207,6 +215,123 @@ async function main() {
   await p.goto(B + "/auth/callback?code=x&next=https://evil.com");
   ok(p.url().startsWith(B), "callback não redireciona para endereço externo");
 
+  // ── Importador de modelos (arquivos SINTÉTICOS gerados para o teste) ──
+  const fx = fixtures.make();
+  const F = fx.files;
+  await p.fill("input[name=email]", "teste@printup.local");
+  await p.fill("input[name=password]", "nova-senha-123");
+  await p.click("button[type=submit]");
+  await p.waitForURL(B + "/");
+  await p.goto(B + "/importar");
+  t = await main$();
+  ok(t.includes("Arquivo 3MF") && t.includes("Arquivo G-code") && t.includes("Informar manualmente") && t.includes("Link do MakerWorld"), "importar: quatro opções (3MF, G-code, manual e link)");
+  ok(t.includes("em breve"), "importar: link do MakerWorld aparece como 'em breve'");
+  ok((await p.locator('[aria-disabled="true"]').count()) === 1, "importar: opção do link está desabilitada");
+
+  // arquivos recusados, sempre com mensagem clara e sem enviar nada
+  const rejectCase = async (file, expected, label) => {
+    await p.setInputFiles('[data-testid="input-3mf"]', file);
+    await p.waitForSelector('[role=alert]:has-text("Não foi possível importar")');
+    const msg = (await p.locator('[role=alert]:has-text("Não foi possível importar")').innerText()).replace(/\s+/g, " ");
+    ok(expected.test(msg), label);
+  };
+  await rejectCase(F["modelo.stl"], /STL.*fatiamento/, "recusa STL e orienta a fatiar");
+  await rejectCase(F["falso.3mf"], /não é um 3MF válido/, "recusa arquivo .3mf que não é ZIP");
+  await rejectCase(F["enorme.3mf"], /mais de 50 MB/, "recusa arquivo acima de 50 MB");
+  await rejectCase(F["bomba.3mf"], /recusado por segurança/, "recusa ZIP bomb (descompressão acima do limite)");
+
+  // 3MF (Bambu, sintético): ficha, origem, impressora diferente, correção manual e calculadora
+  await p.setInputFiles('[data-testid="input-3mf"]', F["suporte.gcode.3mf"]);
+  await p.waitForSelector('[data-testid="origem"]');
+  const origem = (await p.locator('[data-testid="origem"]').innerText()).replace(/\s+/g, " ");
+  ok(origem.includes("Bambu Studio 01.08.00.62") && origem.includes("3MF") && origem.includes("autor: Maria") && origem.includes("2 placa"), "ficha: origem dos dados (programa, formato, autor, placas)");
+  ok((await p.locator('input[value="Suporte de Celular"]').count()) === 1, "ficha: nome do modelo vindo do arquivo");
+  ok((await p.locator('img[alt="Prévia do modelo"]').count()) === 1, "ficha: miniatura do arquivo exibida");
+  ok((await p.locator('input[value="Bambu Lab A1 mini"]').count()) === 2, "ficha: impressora do arquivo nas duas placas");
+  ok((await p.locator('input[value="25,5"]').count()) === 1 && (await p.locator('input[value="150"]').count() + (await p.locator('input[value="2"]').count())) >= 1, "ficha: peso 25,5 g e tempo 2h30 lidos da placa 1");
+  ok((await p.locator("text=do arquivo").count()) >= 4, "ficha: dados lidos marcados como 'do arquivo'");
+  const alertText = (await p.locator('[role=alert]:has-text("estimado para")').first().innerText()).replace(/\s+/g, " ");
+  ok(alertText.includes("Bambu Lab A1 mini") && alertText.includes("Bambu A1"), "ficha: avisa que o tempo foi estimado para OUTRA impressora (A1 mini × A1)");
+  await p.locator('input[value="25,5"]').fill("30");
+  ok((await p.locator("text=editado").count()) >= 1, "ficha: peso corrigido passa a 'editado'");
+  await p.getByRole("button", { name: "Calcular preço" }).first().click();
+  await p.waitForURL(/calculadora\?perfil=/);
+  await p.waitForSelector('[data-testid="perfil-banner"]');
+  const banner = (await p.locator('[data-testid="perfil-banner"]').innerText()).replace(/\s+/g, " ");
+  ok(banner.includes("Corpo") && banner.includes("Suporte de Celular") && banner.includes("PLA"), "calculadora: recebe o perfil sem novo preenchimento");
+  ok((await p.getByLabel("Peso (g)").first().inputValue()) === "30", "calculadora: peso corrigido (30 g) transferido");
+  ok((await p.getByLabel("Horas").first().inputValue()) === "2" && (await p.getByLabel("Minutos").first().inputValue()) === "30", "calculadora: tempo 2h30 transferido");
+  ok((await p.locator('[data-testid="perfil-banner"] [role=alert]').count()) === 1, "calculadora: alerta de impressora diferente");
+  const pageText = (await main$());
+  ok(pageText.includes("editado") && pageText.includes("do arquivo"), "calculadora: peso 'editado' e tempo 'do arquivo'");
+  ok(/R\$\s?\d+,\d\d/.test(await res()), "calculadora: preço calculado automaticamente");
+  ok((await p.locator('input[placeholder="Ex.: Suporte de celular"]').inputValue()) === "Suporte de Celular", "calculadora: nome do produto sugerido pelo modelo");
+  await p.getByRole("button", { name: "Salvar precificação" }).click();
+  await p.waitForSelector("text=Precificação salva.");
+  await p.getByRole("link", { name: "Ver produto" }).click();
+  await p.waitForURL(/produtos\/[0-9a-f-]{36}/);
+  t = await main$();
+  ok(t.includes("Modelo de origem") && t.includes("Suporte de Celular") && (await p.locator('img[alt="Foto do produto"]').count()) === 1, "catálogo: produto com foto e modelo de origem");
+  const orig = (await p.locator('[data-testid="origem-preco"]').innerText()).replace(/\s+/g, " ");
+  ok(orig.includes("peso editado (difere do arquivo)") && orig.includes("tempo do arquivo") && orig.includes("estimado para"), "histórico do preço: registra origem (peso editado, tempo do arquivo, impressora diferente)");
+
+  // G-code (Prusa, sintético), guardando o arquivo original
+  await p.goto(B + "/importar");
+  await p.setInputFiles('[data-testid="input-gcode"]', F["peca-prusa.gcode"]);
+  await p.waitForSelector('[data-testid="origem"]');
+  ok((await p.locator('[data-testid="origem"]').innerText()).includes("PrusaSlicer 2.6.0"), "G-code: reconhece o PrusaSlicer");
+  ok((await p.locator('input[value="25,4"]').count()) === 1 && (await p.locator('input[value="MK3S"]').count()) === 1 && (await p.locator('input[value="PLA"]').count()) === 1, "G-code: peso, impressora e material lidos");
+  ok((await p.locator('input[value="30,25"]').count()) === 1, "G-code: tempo 2h 30m 15s lido (30,25 min)");
+  await p.getByLabel("Guardar o arquivo original na minha conta").check();
+  await p.getByRole("button", { name: "Salvar modelo sem calcular" }).click();
+  await p.waitForURL(/importar\/[0-9a-f-]{36}/);
+  t = await main$();
+  ok(t.includes("Arquivo guardado: peca-prusa.gcode") && t.includes("Baixar"), "G-code: arquivo original guardado e com link de download (opcional)");
+  ok(t.includes("Origem dos dados: arquivo G-code"), "modelo: mostra a origem dos dados");
+  // editar perfil salvo: origem recalculada
+  const peso = p.locator('[data-testid="perfil"] input').nth(3);
+  await p.locator('[data-testid="perfil"]').getByLabel("Peso (g)").fill("27");
+  await p.getByRole("button", { name: "Salvar alterações" }).click();
+  await p.waitForSelector("text=Perfil salvo.");
+  await p.reload();
+  ok((await p.locator('[data-testid="perfil"] >> text=editado').count()) >= 1, "perfil salvo: peso corrigido aparece como 'editado' após recarregar");
+  void peso;
+
+  // Cura (sintético): não inventa o peso
+  await p.goto(B + "/importar");
+  await p.setInputFiles('[data-testid="input-gcode"]', F["peca-cura.gcode"]);
+  await p.waitForSelector('[data-testid="origem"]');
+  ok((await p.locator("body").innerText()).includes("apenas o comprimento do filamento"), "Cura: avisa que só há comprimento de filamento, sem peso");
+  ok((await p.getByLabel("Peso (g)").first().inputValue()) === "", "Cura: peso fica em branco (não é estimado)");
+  // 3MF só com geometria
+  await p.goto(B + "/importar");
+  await p.setInputFiles('[data-testid="input-3mf"]', F["cubo.3mf"]);
+  await p.waitForSelector('[data-testid="origem"]');
+  ok((await p.locator("body").innerText()).includes("não contém dados de fatiamento"), "3MF só com geometria: informa que é preciso fatiar");
+  ok((await p.getByLabel("Peso (g)").first().inputValue()) === "", "3MF só com geometria: sem peso nem tempo inventados");
+
+  // Entrada manual
+  await p.goto(B + "/importar/novo");
+  await p.getByPlaceholder("Ex.: Suporte de celular").fill("Chaveiro");
+  await p.getByLabel("Peso (g)").fill("12,5");
+  await p.getByLabel("Tempo (horas)").fill("1");
+  await p.getByRole("button", { name: "Calcular preço" }).click();
+  await p.waitForURL(/calculadora\?perfil=/);
+  await p.waitForSelector('[data-testid="perfil-banner"]');
+  ok((await p.locator("body").innerText()).includes("informado por você"), "manual: dados digitados ficam como 'informado por você'");
+
+  // Lista de modelos e exclusão (remove também os arquivos)
+  await p.goto(B + "/importar");
+  t = await main$();
+  ok(t.includes("Suporte de Celular") && t.includes("peca-prusa") && t.includes("Chaveiro"), "lista: modelos importados aparecem");
+  await p.getByText("Chaveiro").first().click();
+  await p.waitForURL(/importar\/[0-9a-f-]{36}/);
+  p.once("dialog", (d) => d.accept());
+  await p.getByRole("button", { name: /Excluir Chaveiro/ }).click();
+  await p.waitForURL(B + "/importar");
+  ok(!(await main$()).includes("Chaveiro"), "excluir modelo funciona");
+  require("node:fs").rmSync(fx.dir, { recursive: true, force: true });
+
   ok(errors.length === 0, "sem erros no console/página" + (errors.length ? `: ${errors.slice(0, 3).join(" | ")}` : ""));
   await browser.close();
 }
@@ -215,6 +340,8 @@ main()
   .catch((e) => { console.error("FALHA:", e.message.split("\n")[0]); failures++; })
   .finally(() => {
     children.forEach((c) => c.kill());
+    require("node:fs").writeFileSync(TSCONFIG, tsconfigBackup);
+    require("node:fs").rmSync(path.join(__dirname, "..", ".next-e2e"), { recursive: true, force: true });
     console.log(failures ? `\n${failures} verificação(ões) falharam` : "\nE2E OK");
     process.exit(failures ? 1 : 0);
   });

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Calculator, Layers, Package, Printer, Settings } from "lucide-react";
+import { ArrowRight, Calculator, FileUp, Layers, Package, Printer, Settings } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
 import type { PricingRow } from "@/features/products/schema";
 import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
@@ -97,6 +97,7 @@ export default async function DashboardPage() {
       )}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Shortcut href="/importar" icon={<FileUp size={20} />} title="Importar modelo" detail="3MF, G-code ou manual" />
         <Shortcut href="/produtos" icon={<Package size={20} />} title="Produtos" detail={`${products.data?.length ?? 0} cadastrados`} />
         <Shortcut href="/impressoras" icon={<Printer size={20} />} title="Impressoras" detail={usage(printers.count, entitlement?.limits.max_printers)} />
         <Shortcut href="/filamentos" icon={<Layers size={20} />} title="Filamentos" detail={usage(filaments.count, entitlement?.limits.max_filaments)} />

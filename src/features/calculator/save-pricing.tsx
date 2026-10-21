@@ -18,14 +18,21 @@ export function SavePricing({
   input,
   printerId,
   filamentId,
+  profileId,
+  defaultName,
 }: {
   products: { id: string; name: string }[];
   input: PricingInput | null;
   printerId?: string;
   filamentId?: string;
+  /** Perfil importado que originou os dados (para registrar a origem no histórico do preço). */
+  profileId?: string;
+  /** Nome sugerido para um produto novo (ex.: título do modelo importado). */
+  defaultName?: string;
 }) {
-  const [choice, setChoice] = useState(products.length ? products[0].id : NEW);
-  const [name, setName] = useState("");
+  // Com um modelo importado, o padrão é criar um produto novo com o nome do modelo.
+  const [choice, setChoice] = useState(defaultName ? NEW : products.length ? products[0].id : NEW);
+  const [name, setName] = useState(defaultName ?? "");
   const [state, setState] = useState<SavePricingState>({});
   const [pending, start] = useTransition();
   const creating = choice === NEW;
@@ -37,11 +44,12 @@ export function SavePricing({
         ...(creating ? { newProductName: name } : { productId: choice }),
         printerId: printerId || null,
         filamentId: filamentId || null,
+        profileId: profileId || null,
         input,
       });
       setState(res);
       if (res.ok) {
-        setName("");
+        setName(defaultName ?? "");
         if (res.productId) setChoice(res.productId);
       }
     });

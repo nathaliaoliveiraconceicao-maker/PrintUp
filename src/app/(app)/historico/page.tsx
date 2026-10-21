@@ -9,6 +9,7 @@ const ENTITY: Record<string, string> = {
   filaments: "Filamento",
   products: "Produto",
   pricings: "Precificação",
+  imported_models: "Modelo importado",
 };
 const ACTION: Record<string, string> = { insert: "criada", update: "alterada", delete: "excluída" };
 
@@ -21,7 +22,8 @@ function describe(e: Entry): string {
     const price = Number(row.unit_price);
     return Number.isFinite(price) ? `de ${formatBRL(price)}/unid.` : "";
   }
-  return typeof row.name === "string" ? `“${row.name}”` : "";
+  const label = typeof row.name === "string" ? row.name : typeof row.title === "string" ? row.title : null;
+  return label ? `“${label}”` : "";
 }
 
 export default async function HistoryPage() {

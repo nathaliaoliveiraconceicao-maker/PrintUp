@@ -21,18 +21,24 @@ export function Field({
   label,
   hint,
   error,
+  tag,
   children,
   className,
 }: {
   label: string;
   hint?: string;
+  /** Etiqueta ao lado do rótulo (ex.: origem do dado). Fora do nome acessível do campo. */
+  tag?: React.ReactNode;
   error?: string;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
     <label className={cn("block space-y-1.5", className)}>
-      <span className="text-sm font-medium text-ink">{label}</span>
+      <span className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-ink">{label}</span>
+        {tag ? <span aria-hidden="true">{tag}</span> : null}
+      </span>
       {children}
       {error ? (
         <span role="alert" className="block text-xs text-danger">{error}</span>
