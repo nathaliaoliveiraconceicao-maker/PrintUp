@@ -20,20 +20,20 @@ select pg_temp.assert((select count(*) from public.printers) = 1, 'A vê sua imp
 
 -- limite do trial (1 impressora) bloqueado no banco
 do $$ begin
-  begin insert into public.printers (name) values ('segunda'); raise exception 'deveria ter falhado';
+  begin insert into public.printers (name) values ('segunda'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 
 -- A não consegue inserir em nome de B
 do $$ begin
   begin insert into public.filaments (user_id, name, price_per_kg) values ('22222222-2222-2222-2222-222222222222','x',100);
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 
 -- A não se promove a superadmin
 do $$ begin
-  begin update public.profiles set role = 'superadmin' where id = auth.uid(); raise exception 'deveria ter falhado';
+  begin update public.profiles set role = 'superadmin' where id = auth.uid(); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 
@@ -60,7 +60,7 @@ select pg_temp.assert((select count(*) from public.audit_log where entity = 'pri
 update public.subscriptions set trial_ends_at = now() - interval '1 day' where user_id = '22222222-2222-2222-2222-222222222222';
 set role authenticated; set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 do $$ begin
-  begin insert into public.filaments (name, price_per_kg) values ('PLA', 100); raise exception 'deveria ter falhado';
+  begin insert into public.filaments (name, price_per_kg) values ('PLA', 100); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 reset role;

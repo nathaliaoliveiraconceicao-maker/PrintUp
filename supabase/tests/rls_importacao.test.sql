@@ -18,25 +18,25 @@ do $$ begin
   begin
     insert into public.imported_models (title, source, file_path, file_kind)
     values ('x', 'arquivo', '22222222-2222-2222-2222-222222222222/b.3mf', '3mf');
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 -- miniatura também precisa estar na pasta do próprio usuário
 do $$ begin
   begin insert into public.imported_models (title, source, thumb_path) values ('x', 'arquivo', '22222222-2222-2222-2222-222222222222/thumbs/t.png');
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 -- tipo de arquivo fora da lista (ex.: stl) é rejeitado
 do $$ begin
   begin insert into public.imported_models (title, source, file_path, file_kind) values ('x', 'arquivo', '11111111-1111-1111-1111-111111111111/m.stl', 'stl');
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 -- caminho sem tipo (ou tipo sem caminho) é rejeitado
 do $$ begin
   begin insert into public.imported_models (title, source, file_path) values ('x', 'arquivo', '11111111-1111-1111-1111-111111111111/c.3mf');
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 
@@ -44,16 +44,16 @@ end $$;
 insert into public.print_profiles (id, model_id, name) values ('dddddddd-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001', 'Perfil 1');
 -- nunca inventar: valor sem origem é rejeitado, e origem sem valor também
 do $$ begin
-  begin update public.print_profiles set weight_g = 50 where id = 'dddddddd-0000-0000-0000-000000000001'; raise exception 'deveria ter falhado';
+  begin update public.print_profiles set weight_g = 50 where id = 'dddddddd-0000-0000-0000-000000000001'; raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 do $$ begin
-  begin update public.print_profiles set time_origin = 'arquivo' where id = 'dddddddd-0000-0000-0000-000000000001'; raise exception 'deveria ter falhado';
+  begin update public.print_profiles set time_origin = 'arquivo' where id = 'dddddddd-0000-0000-0000-000000000001'; raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 -- zero ou negativo não é dado válido
 do $$ begin
-  begin update public.print_profiles set weight_g = 0, weight_origin = 'manual' where id = 'dddddddd-0000-0000-0000-000000000001'; raise exception 'deveria ter falhado';
+  begin update public.print_profiles set weight_g = 0, weight_origin = 'manual' where id = 'dddddddd-0000-0000-0000-000000000001'; raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 update public.print_profiles set weight_g = 80, weight_origin = 'manual', print_minutes = 150, time_origin = 'arquivo' where id = 'dddddddd-0000-0000-0000-000000000001';
@@ -64,7 +64,7 @@ set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select pg_temp.assert((select count(*) from public.imported_models) = 0, 'B não vê modelos de A');
 select pg_temp.assert((select count(*) from public.print_profiles) = 0, 'B não vê perfis de A');
 do $$ begin
-  begin insert into public.print_profiles (model_id, name) values ('cccccccc-0000-0000-0000-000000000001', 'invasor'); raise exception 'deveria ter falhado';
+  begin insert into public.print_profiles (model_id, name) values ('cccccccc-0000-0000-0000-000000000001', 'invasor'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 update public.print_profiles set weight_g = 1, weight_origin = 'manual';
@@ -78,11 +78,11 @@ set role authenticated; set request.jwt.claim.sub = '11111111-1111-1111-1111-111
 insert into storage.objects (bucket_id, name) values ('model-files', '11111111-1111-1111-1111-111111111111/a.3mf');
 select pg_temp.assert((select count(*) from storage.objects) = 1, 'A envia arquivo para a própria pasta');
 do $$ begin
-  begin insert into storage.objects (bucket_id, name) values ('model-files', '22222222-2222-2222-2222-222222222222/invasao.3mf'); raise exception 'deveria ter falhado';
+  begin insert into storage.objects (bucket_id, name) values ('model-files', '22222222-2222-2222-2222-222222222222/invasao.3mf'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 do $$ begin
-  begin insert into storage.objects (bucket_id, name) values ('model-files', 'solto.3mf'); raise exception 'deveria ter falhado';
+  begin insert into storage.objects (bucket_id, name) values ('model-files', 'solto.3mf'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
@@ -108,7 +108,7 @@ do $$ begin
   begin
     insert into public.pricings (product_id, print_profile_id, quantity, pricing_mode, unit_cost, unit_price, unit_profit, margin_percent, markup_percent, input, result)
     values ('aaaaaaaa-0000-0000-0000-0000000000f2', 'dddddddd-0000-0000-0000-000000000001', 1, 'margin', 1, 2, 1, 50, 100, '{}', '{}');
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 
@@ -128,7 +128,7 @@ insert into public.products (id, name, model_id) values ('aaaaaaaa-0000-0000-000
 select pg_temp.assert((select count(*) from public.products where id = 'aaaaaaaa-0000-0000-0000-0000000000f3') = 1, 'A liga produto ao próprio modelo');
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 do $$ begin
-  begin insert into public.products (name, model_id) values ('invasor', 'cccccccc-0000-0000-0000-000000000002'); raise exception 'deveria ter falhado';
+  begin insert into public.products (name, model_id) values ('invasor', 'cccccccc-0000-0000-0000-000000000002'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 -- apagar o modelo não apaga o produto
@@ -146,7 +146,7 @@ insert into storage.objects (bucket_id, name, metadata) values ('model-files', '
 select pg_temp.assert(public.storage_used_bytes() = 60000000, 'consumo é somado dos tamanhos reais');
 -- 60 MB > 50 MB do trial: o próximo envio é bloqueado pela policy
 do $$ begin
-  begin insert into storage.objects (bucket_id, name, metadata) values ('model-files', '11111111-1111-1111-1111-111111111111/outro.3mf', '{"size": 10}'); raise exception 'deveria ter falhado';
+  begin insert into storage.objects (bucket_id, name, metadata) values ('model-files', '11111111-1111-1111-1111-111111111111/outro.3mf', '{"size": 10}'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 -- apagar libera espaço
@@ -159,7 +159,7 @@ select pg_temp.assert(public.can_store_upload('11111111-1111-1111-1111-111111111
 -- anônimo não executa as funções
 reset role; set role anon;
 do $$ begin
-  begin perform public.storage_used_bytes('11111111-1111-1111-1111-111111111111'); raise exception 'deveria ter falhado';
+  begin perform public.storage_used_bytes('11111111-1111-1111-1111-111111111111'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 reset role;
@@ -169,7 +169,7 @@ reset role;
 update public.subscriptions set trial_ends_at = now() - interval '1 day' where user_id = '11111111-1111-1111-1111-111111111111';
 set role authenticated; set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 do $$ begin
-  begin insert into public.imported_models (title, source) values ('x', 'manual'); raise exception 'deveria ter falhado';
+  begin insert into public.imported_models (title, source) values ('x', 'manual'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 reset role;

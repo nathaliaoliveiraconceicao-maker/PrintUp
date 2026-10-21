@@ -26,17 +26,17 @@ values ('eeeeeeee-0000-0000-0000-000000000002', 'Vaso', 'Decoração', 10, 25, 3
 select pg_temp.assert((select count(*) from public.products where id in ('eeeeeeee-0000-0000-0000-000000000001','eeeeeeee-0000-0000-0000-000000000002')) = 2 and not exists (select 1 from public.products where user_id <> auth.uid()), 'A vê só os seus produtos');
 -- URL de origem precisa ser http(s)
 do $$ begin
-  begin insert into public.products (name, source_url) values ('x', 'javascript:alert(1)'); raise exception 'deveria ter falhado';
+  begin insert into public.products (name, source_url) values ('x', 'javascript:alert(1)'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 -- estoque negativo é rejeitado
 do $$ begin
-  begin update public.products set stock_qty = -1 where id = 'eeeeeeee-0000-0000-0000-000000000002'; raise exception 'deveria ter falhado';
+  begin update public.products set stock_qty = -1 where id = 'eeeeeeee-0000-0000-0000-000000000002'; raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 -- foto na pasta de outro usuário é rejeitada
 do $$ begin
-  begin update public.products set photo_path = '22222222-2222-2222-2222-222222222222/p.png' where id = 'eeeeeeee-0000-0000-0000-000000000002'; raise exception 'deveria ter falhado';
+  begin update public.products set photo_path = '22222222-2222-2222-2222-222222222222/p.png' where id = 'eeeeeeee-0000-0000-0000-000000000002'; raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 update public.products set archived_at = now() where id = 'eeeeeeee-0000-0000-0000-000000000002';
@@ -45,15 +45,15 @@ select pg_temp.assert((select archived_at is not null from public.products where
 insert into public.customers (id, name, phone) values ('ffffffff-0000-0000-0000-000000000001', 'Cliente A', '11999990000');
 insert into public.business_profiles (business_name, brand_color) values ('Oficina A', '#112233');
 do $$ begin
-  begin update public.business_profiles set brand_color = 'vermelho'; raise exception 'deveria ter falhado';
+  begin update public.business_profiles set brand_color = 'vermelho'; raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 do $$ begin
-  begin update public.business_profiles set default_validity_days = 0; raise exception 'deveria ter falhado';
+  begin update public.business_profiles set default_validity_days = 0; raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 do $$ begin
-  begin update public.business_profiles set logo_path = '22222222-2222-2222-2222-222222222222/l.png'; raise exception 'deveria ter falhado';
+  begin update public.business_profiles set logo_path = '22222222-2222-2222-2222-222222222222/l.png'; raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 
@@ -72,23 +72,23 @@ do $$ begin
   begin perform public.save_quote(null,
     '{"customer_name":"X","issue_date":"2026-01-10","valid_until":"2026-01-20","discount_type":"nenhum","discount_value":0,"subtotal":999,"discount_total":0,"total":999}'::jsonb,
     '[{"kind":"personalizacao","name":"a","quantity":1,"unit_price":10,"discount_percent":0,"line_total":10}]'::jsonb);
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 select pg_temp.assert((select count(*) from public.quotes) = 1, 'transação desfeita: sem orçamento órfão');
 -- sem itens: rejeitado
 do $$ begin
   begin perform public.save_quote(null, '{"customer_name":"X","issue_date":"2026-01-10","valid_until":"2026-01-20","discount_type":"nenhum","discount_value":0,"subtotal":0,"discount_total":0,"total":0}'::jsonb, '[]'::jsonb);
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 -- constraints do cabeçalho: total != subtotal - desconto, validade anterior à emissão, desconto > 100%
 do $$ begin
-  begin update public.quotes set total = 1 where id = (select id from q); raise exception 'deveria ter falhado';
+  begin update public.quotes set total = 1 where id = (select id from q); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 do $$ begin
-  begin update public.quotes set valid_until = '2025-01-01' where id = (select id from q); raise exception 'deveria ter falhado';
+  begin update public.quotes set valid_until = '2025-01-01' where id = (select id from q); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '23514' then null; end;
 end $$;
 -- produto de outro usuário não entra no orçamento
@@ -108,7 +108,7 @@ do $$ begin
   begin perform public.save_quote((select id from q),
     '{"customer_name":"X","issue_date":"2026-01-10","valid_until":"2026-01-20","discount_type":"nenhum","discount_value":0,"subtotal":10,"discount_total":0,"total":10}'::jsonb,
     '[{"kind":"personalizacao","name":"a","quantity":1,"unit_price":10,"discount_percent":0,"line_total":10}]'::jsonb);
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0002' then null; end;
 end $$;
 -- B tenta criar orçamento com cliente de A / item com produto de A
@@ -116,19 +116,19 @@ do $$ begin
   begin perform public.save_quote(null,
     '{"customer_id":"ffffffff-0000-0000-0000-000000000001","customer_name":"X","issue_date":"2026-01-10","valid_until":"2026-01-20","discount_type":"nenhum","discount_value":0,"subtotal":10,"discount_total":0,"total":10}'::jsonb,
     '[{"kind":"personalizacao","name":"a","quantity":1,"unit_price":10,"discount_percent":0,"line_total":10}]'::jsonb);
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 do $$ begin
   begin perform public.save_quote(null,
     '{"customer_name":"X","issue_date":"2026-01-10","valid_until":"2026-01-20","discount_type":"nenhum","discount_value":0,"subtotal":10,"discount_total":0,"total":10}'::jsonb,
     '[{"kind":"produto","product_id":"eeeeeeee-0000-0000-0000-000000000001","name":"a","quantity":1,"unit_price":10,"discount_percent":0,"line_total":10}]'::jsonb);
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 -- B tenta usar produto de A em produto próprio (impressora/cálculo alheios)
 do $$ begin
-  begin insert into public.products (name, pricing_id) values ('x', 'eeeeeeee-0000-0000-0000-0000000000a1'); raise exception 'deveria ter falhado';
+  begin insert into public.products (name, pricing_id) values ('x', 'eeeeeeee-0000-0000-0000-0000000000a1'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 -- numeração é por usuário: o primeiro de B também é nº 1
@@ -153,26 +153,26 @@ select pg_temp.assert((select total from public.quotes where id = (select id fro
 update public.quotes set status = 'enviado', sent_at = now() where id = (select id from q);
 -- enviado: conteúdo travado
 do $$ begin
-  begin update public.quotes set total = 1, subtotal = 1 where id = (select id from q); raise exception 'deveria ter falhado';
+  begin update public.quotes set total = 1, subtotal = 1 where id = (select id from q); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 do $$ begin
-  begin update public.quotes set customer_name = 'Outro' where id = (select id from q); raise exception 'deveria ter falhado';
+  begin update public.quotes set customer_name = 'Outro' where id = (select id from q); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 do $$ begin
-  begin update public.quote_items set unit_price = 1 where quote_id = (select id from q); raise exception 'deveria ter falhado';
+  begin update public.quote_items set unit_price = 1 where quote_id = (select id from q); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 do $$ begin
-  begin delete from public.quote_items where quote_id = (select id from q); raise exception 'deveria ter falhado';
+  begin delete from public.quote_items where quote_id = (select id from q); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 do $$ begin
   begin perform public.save_quote((select id from q),
     '{"customer_name":"Cliente A","issue_date":"2026-01-10","valid_until":"2026-01-20","discount_type":"nenhum","discount_value":0,"subtotal":10,"discount_total":0,"total":10}'::jsonb,
     '[{"kind":"personalizacao","name":"a","quantity":1,"unit_price":10,"discount_percent":0,"line_total":10}]'::jsonb);
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 select pg_temp.assert((select count(*) from public.quote_items where quote_id = (select id from q)) = 2, 'itens do enviado preservados');
@@ -185,11 +185,11 @@ select pg_temp.assert((select name from public.quote_items where quote_id = (sel
 -- transições
 update public.quotes set status = 'aprovado', decided_at = now() where id = (select id from q);
 do $$ begin
-  begin update public.quotes set status = 'enviado' where id = (select id from q); raise exception 'deveria ter falhado';
+  begin update public.quotes set status = 'enviado' where id = (select id from q); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 do $$ begin
-  begin update public.quotes set status = 'rascunho' where id = (select id from q); raise exception 'deveria ter falhado';
+  begin update public.quotes set status = 'rascunho' where id = (select id from q); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 -- novo orçamento de A recebe nº 2 (não reutiliza)
@@ -205,7 +205,7 @@ select pg_temp.assert((select customer_id from public.quotes where id = (select 
 -- ═════ Anônimo ═════
 reset role; set role anon;
 do $$ begin
-  begin perform public.save_quote(null, '{}'::jsonb, '[]'::jsonb); raise exception 'deveria ter falhado';
+  begin perform public.save_quote(null, '{}'::jsonb, '[]'::jsonb); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 -- sem policy para anon: a tabela pode ser lida (privilégio padrão do Supabase), mas nenhuma linha é visível
@@ -224,7 +224,7 @@ do $$ declare i int; begin
   begin
     perform public.save_quote(null, '{"customer_name":"L","issue_date":"2026-01-10","valid_until":"2026-01-20","discount_type":"nenhum","discount_value":0,"subtotal":10,"discount_total":0,"total":10}'::jsonb,
       '[{"kind":"personalizacao","name":"a","quantity":1,"unit_price":10,"discount_percent":0,"line_total":10}]'::jsonb);
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 select pg_temp.assert((select count(*) from public.quotes) = 10, 'limite do plano trial: 10 orçamentos');
@@ -236,11 +236,11 @@ insert into storage.objects (bucket_id, name, metadata) values ('user-images', '
 insert into storage.objects (bucket_id, name, metadata) values ('quote-pdfs', '11111111-1111-1111-1111-111111111111/q1.pdf', '{"size": 2000}');
 select pg_temp.assert(public.storage_used_bytes() = 3000, 'consumo soma os três buckets');
 do $$ begin
-  begin insert into storage.objects (bucket_id, name, metadata) values ('user-images', '22222222-2222-2222-2222-222222222222/x.png', '{"size": 1}'); raise exception 'deveria ter falhado';
+  begin insert into storage.objects (bucket_id, name, metadata) values ('user-images', '22222222-2222-2222-2222-222222222222/x.png', '{"size": 1}'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 do $$ begin
-  begin insert into storage.objects (bucket_id, name, metadata) values ('quote-pdfs', '22222222-2222-2222-2222-222222222222/x.pdf', '{"size": 1}'); raise exception 'deveria ter falhado';
+  begin insert into storage.objects (bucket_id, name, metadata) values ('quote-pdfs', '22222222-2222-2222-2222-222222222222/x.pdf', '{"size": 1}'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 -- B não enxerga os arquivos de A
@@ -250,7 +250,7 @@ select pg_temp.assert((select count(*) from storage.objects) = 0, 'B não lista 
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 insert into storage.objects (bucket_id, name, metadata) values ('user-images', '11111111-1111-1111-1111-111111111111/grande.png', '{"size": 52428800}');
 do $$ begin
-  begin insert into storage.objects (bucket_id, name, metadata) values ('quote-pdfs', '11111111-1111-1111-1111-111111111111/q2.pdf', '{"size": 10}'); raise exception 'deveria ter falhado';
+  begin insert into storage.objects (bucket_id, name, metadata) values ('quote-pdfs', '11111111-1111-1111-1111-111111111111/q2.pdf', '{"size": 10}'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 reset role;

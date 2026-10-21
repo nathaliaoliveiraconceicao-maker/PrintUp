@@ -21,7 +21,7 @@ select pg_temp.assert((select onboarding_done_at is not null from public.profile
 -- e continua sem poder virar superadmin
 set role authenticated; set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 do $$ begin
-  begin update public.profiles set role = 'superadmin' where id = auth.uid(); raise exception 'deveria ter falhado';
+  begin update public.profiles set role = 'superadmin' where id = auth.uid(); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when others then if sqlerrm like 'deveria%' then raise; end if; end;
 end $$;
 reset role;

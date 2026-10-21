@@ -31,7 +31,7 @@ do $$ begin
   begin
     insert into public.pricings (product_id, quantity, pricing_mode, unit_cost, unit_price, unit_profit, margin_percent, markup_percent, input, result)
     values ('aaaaaaaa-0000-0000-0000-000000000001', 1, 'margin', 1, 2, 1, 50, 100, '{}', '{}');
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 
@@ -43,7 +43,7 @@ do $$ declare v_printer uuid; begin
   begin
     insert into public.pricings (product_id, printer_id, quantity, pricing_mode, unit_cost, unit_price, unit_profit, margin_percent, markup_percent, input, result)
     values ('aaaaaaaa-0000-0000-0000-000000000002', v_printer, 1, 'margin', 1, 2, 1, 50, 100, '{}', '{}');
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate '42501' then null; end;
 end $$;
 
@@ -60,7 +60,7 @@ select pg_temp.assert((select count(*) from public.audit_log where entity = 'pri
 set role authenticated; set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 insert into public.products (name) select 'p' || g from generate_series(1, 9) g;
 do $$ begin
-  begin insert into public.products (name) values ('11o'); raise exception 'deveria ter falhado';
+  begin insert into public.products (name) values ('11o'); raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 
@@ -77,7 +77,7 @@ do $$ declare v_prod uuid; begin
   begin
     insert into public.pricings (product_id, quantity, pricing_mode, unit_cost, unit_price, unit_profit, margin_percent, markup_percent, input, result)
     values (v_prod, 1, 'margin', 1, 2, 1, 50, 100, '{}', '{}');
-    raise exception 'deveria ter falhado';
+    raise exception 'deveria ter falhado' using errcode = 'XX999';
   exception when sqlstate 'P0001' then null; end;
 end $$;
 reset role;
