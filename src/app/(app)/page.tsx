@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Calculator, FileUp, Layers, Package, Printer, Settings } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
+import { GettingStarted } from "@/features/onboarding/getting-started";
 import type { PricingRow } from "@/features/products/schema";
 import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -42,6 +43,13 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader title={firstName ? `Olá, ${firstName}` : "Início"} description="Vamos precificar sua próxima peça?" />
+
+      <GettingStarted
+        printers={printers.count ?? 0}
+        filaments={filaments.count ?? 0}
+        hasSettings={Boolean(settingsRes.data)}
+        pricings={latest.length}
+      />
 
       <Link
         href="/calculadora"

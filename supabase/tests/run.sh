@@ -9,4 +9,5 @@ trap 'psql -q -d postgres -c "drop database if exists $DB" >/dev/null' EXIT
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f 00_supabase_stub.sql -f ../migrations/0001_core.sql -f rls.test.sql \
   -f ../migrations/0002_products_pricings.sql -f rls_etapa2.test.sql \
   -f ../migrations/0004_harden_functions.sql -f rls_etapa0.test.sql \
-  -f ../migrations/0005_imports.sql -f rls_importacao.test.sql
+  -f ../migrations/0005_imports.sql -f rls_importacao.test.sql \
+  -f seed_pre0006.sql -f ../migrations/0006_catalog_quotes.sql -f rls_catalogo.test.sql

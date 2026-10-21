@@ -1,7 +1,6 @@
 -- RASCUNHO (não aplicado) das etapas seguintes. Ver docs/ROADMAP.md.
--- quotes(id, user_id, customer_name, status, valid_until, total, created_at)
--- quote_items(id, quote_id, product_id, pricing_id, quantity, unit_price)
 -- sales_channels(id, user_id, name, fee_percent, fee_fixed, tax_percent, is_default)
 -- filament_spools(id, user_id, filament_id, initial_g, remaining_g, price_paid, status) + stock_movements
--- product_photos(id, product_id, path, position)
+-- orders(id, user_id, quote_id, status, due_date) + order_items + production_jobs   (a partir de orçamentos aprovados)
+-- feedback(id, user_id, kind, message, page, created_at)
 -- Todas com RLS "user_id = auth.uid()" e trigger enforce_plan_limit quando houver limite.
