@@ -10,11 +10,11 @@ const jwt = () => `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: USER.id, ro
 const session = () => ({ access_token: jwt(), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + ++n, user: USER });
 
 let PASSWORD = "senha-de-teste-123";
-const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles"];
+const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles", "orders", "order_items", "order_payments", "production_jobs", "job_reservations", "filament_spools", "stock_movements"];
 const db = Object.fromEntries(TABLES.map((t) => [t, []]));
 const LIMITS = { printers: 1, filaments: 5, products: 10 };
 // Valores padrão das colunas (o banco real os aplica; o dublê precisa imitar para os testes não enxergarem `undefined`).
-const DEFAULTS = { printers: { purchase_price: 0, lifespan_hours: null, power_watts: 0, hourly_cost: 0, hourly_includes_energy: false, hourly_includes_wear: false, hourly_includes_fixed: false, wear_per_hour: 0 }, filaments: { material: "PLA", spool_weight_g: 1000 }, cost_settings: { monthly_fixed_costs: 0, fixed_allocation: "per_hour", productive_hours_per_month: 160, monthly_units: 0, energy_price_per_kwh: 0.9, labor_hourly_rate: 0, loss_percent: 5, sale_fee_percent: 0, sale_fee_fixed: 0, tax_percent: 0, margin_percent: 30 }, products: { stock_qty: 0, archived_at: null }, business_profiles: { brand_color: "#d94e1b", default_validity_days: 7 } };
+const DEFAULTS = { printers: { purchase_price: 0, lifespan_hours: null, power_watts: 0, hourly_cost: 0, hourly_includes_energy: false, hourly_includes_wear: false, hourly_includes_fixed: false, wear_per_hour: 0 }, filaments: { material: "PLA", spool_weight_g: 1000, min_stock_g: 250 }, cost_settings: { monthly_fixed_costs: 0, fixed_allocation: "per_hour", productive_hours_per_month: 160, monthly_units: 0, energy_price_per_kwh: 0.9, labor_hourly_rate: 0, loss_percent: 5, sale_fee_percent: 0, sale_fee_fixed: 0, tax_percent: 0, margin_percent: 30 }, products: { stock_qty: 0, archived_at: null }, business_profiles: { brand_color: "#d94e1b", default_validity_days: 7 } };
 const AUDITED = ["printers", "filaments", "products", "pricings", "imported_models"];
 db.profiles.push({ id: "11111111-1111-1111-1111-111111111111", full_name: "Teste Mock", business_name: null, onboarding_done_at: null });
 const objects = new Map(); // caminho no bucket -> { bytes, contentType }
@@ -37,6 +37,8 @@ function filter(rows, q) {
     if (["select", "order", "limit", "offset", "on_conflict"].includes(k)) continue;
     let m = /^eq\.(.*)$/.exec(v);
     if (m) rows = rows.filter((r) => String(r[k]) === m[1]);
+    m = /^neq\.(.*)$/.exec(v);
+    if (m) rows = rows.filter((r) => String(r[k]) !== m[1]);
     if (v === "is.null") rows = rows.filter((r) => r[k] == null);
     if (v === "is.not.null") rows = rows.filter((r) => r[k] != null);
     m = /^in\.\((.*)\)$/.exec(v);
@@ -138,6 +140,10 @@ async function storage(req, res, p) {
 }
 
 
+const stage5 = require("./mock-stage5.cjs")({ db, USER, tick: () => ++n });
+const STAGE5_RPC = ["save_order", "convert_quote_to_order", "create_spool", "adjust_spool", "create_job", "reserve_job", "set_job_stage", "complete_job", "report_failure", "cancel_job", "cancel_order"];
+const rpcResponse = (res, req, r) => (r.error ? send(req, res, r.error.status, r.error.body) : send(req, res, 200, r.ok === undefined ? null : r.ok));
+
 // Equivalente do `save_quote` do banco: número por usuário, travas de status e conferência da soma dos itens.
 async function saveQuoteRpc(req, res) {
   const { p_quote_id: id, p_quote: q, p_items: items } = await readBody(req);
@@ -184,9 +190,15 @@ http.createServer(async (req, res) => {
   if (p === "/auth/v1/user") return /Bearer .+\..+\./.test(req.headers.authorization || "") ? send(req, res, 200, USER) : send(req, res, 401, { code: 401, msg: "no token" });
   if (p === "/auth/v1/logout") return send(req, res, 204);
   if (p === "/rest/v1/rpc/save_quote") return saveQuoteRpc(req, res);
+  const rpcName = /^\/rest\/v1\/rpc\/(\w+)$/.exec(p)?.[1];
+  if (rpcName && STAGE5_RPC.includes(rpcName)) {
+    return rpcResponse(res, req, stage5.rpc(rpcName, await readBody(req)));
+  }
   if (p === "/rest/v1/rpc/current_entitlements") return send(req, res, 200, [{ plan_code: "trial", status: "trialing", limits: { max_printers: 1, max_filaments: 5 }, features: {}, active: true }]);
   if (p === "/rest/v1/subscriptions") return send(req, res, 200, { status: "trialing", trial_ends_at: new Date(Date.now() + 13 * 864e5).toISOString(), plan: { name: "Teste grátis" } });
   // Só para os testes: volta o assistente de primeiro acesso ao estado "pendente".
+  // Só para os testes: simula a passagem do tempo (prazo vencido) sem esperar dias.
+  if (p === "/__set_order_due") { const b = await readBody(req); const o = db.orders.find((r) => r.number === b.number); if (o) o.due_date = b.due; return send(req, res, 200, {}); }
   if (p === "/__reset_onboarding") { db.profiles.forEach((r) => { r.onboarding_done_at = null; }); return send(req, res, 200, {}); }
 
   const t = /^\/rest\/v1\/(\w+)$/.exec(p)?.[1];
@@ -221,9 +233,11 @@ http.createServer(async (req, res) => {
       db[t].push({ ...(prev ? {} : DEFAULTS[t] || {}), ...(prev || {}), ...items[0] });
       return send(req, res, 201);
     }
+    for (const it of items) { const bad = stage5.beforeInsert(t, it); if (bad) return send(req, res, bad.status, bad.body); }
+    if (["filament_spools", "stock_movements", "production_jobs", "job_reservations"].includes(t)) return send(req, res, 403, { code: "42501", message: "new row violates row-level security policy" });
     if (LIMITS[t] && db[t].length >= LIMITS[t]) return send(req, res, 400, { code: "P0001", message: `Limite do plano atingido (max_${t})` });
     const created = items.map((it) => ({ ...(DEFAULTS[t] || {}), id: crypto.randomUUID(), user_id: USER.id, is_active: true, created_at: new Date(Date.now() + ++n).toISOString(), ...it }));
-    for (const it of created) { db[t].push(it); audit("insert", it); }
+    for (const it of created) { db[t].push(it); audit("insert", it); stage5.afterInsert(t, it); }
     if (pref.includes("return=representation")) return send(req, res, 201, single ? created[0] : created);
     return send(req, res, 201);
   }
@@ -238,12 +252,16 @@ http.createServer(async (req, res) => {
         if (r.status !== "rascunho" && (!body.status || body.status === r.status) && Object.keys(body).some((k) => !META.includes(k) && body[k] !== r[k])) return send(req, res, 400, { code: "P0001", message: "Orçamento enviado ou decidido não pode ser alterado. Duplique-o para fazer mudanças." });
       }
     }
-    hit.forEach((r) => Object.assign(r, body));
+    for (const r of hit) { const bad = stage5.beforePatch(t, r, body); if (bad) return send(req, res, bad.status, bad.body); }
+    if (["stock_movements", "production_jobs", "job_reservations"].includes(t)) return send(req, res, 204);
+    hit.forEach((r) => { Object.assign(r, body); stage5.afterPatch(t, r); });
     if (pref.includes("return=representation")) return send(req, res, 200, single ? hit[0] : hit);
     return send(req, res, 204);
   }
   if (req.method === "DELETE") {
     const del = new Set(filter(db[t], q));
+    for (const r of del) { const bad = stage5.beforeDelete(t, r); if (bad) return send(req, res, bad.status, bad.body); }
+    if (["stock_movements", "order_payments", "filament_spools", "production_jobs", "job_reservations"].includes(t)) return send(req, res, 204);
     del.forEach((r) => audit("delete", r));
     db[t] = db[t].filter((r) => !del.has(r));
     const ids = new Set([...del].map((d) => d.id));
@@ -251,10 +269,18 @@ http.createServer(async (req, res) => {
     if (t === "products") {
       db.pricings = db.pricings.filter((r) => !ids.has(r.product_id));
       db.quote_items.forEach((r) => { if (ids.has(r.product_id)) r.product_id = null; });
+      db.order_items.forEach((r) => { if (ids.has(r.product_id)) r.product_id = null; });
     }
     if (t === "pricings") db.products.forEach((r) => { if (ids.has(r.pricing_id)) r.pricing_id = null; });
     if (t === "customers") db.quotes.forEach((r) => { if (ids.has(r.customer_id)) r.customer_id = null; });
-    if (t === "quotes") db.quote_items = db.quote_items.filter((r) => !ids.has(r.quote_id));
+    if (t === "quotes") { db.quote_items = db.quote_items.filter((r) => !ids.has(r.quote_id)); db.orders.forEach((r) => { if (ids.has(r.quote_id)) r.quote_id = null; }); }
+    if (t === "orders") {
+      const jobIds = new Set(db.production_jobs.filter((j) => ids.has(j.order_id)).map((j) => j.id));
+      db.order_items = db.order_items.filter((r) => !ids.has(r.order_id));
+      db.order_payments = db.order_payments.filter((r) => !ids.has(r.order_id));
+      db.production_jobs = db.production_jobs.filter((r) => !ids.has(r.order_id));
+      db.job_reservations = db.job_reservations.filter((r) => !jobIds.has(r.job_id));
+    }
     if (t === "imported_models") {
       const gone = new Set(db.print_profiles.filter((r) => ids.has(r.model_id)).map((r) => r.id));
       db.print_profiles = db.print_profiles.filter((r) => !ids.has(r.model_id));

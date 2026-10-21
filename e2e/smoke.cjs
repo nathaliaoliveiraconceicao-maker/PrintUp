@@ -84,7 +84,7 @@ async function main() {
   ok(true, "painel tem os 6 atalhos");
   await p.goto(B + "/");
   ok(p.url() === B + "/", "depois de pular, o assistente não volta sozinho");
-  ok((await p.locator("aside").getByText("em breve").count()) >= 2 && (await p.locator("aside").getByRole("link", { name: /Pedidos|Estoque/ }).count()) === 0, "menu: Pedidos e Estoque aparecem como 'em breve', sem link");
+  ok((await Promise.all(["Pedidos", "Produção", "Estoque"].map((l) => p.locator("aside").getByRole("link", { name: l }).count()))).every((c) => c === 1) && (await p.locator("aside").getByText("em breve").count()) === 0, "menu: Pedidos, Produção e Estoque agora são links reais (nada marcado como 'em breve')");
 
   // Refazer o assistente (a pedido), validando e salvando cada passo
   await fetch(`http://127.0.0.1:${MOCK_PORT}/__reset_onboarding`);
@@ -250,7 +250,7 @@ async function main() {
   await m.getByRole("link", { name: "Mais" }).click();
   await m.waitForURL(/mais/);
   const maisTxt = await m.locator("main").innerText();
-  ok(["Importar modelo", "Filamentos", "Configurações", "Histórico", "Configuração guiada"].every((x) => maisTxt.includes(x)) && maisTxt.includes("Pedidos") && maisTxt.includes("em breve"), "celular: 'Mais' leva a Importar, Filamentos, Configurações, Histórico e mostra Pedidos/Estoque como 'em breve'");
+  ok(["Importar modelo", "Filamentos", "Configurações", "Histórico", "Configuração guiada", "Meus produtos", "Estoque de filamento"].every((x) => maisTxt.includes(x)) && !maisTxt.includes("em breve"), "celular: 'Mais' leva a Produtos, Estoque, Importar, Filamentos, Configurações, Histórico e à configuração guiada");
   ok(!(await m.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)), "celular: sem rolagem horizontal");
 
   // ═══════════ ETAPA 3: catálogo, negócio e orçamentos ═══════════
@@ -473,7 +473,7 @@ async function main() {
   // Aprovar, histórico por status, excluir rascunho
   await p.getByRole("button", { name: "Marcar como aprovado" }).click();
   await p.waitForFunction(() => document.body.innerText.includes("Aprovado"));
-  ok(await p.getByRole("button", { name: /Transformar em pedido/ }).isDisabled(), "aprovado: 'transformar em pedido' aparece desabilitado (etapa futura)");
+  ok(await p.getByRole("button", { name: "Transformar em pedido" }).isEnabled(), "aprovado: 'Transformar em pedido' está disponível");
   const sellerView = (await p.goto(`${B}/orcamentos/${q1}`) && (await p.locator('[data-testid="visao-vendedor"]').innerText())).replace(/\s+/g, " ");
   const profitShown = /Resultado sobre o custo (R\$\s?[\d.]+,\d\d)/.exec(sellerView)?.[1];
   await p.goto(B + "/");
@@ -501,15 +501,259 @@ async function main() {
   // Celular
   const mq = await browser.newPage({ viewport: { width: 390, height: 800 } });
   await mq.context().addCookies(await p.context().cookies());
-  for (const route of ["/", "/calculadora", "/calculadora?modo=avancado", "/boas-vindas?refazer=1", "/orcamentos/novo", "/orcamentos", "/produtos", "/negocio", "/mais"]) {
+  for (const route of ["/", "/calculadora", "/calculadora?modo=avancado", "/boas-vindas?refazer=1", "/orcamentos/novo", "/orcamentos", "/produtos", "/negocio", "/mais", "/pedidos", "/pedidos/novo", "/producao", "/estoque"]) {
     await mq.goto(B + route);
     await shot(mq, "mobile" + route.replace(/[/?=]/g, "-"));
     ok(await mq.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `celular: ${route} sem rolagem horizontal`);
   }
   await mq.goto(B + "/produtos");
   const bottom = mq.getByRole("navigation", { name: "Principal" });
-  ok((await Promise.all(["Painel", "Precificar", "Produtos", "Orçamentos", "Mais"].map((l) => bottom.getByRole("link", { name: l }).count()))).every((c) => c === 1), "celular: navegação inferior com Painel, Precificar, Produtos, Orçamentos e Mais");
+  ok((await Promise.all(["Painel", "Precificar", "Orçamentos", "Pedidos", "Produção", "Mais"].map((l) => bottom.getByRole("link", { name: l }).count()))).every((c) => c === 1), "celular: navegação inferior com Painel, Precificar, Orçamentos, Pedidos, Produção e Mais");
   await mq.close();
+
+  // ═══════════ ETAPA 5: estoque, pedidos, produção ═══════════
+  const money = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }).replace(/ /g, " ");
+  const bodyTxt = async () => (await p.locator("main").innerText()).replace(/\s+/g, " ").replace(/ /g, " ");
+
+  // Estoque: duas bobinas do mesmo material e cor
+  await p.goto(B + "/estoque");
+  ok((await bodyTxt()).includes("sem bobinas"), "estoque: filamento sem bobinas aparece como 'sem bobinas' (sem alarme)");
+  for (const [maker, g, price, loc] of [["Marca X", "300", "36", "Prateleira 1"], ["Marca Y", "200", "24", "Prateleira 2"]]) {
+    await p.getByRole("button", { name: "Nova bobina" }).click();
+    const f = p.locator('[data-testid="form-bobina"]');
+    await f.getByLabel("Fabricante").fill(maker);
+    await f.getByLabel("Peso inicial (g)").fill(g);
+    await f.getByLabel("Valor pago (R$)").fill(price);
+    await f.getByLabel("Local de armazenamento").fill(loc);
+    await f.getByRole("button", { name: "Cadastrar bobina" }).click();
+    await p.waitForFunction((m) => document.querySelector('[data-testid="lista-bobinas"]')?.innerText.includes(m), maker);
+  }
+  t = await bodyTxt();
+  ok(t.includes("2 bobinas") && /No saldo 500 g/.test(t) && t.includes("Reservado 0 g") && /Disponível 500 g/.test(t), "estoque: duas bobinas do mesmo filamento somam 500 g disponíveis");
+
+  // Converter orçamento aprovado em pedido — sem duplicar, nem com duas abas
+  await p.goto(`${B}/orcamentos/${q1}`);
+  const stale = await browser.newPage({ viewport: { width: 1200, height: 900 } });
+  await stale.context().addCookies(await p.context().cookies());
+  await stale.goto(`${B}/orcamentos/${q1}`);
+  await stale.waitForSelector('[data-testid="transformar-pedido"]');
+  await p.locator('[data-testid="transformar-pedido"]').click();
+  await p.waitForURL(/pedidos\/[0-9a-f-]{36}$/);
+  const o1 = p.url().split("/").pop();
+  t = await bodyTxt();
+  ok(t.includes("Pedido #0001") && t.includes("Ana Souza") && t.includes("orçamento de origem") && t.includes("Pagamento pendente") && t.includes(money(121.5)), "converter: pedido nº 1 criado com cliente, total e vínculo com o orçamento");
+  await stale.locator('[data-testid="transformar-pedido"]').click();
+  await stale.waitForURL(/pedidos\/[0-9a-f-]{36}$/);
+  ok(stale.url().endsWith(o1), "converter de novo (aba desatualizada): leva ao MESMO pedido, sem duplicar");
+  await stale.close();
+  await p.goto(B + "/pedidos");
+  ok((await p.locator('[data-testid="lista-pedidos"] li').count()) === 1, "um orçamento gera um único pedido");
+  await p.goto(`${B}/orcamentos/${q1}`);
+  ok((await p.getByRole("link", { name: "Ver pedido deste orçamento" }).count()) === 1 && (await p.locator('[data-testid="transformar-pedido"]').count()) === 0, "orçamento convertido mostra 'Ver pedido' e some o botão de converter");
+
+  // Pedido: lotes e reserva de filamento
+  await p.goto(`${B}/pedidos/${o1}`);
+  const itensP = p.locator('[data-testid="item-do-pedido"]');
+  ok((await itensP.count()) === 3, "pedido tem os 3 itens do orçamento");
+  const lote = async (i, qty) => {
+    await itensP.nth(i).locator('[data-testid="criar-lote"]').click();
+    const f = itensP.nth(i).locator('[data-testid="form-lote"]');
+    await f.locator("input").first().fill(String(qty));
+    await f.getByRole("button", { name: "Criar e reservar material" }).click();
+    await p.waitForFunction(() => document.body.innerText.includes("Lote criado e material reservado."));
+    jobsExpected += 1;
+    await p.waitForFunction((n) => document.querySelectorAll('[data-testid="tarefa"]').length >= n, jobsExpected);
+  };
+  let jobsExpected = 0;
+  await lote(0, 1);
+  { const tt = await bodyTxt(); ok(tt.includes("Reservado 80 g"), "lote de 1 Vaso reserva 80 g (peso do produto × quantidade)" + (tt.includes("Reservado 80 g") ? "" : ` [${tt.slice(tt.indexOf("Itens e produção"), tt.indexOf("Itens e produção") + 700)}]`)); }
+  await lote(0, 1);
+  await lote(1, 1);
+  t = await bodyTxt();
+  ok((await p.locator('[data-testid="tarefa"]').count()) === 3 && (await itensP.nth(0).locator('[data-testid="criar-lote"]').count()) === 0, `pedido dividido em 2 lotes do Vaso + 1 do Suporte; item totalmente distribuído [tarefas=${await p.locator('[data-testid="tarefa"]').count()} botoes=${await itensP.nth(0).locator('[data-testid="criar-lote"]').count()}]`);
+  ok(/Personalização\/serviço: não vai para a fila/.test(t), "personalização não vai para a produção");
+  await p.goto(B + "/estoque");
+  t = await bodyTxt();
+  ok(/Reservado 260 g/.test(t) && /No saldo 500 g/.test(t) && /Disponível 240 g/.test(t), "reservar não baixa o saldo físico: 500 g no saldo, 260 g reservados, 240 g disponíveis");
+  ok((await p.locator('[data-testid="alertas-estoque"]').innerText()).includes("estoque baixo"), "alerta de estoque baixo (240 g disponíveis < mínimo de 250 g)");
+
+  // Pedido manual maior que o estoque: estoque insuficiente
+  await p.goto(B + "/pedidos/novo");
+  await p.getByLabel("Nome", { exact: true }).fill("Bia Lima");
+  const optV = await p.getByLabel("Adicionar produto").evaluate((el) => [...el.options].find((o) => o.text.startsWith("Vaso espiral —")).value);
+  await p.getByLabel("Adicionar produto").selectOption(optV);
+  await p.locator('[data-testid="item-pedido"]').first().getByLabel("Qtd.").fill("5");
+  await p.locator('[data-testid="item-pedido"]').first().getByLabel("Preço unit. (R$)").fill("50");
+  ok((await p.locator('[data-testid="totais-pedido"]').innerText()).replace(/\s+/g, " ").replace(/ /g, " ").includes("Total " + money(250)), "pedido manual: total 250,00 na tela");
+  await p.getByRole("button", { name: "Criar pedido" }).click();
+  await p.waitForURL(/pedidos\/[0-9a-f-]{36}$/);
+  const o2 = p.url().split("/").pop();
+  ok((await bodyTxt()).includes("Pedido #0002"), "pedido manual criado (nº 2)");
+  await p.locator('[data-testid="criar-lote"]').first().click();
+  await p.locator('[data-testid="form-lote"]').getByRole("button", { name: "Criar e reservar material" }).click();
+  await p.waitForSelector('[data-testid="form-lote"] [role=alert]');
+  t = (await p.locator('[data-testid="form-lote"] [role=alert]').innerText()).replace(/\s+/g, " ");
+  ok(/Estoque insuficiente: faltam 160/.test(t), "estoque insuficiente: avisa quanto falta (faltam 160 g de PLA Preto)");
+  ok((await p.locator('[data-testid="tarefa"]').count()) === 0, "estoque insuficiente: a tarefa não é criada");
+  await p.getByRole("button", { name: "Criar mesmo assim, sem reservar" }).click();
+  await p.waitForSelector('[data-testid="tarefa"]');
+  ok((await bodyTxt()).includes("Sem material reservado"), "criada sem reserva: a tarefa avisa 'Sem material reservado'");
+  await p.goto(B + "/estoque");
+  ok(/Reservado 260 g/.test(await bodyTxt()), "o lote sem reserva não comprometeu o estoque dos outros pedidos");
+
+  // Pedido atrasado (simula a passagem do tempo no dublê)
+  await fetch(`http://127.0.0.1:${MOCK_PORT}/__set_order_due`, { method: "POST", body: JSON.stringify({ number: 2, due: "2020-01-01" }) });
+  await p.goto(B + "/pedidos");
+  t = await bodyTxt();
+  ok(/Atrasados 1/.test(t) && (await p.locator('[data-testid="lista-pedidos"] li', { hasText: "Bia Lima" }).getByText(/Atrasado/).count()) === 1, "pedido com prazo vencido aparece como atrasado");
+  await p.goto(B + "/pedidos?atrasados=1");
+  ok((await p.locator('[data-testid="lista-pedidos"] li').count()) === 1 && (await bodyTxt()).includes("Bia Lima"), "filtro 'só atrasados'");
+  await p.goto(B + "/producao");
+  ok((await p.locator('[data-testid="avisos-producao"]').innerText()).includes("atrasada"), "produção: aviso de tarefa atrasada");
+  ok((await p.locator('[data-testid="coluna-aguardando"] [data-testid="tarefa"]').count()) === 4, "kanban: 4 tarefas em Aguardando");
+  await p.goto(B + "/producao?atrasados=1");
+  ok((await p.locator('[data-testid="tarefa"]').count()) === 1, "kanban: filtro de atrasadas");
+  await p.goto(B + "/producao?impressora=00000000-0000-0000-0000-000000000000");
+  ok((await p.locator('[data-testid="tarefa"]').count()) === 0, "kanban: filtro por impressora sem resultados");
+
+  // Produção: avançar, falhar, concluir com consumo real diferente do previsto
+  await p.goto(B + "/producao");
+  const card = (name, n = 0) => p.locator('[data-testid="tarefa"]', { hasText: name }).filter({ hasText: "Pedido #0001" }).nth(n);
+  await card("Vaso espiral").getByRole("button", { name: "Avançar para preparando" }).click();
+  await p.waitForSelector('[data-testid="coluna-preparando"] [data-testid="tarefa"]');
+  await p.locator('[data-testid="coluna-preparando"] [data-testid="tarefa"]').getByRole("button", { name: "Avançar para imprimindo" }).click();
+  await p.waitForSelector('[data-testid="coluna-imprimindo"] [data-testid="tarefa"]');
+  await p.goto(`${B}/pedidos/${o1}`);
+  ok((await bodyTxt()).includes("Em produção"), "iniciar a produção move o pedido para 'Em produção'");
+  await p.goto(B + "/producao");
+  const sup = p.locator('[data-testid="tarefa"]', { hasText: "Suporte de celular" });
+  await sup.getByRole("button", { name: "Falha" }).click();
+  await sup.locator('[data-testid="painel-falha"]').getByLabel("Material perdido (g)").fill("20");
+  await sup.getByRole("button", { name: "Registrar falha" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Falha registrada"));
+  await p.waitForFunction(() => /1 falha/.test(document.body.innerText));
+  { const tt = await p.locator('[data-testid="tarefa"]', { hasText: "Suporte de celular" }).first().innerText(); ok(tt.includes("1 falha"), `falha de impressão registrada na tarefa [${tt.replace(/\s+/g, " ")}]`); }
+  await p.goto(B + "/estoque");
+  t = await bodyTxt();
+  ok(/No saldo 480 g/.test(t) && /Reservado 260 g/.test(t), "falha baixou 20 g do estoque (480 g) e manteve a reserva da reimpressão");
+
+  await p.goto(B + "/producao");
+  const concluir = async (locator, grams, minutes) => {
+    await locator.getByRole("button", { name: "Concluir" }).click();
+    const panel = locator.locator('[data-testid="painel-concluir"]');
+    await panel.getByLabel("Consumo real (g)").fill(grams);
+    if (minutes) await panel.getByLabel("Tempo real (min)").fill(minutes);
+    await panel.getByRole("button", { name: "Concluir e baixar estoque" }).click();
+    await p.waitForFunction(() => document.body.innerText.includes("Tarefa concluída e consumo registrado."));
+  };
+  await concluir(p.locator('[data-testid="coluna-imprimindo"] [data-testid="tarefa"]', { hasText: "Vaso espiral" }), "90");
+  await p.goto(B + "/estoque");
+  t = await bodyTxt();
+  ok(/No saldo 390 g/.test(t) && /Reservado 180 g/.test(t), "consumo real (90 g) diferente do previsto (80 g): saldo 390 g; reserva do lote liberada");
+  await p.goto(B + "/producao");
+  ok((await p.locator('[data-testid="coluna-concluido"] [data-testid="tarefa"]').innerText()).includes("90"), "kanban: tarefa concluída mostra o consumo real");
+  await concluir(card("Vaso espiral"), "80");
+  await concluir(card("Suporte de celular"), "100");
+  await p.goto(`${B}/pedidos/${o1}`);
+  ok((await p.locator("h1").innerText()).includes("#0001") && (await bodyTxt()).includes("Pronto"), "todas as unidades concluídas: pedido fica 'Pronto'");
+  await p.goto(B + "/estoque");
+  t = await bodyTxt();
+  ok(/No saldo 210 g/.test(t) && /Reservado 0 g/.test(t), "estoque final: 500 − 90 − 80 − 100 − 20 (falha) = 210 g, nada reservado");
+  await p.goto(B + "/estoque");
+  const spoolHref = await p.locator('[data-testid="lista-bobinas"] a', { hasText: "Marca X" }).first().getAttribute("href");
+  await p.goto(B + spoolHref);
+  t = await bodyTxt();
+  ok(t.includes("Entrada") && t.includes("Reserva") && t.includes("Consumo") && t.includes("Falha de impressão"), `histórico da bobina: entrada, reserva, consumo e falha [${t.slice(t.indexOf("Histórico de mov"), t.indexOf("Histórico de mov") + 500)}]`);
+  await p.locator('[data-testid="ajuste-bobina"]').getByLabel("Saldo correto (g)").fill("150");
+  await p.locator('[data-testid="ajuste-bobina"]').getByLabel("Motivo").fill("contagem física");
+  await p.getByRole("button", { name: "Ajustar saldo" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Saldo ajustado"));
+  await p.reload();
+  ok((await bodyTxt()).includes("Ajuste"), "ajuste manual fica registrado no histórico");
+  await p.locator('[data-testid="ajuste-bobina"]').getByLabel("Saldo correto (g)").fill("10");
+  await p.locator('[data-testid="ajuste-bobina"]').getByLabel("Motivo").fill("voltar ao valor");
+  await p.getByRole("button", { name: "Ajustar saldo" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Saldo ajustado"));
+
+  // Pagamento: parcial, excesso recusado, quitação; lucro realizado
+  await p.goto(`${B}/pedidos/${o1}`);
+  t = await bodyTxt();
+  ok(/Custo estimado/.test(t) && /Lucro realizado/.test(t), `antes de receber: bloco financeiro presente [${t.slice(t.indexOf("Custos e lucro"), t.indexOf("Custos e lucro") + 400)}]`);
+  await p.getByRole("button", { name: "Lançar recebimento" }).click();
+  await p.locator('[data-testid="form-pagamento"]').getByLabel("Valor recebido (R$)").fill("50");
+  await p.locator('[data-testid="form-pagamento"]').getByRole("button", { name: "Confirmar" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Pago em parte"));
+  t = await bodyTxt();
+  ok(t.includes("Pago em parte") && t.includes("A receber " + money(71.5)) && t.includes("Pagamento parcial: o custo real é reconhecido na mesma proporção"), "pagamento parcial: recebido R$ 50, a receber R$ 71,50 e lucro realizado proporcional");
+  await p.getByRole("button", { name: "Lançar recebimento" }).click();
+  await p.locator('[data-testid="form-pagamento"]').getByLabel("Valor recebido (R$)").fill("100");
+  await p.locator('[data-testid="form-pagamento"]').getByRole("button", { name: "Confirmar" }).click();
+  await p.waitForSelector('[data-testid="form-pagamento"] [role=alert]');
+  ok((await p.locator('[data-testid="form-pagamento"] [role=alert]').innerText()).includes("passa do saldo"), "recebimento acima do saldo é recusado com mensagem");
+  await p.locator('[data-testid="form-pagamento"]').getByLabel("Valor recebido (R$)").fill("71,50");
+  await p.locator('[data-testid="form-pagamento"]').getByRole("button", { name: "Confirmar" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Pedido quitado"));
+  t = await bodyTxt();
+  ok(t.includes("Pago") && t.includes("Receita recebida " + money(121.5)) && !/Lucro realizado —/.test(t), "quitado: receita recebida R$ 121,50 e lucro realizado calculado");
+  const realized = /Lucro realizado (R\$ [\d.,]+)/.exec(t)?.[1];
+  const realCost = /Custo real (R\$ [\d.,]+)/.exec(t)?.[1];
+  ok(Boolean(realized && realCost), `custo real (${realCost}) e lucro realizado (${realized}) aparecem separados do estimado`);
+  await p.getByRole("button", { name: "Marcar como entregue" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Entregue"));
+  ok((await p.getByRole("button", { name: "Cancelar pedido" }).count()) === 0, "pedido entregue não pode ser cancelado");
+
+  // Painel: indicadores reais de pedidos e produção
+  await p.goto(B + "/");
+  t = (await p.locator('[data-testid="indicadores-pedidos"]').innerText()).replace(/\s+/g, " ").replace(/ /g, " ");
+  ok(/Pedidos em aberto 1/.test(t) && /Atrasados 1/.test(t) && /Concluídos \(entregues\) 1/.test(t), "painel: 1 pedido em aberto, 1 atrasado, 1 entregue");
+  ok(t.includes("Valor de vendas (pedidos) " + money(371.5)) && t.includes("A receber " + money(250)) && t.includes("Receita recebida " + money(121.5)), "painel: vendas R$ 371,50, a receber R$ 250,00 e recebido R$ 121,50 (só o que foi lançado)");
+  ok(/Consumo de filamento 290 g/.test(t), "painel: consumo de filamento = 290 g (consumo real + falha)");
+  ok(/Lucro realizado R\$/.test(t) && /Lucro estimado R\$/.test(t), "painel: lucro estimado e lucro realizado");
+
+  // Cancelar pedido libera a reserva e mantém o que foi consumido
+  await p.goto(`${B}/pedidos/${o2}`);
+  p.once("dialog", (d) => d.accept());
+  await p.getByRole("button", { name: "Cancelar pedido" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Cancelado"));
+  ok((await p.locator('[data-testid="tarefa"]').innerText()).includes("Cancelado") && (await p.getByRole("button", { name: "Lançar recebimento" }).count()) === 0, "cancelar: tarefas encerradas e novos pagamentos bloqueados");
+  await p.goto(B + "/");
+  t = (await p.locator('[data-testid="indicadores-pedidos"]').innerText()).replace(/\s+/g, " ").replace(/ /g, " ");
+  ok(t.includes("Valor de vendas (pedidos) " + money(121.5)) && /Atrasados 0/.test(t), "cancelado sai das vendas e dos atrasados");
+
+  // Cadastro e edição de pedido manual (persistência) e exclusão
+  await p.goto(B + "/pedidos/novo");
+  await p.getByLabel("Nome", { exact: true }).fill("Caio Reis");
+  await p.getByRole("button", { name: "Personalização" }).click();
+  await p.locator('[data-testid="item-pedido"]').first().getByLabel("Personalização / serviço").fill("Chaveiro");
+  await p.locator('[data-testid="item-pedido"]').first().getByLabel("Preço unit. (R$)").fill("12");
+  await p.getByLabel("Forma de pagamento").selectOption("pix");
+  await p.getByRole("button", { name: "Criar pedido" }).click();
+  await p.waitForURL(/pedidos\/[0-9a-f-]{36}$/);
+  const o3 = p.url().split("/").pop();
+  await p.getByRole("link", { name: "Editar itens" }).click();
+  await p.waitForURL(/editar/);
+  await p.locator('[data-testid="item-pedido"]').first().getByLabel("Qtd.").fill("3");
+  await p.getByRole("button", { name: "Salvar alterações" }).click();
+  await p.waitForURL(new RegExp(`/pedidos/${o3}$`));
+  await p.reload();
+  t = await bodyTxt();
+  ok(t.includes("Caio Reis") && t.includes(money(36)) && t.includes("Pix"), "pedido manual editado: 3 × R$ 12 = R$ 36 e forma de pagamento persistem");
+  await p.locator('[data-testid="detalhes-pedido"] input[type=date]').fill("2099-12-31");
+  await p.getByRole("button", { name: "Salvar prazo e observações" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("Salvo."));
+  await p.reload();
+  ok((await p.locator('[data-testid="detalhes-pedido"] input[type=date]').inputValue()) === "2099-12-31", "prazo de entrega persiste");
+  p.once("dialog", (d) => d.accept());
+  await p.getByRole("button", { name: "Excluir" }).click();
+  await p.waitForURL(B + "/pedidos");
+  ok(!(await bodyTxt()).includes("Caio Reis"), "pedido novo, sem produção, pode ser excluído");
+  await shot(p, "pedidos-desktop");
+  await p.goto(`${B}/pedidos/${o1}`);
+  await shot(p, "pedido-detalhe-desktop");
+  await p.goto(B + "/producao");
+  await shot(p, "producao-desktop");
+  await p.goto(B + "/estoque");
+  await shot(p, "estoque-desktop");
 
   // ── Exclusão de produto e logout ──
   await p.goto(`${B}/produtos/${suporteId}`);

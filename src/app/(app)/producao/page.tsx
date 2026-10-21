@@ -79,12 +79,12 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
           Nenhuma tarefa de produção ainda. Abra um <Link href="/pedidos" className="font-medium text-accent-strong underline">pedido</Link> e use <strong>Criar lote de produção</strong>.
         </Card>
       ) : (
-        <div className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 lg:mx-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:px-0" data-testid="kanban">
+        <div className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 lg:mx-0 lg:px-0" data-testid="kanban">
           {JOB_STAGES.map((stage) => {
             let col = filtered.filter((x) => x.j.stage === stage);
             if (stage === "concluido") col = col.slice(-RECENT_DONE).reverse();
             return (
-              <section key={stage} aria-labelledby={`col-${stage}`} data-testid={`coluna-${stage}`} className={cn("w-[85vw] shrink-0 snap-center space-y-3 rounded-2xl bg-paper p-3 sm:w-80 lg:w-auto", stage === "concluido" && "opacity-95")}>
+              <section key={stage} aria-labelledby={`col-${stage}`} data-testid={`coluna-${stage}`} className={cn("w-[85vw] shrink-0 snap-center space-y-3 self-start rounded-2xl bg-paper p-3 sm:w-80", stage === "concluido" && "opacity-95")}>
                 <h2 id={`col-${stage}`} className="flex items-center justify-between px-1 text-sm font-semibold">
                   {JOB_STAGE_LABEL[stage as JobStage]}
                   <span className="num rounded-full bg-surface px-2 py-0.5 text-xs text-muted">{col.length}</span>

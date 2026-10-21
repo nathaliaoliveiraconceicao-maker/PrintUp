@@ -7,7 +7,7 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - `npm run lint` · `npm run typecheck` · `npm test` (Vitest) — rodar os três antes de concluir qualquer tarefa
 - `npm run check:env` — confere variáveis de ambiente sem imprimir valores
 - `npm run test:e2e` — fluxos no navegador contra um Supabase **falso** local (`e2e/`); constrói o app sozinho (pasta `.next-e2e`) e exige Chromium (`PLAYWRIGHT_CHROMIUM_PATH`)
-- `npm run test:db` — valida migrations (0001, 0002, 0004, 0005 e 0006) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
+- `npm run test:db` — valida migrations (0001, 0002, 0004–0008), RLS e **concorrência real** (`concurrency.sh`) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
 
 ## Importador
 - Leitura no navegador (`parseBlob`); servidor revalida tudo (`saveImportSchema`) e confere os objetos no Storage. Arquivos em `model-files/<user_id>/…`; o original só é guardado se o usuário pedir.
@@ -20,6 +20,12 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - Orçamento = **retrato**: itens guardam nome, preço, desconto, total e custo da época. Contas em **centavos** (`quotes/calc.ts`), refeitas no servidor; gravação atômica via RPC `save_quote`. Depois de `enviado`, o conteúdo é travado no banco (`quotes_guard`).
 - O PDF do cliente nunca tem custo, margem ou lucro: `QuotePdfData` nem possui esses campos e há teste que extrai o texto do PDF. Custo interno só na tela do vendedor.
 - Imagens (`user-images`) e PDFs (`quote-pdfs`) são privados, em `<user_id>/…`; o servidor confere o tipo real pelos bytes (`lib/image-type.ts`). `status = 'expirado'` é derivado da validade (não gravado).
+
+## Pedidos, produção e estoque (Etapa 5) — `docs/PEDIDOS-PRODUCAO-ESTOQUE.md`
+- Estoque por bobina com **dois saldos**: `remaining_g` (físico) e `reserved_g` (comprometido). Orçamento nunca mexe em estoque; criar tarefa **reserva**, concluir **consome** (valor REAL), cancelar **libera**. Saldos só mudam via funções SQL (`create_job`, `complete_job`, `report_failure`, `cancel_*`, `adjust_spool`) que travam linhas e escrevem no livro-razão imutável `stock_movements` (idempotente por chave). Nunca dar UPDATE direto em saldo.
+- Pedido: status de produção/entrega (`orders.status`) é independente do pagamento (`order_payments`; `payment_status` e `amount_paid` são derivados por trigger). Receita recebida = soma dos lançamentos. Um orçamento gera no máximo um pedido (índice único + RPC idempotente).
+- Custo real e lucro realizado: `features/orders/financials.ts` (puro e testado). Lucro realizado só existe com a produção concluída (proporcional ao recebido) ou pedido cancelado; antes disso é "em andamento".
+- Testes SQL usam o sentinela `raise exception 'deveria ter falhado' using errcode = 'XX999'` (com P0001 o teste se auto-captura e passa vazio).
 
 ## Next.js 16 (leia `node_modules/next/dist/docs/` antes de usar APIs novas)
 - `middleware` agora é `src/proxy.ts`. `params`, `searchParams`, `cookies()`, `headers()` são **assíncronos**.
