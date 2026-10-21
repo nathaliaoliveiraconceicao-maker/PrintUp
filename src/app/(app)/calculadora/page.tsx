@@ -19,7 +19,7 @@ export default async function CalculatorPage({ searchParams }: { searchParams: P
     supabase.from("printers").select("*").eq("is_active", true).order("name"),
     supabase.from("filaments").select("*").eq("is_active", true).order("name"),
     supabase.from("cost_settings").select("*").maybeSingle(),
-    supabase.from("products").select("id, name").order("name"),
+    supabase.from("products").select("id, name").is("archived_at", null).order("name"),
   ]);
 
   // Perfil de impressão (importado ou manual) que pré-preenche tempo, peso e material.

@@ -33,6 +33,11 @@ export function zodToState(error: z.ZodError): FormState {
 /** Traduz erros do Postgres/Supabase para mensagens ao usuário (sem vazar detalhes internos). */
 export function dbErrorMessage(err: { code?: string; message?: string }): string {
   if (err.code === "P0001") {
+    // Mensagens próprias das regras de orçamento (migration 0006): seguras para mostrar.
+    if (err.message?.includes("não pode ser alterado")) return "Este orçamento já foi enviado e não pode ser alterado. Duplique-o para fazer mudanças.";
+    if (err.message?.includes("Mudança de status")) return "Essa mudança de status não é permitida.";
+    if (err.message?.includes("totais")) return "Os totais do orçamento não fecham. Revise os itens e tente de novo.";
+    if (err.message?.includes("ao menos um item")) return "Adicione ao menos um item ao orçamento.";
     return err.message?.includes("Limite")
       ? "Você atingiu o limite do seu plano. Faça upgrade para cadastrar mais itens."
       : "Sua assinatura está inativa ou expirada.";

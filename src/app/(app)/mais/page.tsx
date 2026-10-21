@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, History, Layers, Printer, Settings } from "lucide-react";
+import { ArrowRight, History, Layers, Printer, Settings, Store } from "lucide-react";
 import { PageHeader } from "@/components/ui/card";
 
 export const metadata = { title: "Mais" };
 
 const LINKS = [
+  { href: "/negocio", label: "Meu negócio", detail: "Logo, contato e padrões dos orçamentos em PDF", icon: Store },
   { href: "/impressoras", label: "Impressoras", detail: "Custo e potência de cada máquina", icon: Printer },
   { href: "/filamentos", label: "Filamentos", detail: "Preço por kg dos seus materiais", icon: Layers },
   { href: "/configuracoes", label: "Custos e margens", detail: "Custos fixos, energia, taxas, impostos", icon: Settings },

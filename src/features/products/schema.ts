@@ -6,6 +6,8 @@ export const savePricingSchema = z
   .object({
     productId: z.uuid().optional(),
     newProductName: z.string().trim().min(1, "Dê um nome ao produto.").max(120).optional(),
+    /** Categoria do produto novo (opcional). */
+    category: z.string().trim().max(60).optional(),
     printerId: z.uuid().nullish(),
     filamentId: z.uuid().nullish(),
     /** Perfil de impressão (importado ou manual) que originou os dados; o servidor confere e registra a origem. */

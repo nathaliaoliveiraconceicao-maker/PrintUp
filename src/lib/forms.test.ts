@@ -33,4 +33,9 @@ describe("zodToState / dbErrorMessage", () => {
     expect(dbErrorMessage({ code: "P0001", message: "Limite do plano atingido (max_printers)" })).toMatch(/limite/i);
     expect(dbErrorMessage({ code: "XX" })).toMatch(/Não foi possível/);
   });
+  it("traduz as regras de orçamento sem vazar texto técnico", () => {
+    expect(dbErrorMessage({ code: "P0001", message: "Orçamento enviado ou decidido não pode ser alterado. Duplique-o." })).toMatch(/Duplique/);
+    expect(dbErrorMessage({ code: "P0001", message: "Mudança de status não permitida (aprovado -> rascunho)" })).not.toMatch(/->/);
+    expect(dbErrorMessage({ code: "P0001", message: "Os totais do orçamento não fecham com a soma dos itens" })).toMatch(/não fecham/);
+  });
 });

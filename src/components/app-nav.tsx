@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calculator, FileUp, Home, Layers, Package, Printer, Settings, History, MoreHorizontal } from "lucide-react";
+import { Calculator, FileText, FileUp, Home, Layers, Package, Printer, Settings, History, MoreHorizontal, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: string; icon: typeof Home; also?: string[] };
@@ -12,6 +12,8 @@ const SIDE: Item[] = [
   { href: "/importar", label: "Importar", icon: FileUp },
   { href: "/calculadora", label: "Calculadora", icon: Calculator },
   { href: "/produtos", label: "Produtos", icon: Package },
+  { href: "/orcamentos", label: "Orçamentos", icon: FileText },
+  { href: "/negocio", label: "Meu negócio", icon: Store },
   { href: "/impressoras", label: "Impressoras", icon: Printer },
   { href: "/filamentos", label: "Filamentos", icon: Layers },
   { href: "/configuracoes", label: "Custos", icon: Settings },
@@ -24,7 +26,8 @@ const BOTTOM: Item[] = [
   { href: "/importar", label: "Importar", icon: FileUp },
   { href: "/calculadora", label: "Calculadora", icon: Calculator },
   { href: "/produtos", label: "Produtos", icon: Package },
-  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/impressoras", "/filamentos", "/configuracoes", "/historico"] },
+  { href: "/orcamentos", label: "Orçamentos", icon: FileText },
+  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/negocio", "/impressoras", "/filamentos", "/configuracoes", "/historico"] },
 ];
 
 const isActive = (path: string, { href, also = [] }: Item) =>
@@ -55,7 +58,7 @@ export function SideNav() {
 export function BottomNav() {
   const path = usePathname();
   return (
-    <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-20 grid h-16 grid-cols-5 border-t border-line bg-surface lg:hidden">
+    <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-20 grid h-16 grid-cols-6 border-t border-line bg-surface lg:hidden">
       {BOTTOM.map((item) => (
         <Link
           key={item.href}

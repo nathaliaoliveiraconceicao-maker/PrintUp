@@ -5,6 +5,7 @@ import { dbErrorMessage } from "@/lib/forms";
 import { calculatePricing, PRICING_ENGINE_VERSION } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/server";
 import { comparePrinters } from "@/features/imports/printer-match";
+import { catalogCostsFromPricing } from "./from-pricing";
 import { savePricingSchema, type ImportInfo, type SavePricingState } from "./schema";
 
 const close = (a: number | null, b: number) => a !== null && Math.abs(a - b) < 0.005;
@@ -16,7 +17,7 @@ const close = (a: number | null, b: number) => a !== null && Math.abs(a - b) < 0
 export async function savePricing(payload: unknown): Promise<SavePricingState> {
   const parsed = savePricingSchema.safeParse(payload);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
-  const { input, productId, newProductName, printerId, filamentId, profileId } = parsed.data;
+  const { input, productId, newProductName, category, printerId, filamentId, profileId } = parsed.data;
   const result = calculatePricing(input);
 
   const supabase = await createClient();
@@ -24,7 +25,7 @@ export async function savePricing(payload: unknown): Promise<SavePricingState> {
   // Nomes lidos do banco (e não do cliente) para o histórico ficar legível mesmo se o item for excluído depois.
   const [printer, filament] = await Promise.all([
     printerId ? supabase.from("printers").select("name").eq("id", printerId).maybeSingle() : null,
-    filamentId ? supabase.from("filaments").select("name").eq("id", filamentId).maybeSingle() : null,
+    filamentId ? supabase.from("filaments").select("name, material, color").eq("id", filamentId).maybeSingle() : null,
   ]);
 
   // Perfil de origem (RLS garante que é do usuário). Origens e diferenças são calculadas AQUI, a partir do gravado.
@@ -61,13 +62,13 @@ export async function savePricing(payload: unknown): Promise<SavePricingState> {
   let targetId = productId;
   let createdProduct = false;
   if (!targetId) {
-    const { data, error } = await supabase.from("products").insert({ name: newProductName, model_id: modelId }).select("id").single();
+    const { data, error } = await supabase.from("products").insert({ name: newProductName, model_id: modelId, category: category || null }).select("id").single();
     if (error || !data) return { error: dbErrorMessage(error ?? {}) };
     targetId = data.id as string;
     createdProduct = true;
   }
 
-  const { error } = await supabase.from("pricings").insert({
+  const { data: savedPricing, error } = await supabase.from("pricings").insert({
     product_id: targetId,
     printer_id: printer?.data ? printerId : null,
     filament_id: filament?.data ? filamentId : null,
@@ -85,13 +86,30 @@ export async function savePricing(payload: unknown): Promise<SavePricingState> {
     print_profile_id: profileId ?? null,
     import_info: importInfo,
     engine_version: PRICING_ENGINE_VERSION,
-  });
+  }).select("id").single();
 
-  if (error) {
+  if (error || !savedPricing) {
     // Não deixa produto órfão se a precificação falhou logo após criá-lo.
     if (createdProduct) await supabase.from("products").delete().eq("id", targetId);
-    return { error: dbErrorMessage(error) };
+    return { error: dbErrorMessage(error ?? {}) };
   }
+
+  // O produto passa a refletir este cálculo (custos, preço, margem, peso, tempo). Só acontece quando o usuário salva:
+  // mexer depois em filamento/impressora NÃO altera o produto sozinho (há a opção "recalcular" na tela de produtos).
+  const filamentRow = filament?.data as { name: string; material: string; color: string | null } | null | undefined;
+  const { error: updErr } = await supabase
+    .from("products")
+    .update({
+      ...catalogCostsFromPricing(input, result),
+      pricing_id: savedPricing.id,
+      printer_id: printer?.data ? printerId : null,
+      printer_name: printer?.data?.name ?? null,
+      filament_id: filamentRow ? filamentId : null,
+      filament_type: filamentRow?.material ?? null,
+      filament_color: filamentRow?.color ?? null,
+    })
+    .eq("id", targetId);
+  if (updErr) return { error: dbErrorMessage(updErr) };
 
   revalidatePath("/calculadora");
   revalidatePath("/produtos");
