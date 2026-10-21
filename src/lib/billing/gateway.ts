@@ -49,6 +49,9 @@ export interface GatewaySnapshot {
   charges: { id: string; status: "recebida" | "falhou" | "vencida" | "estornada" | "pendente" | "cancelada"; amountCents: number; paidAt?: string; dueDate?: string; method?: PaymentMethodKind; updatedAt: string }[];
 }
 
+/** O gateway não respondeu (rede/5xx): o webhook devolve 500 para ele reenviar mais tarde. */
+export class GatewayUnavailableError extends Error {}
+
 export interface BillingGateway {
   readonly id: string;
   /** Cria a cobrança recorrente no gateway e devolve a URL onde o cliente paga. */
@@ -59,7 +62,8 @@ export interface BillingGateway {
   changePlan(gatewaySubscriptionId: string, req: { planCode: string; amountCents: number; cycle: BillingCycle; gatewayPriceId?: string }): Promise<void>;
   /** Autenticidade: confere a assinatura/token no corpo BRUTO. */
   verifyWebhook(rawBody: string, headers: Headers): boolean;
-  parseWebhook(rawBody: string): CanonicalEvent[];
+  /** Pode consultar o gateway (ex.: Mercado Pago só avisa o id; o estado vem da API com a NOSSA chave). Falha de rede → `GatewayUnavailableError`. */
+  parseWebhook(rawBody: string): CanonicalEvent[] | Promise<CanonicalEvent[]>;
   /** Situação atual no gateway, para reconciliação (webhooks podem se perder). */
   fetchSnapshot(gatewaySubscriptionId: string): Promise<GatewaySnapshot | null>;
 }
@@ -71,7 +75,7 @@ export function simulatorAllowed(env: Record<string, string | undefined>): boole
 
 export type GatewayStatus =
   | { enabled: true; gateway: BillingGateway }
-  | { enabled: false; reason: "sem_gateway" | "sem_chave_servidor" | "simulador_bloqueado" };
+  | { enabled: false; reason: "sem_gateway" | "sem_chave_servidor" | "simulador_bloqueado" | "mercadopago_incompleto" | "cobranca_real_bloqueada" };
 
 /** Nenhum gateway real foi aprovado ainda: em produção, contratar fica desabilitado (sem cobrança real). */
 export async function resolveGateway(env: Record<string, string | undefined> = process.env): Promise<GatewayStatus> {
@@ -80,6 +84,16 @@ export async function resolveGateway(env: Record<string, string | undefined> = p
     if (!simulatorAllowed(env)) return { enabled: false, reason: "simulador_bloqueado" };
     const { SimulatedGateway } = await import("./simulated");
     return { enabled: true, gateway: new SimulatedGateway(env.BILLING_WEBHOOK_SECRET) };
+  }
+  if (env.BILLING_GATEWAY === "mercadopago") {
+    const token = env.MERCADOPAGO_ACCESS_TOKEN;
+    const secret = env.MERCADOPAGO_WEBHOOK_SECRET;
+    const site = env.NEXT_PUBLIC_SITE_URL;
+    if (!token || !secret || secret.length < 16 || !site) return { enabled: false, reason: "mercadopago_incompleto" };
+    const { mercadoPagoIsTest, MercadoPagoGateway } = await import("./mercadopago");
+    // Cobrança REAL exige autorização explícita (BILLING_ALLOW_LIVE=sim). Sem ela, só credenciais de teste.
+    if (!mercadoPagoIsTest(token) && env.BILLING_ALLOW_LIVE !== "sim") return { enabled: false, reason: "cobranca_real_bloqueada" };
+    return { enabled: true, gateway: new MercadoPagoGateway({ accessToken: token, webhookSecret: secret, siteUrl: site, testPayerEmail: env.MERCADOPAGO_TEST_PAYER_EMAIL }) };
   }
   return { enabled: false, reason: "sem_gateway" };
 }

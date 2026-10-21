@@ -20,6 +20,8 @@ const DISABLED: Record<string, string> = {
   sem_gateway: "Os pagamentos ainda não estão habilitados. Assim que forem, você poderá contratar por aqui.",
   sem_chave_servidor: "Os pagamentos ainda não foram configurados neste ambiente.",
   simulador_bloqueado: "Os pagamentos ainda não estão habilitados neste ambiente.",
+  mercadopago_incompleto: "Os pagamentos ainda não foram configurados neste ambiente.",
+  cobranca_real_bloqueada: "Os pagamentos reais ainda não foram autorizados neste ambiente.",
 };
 
 /** Autentica o usuário (getUser valida o token) e prepara o gateway. Tudo daqui em diante parte do id do usuário logado. */

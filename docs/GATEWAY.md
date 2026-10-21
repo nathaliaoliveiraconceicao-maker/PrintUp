@@ -1,6 +1,6 @@
-# Gateway de pagamento — comparação e recomendação
+# Gateway de pagamento — Mercado Pago (decidido) e comparação
 
-> Decisão técnica para a Etapa 6. **Nenhum gateway real está integrado**: só existe o adaptador **simulado** (desenvolvimento, bloqueado em produção). Nenhuma cobrança real é feita sem autorização expressa.
+> **Decisão do usuário: Mercado Pago** (já tem conta, pessoa física/CPF). A recomendação técnica original abaixo era Asaas, mas a conta existente pesou mais. Adaptador: `src/lib/billing/mercadopago.ts`. Decisão técnica para a Etapa 6. **Nenhum gateway real está integrado**: só existe o adaptador **simulado** (desenvolvimento, bloqueado em produção). Nenhuma cobrança real é feita sem autorização expressa.
 
 ## Critérios e resultado
 
@@ -17,14 +17,21 @@
 
 > Taxas e prazos de repasse mudam e **não foram confirmados** nas páginas oficiais durante este trabalho. Não use este documento como fonte de preços.
 
-## Recomendação: **Asaas**
+## Recomendação técnica original: Asaas (não adotada)
 
 Motivos: fluxo de assinatura direto (cobrança por ciclo com boleto/cartão/Pix), sandbox completo, webhooks simples de idempotentizar e reconsultar, e menos exigências para um negócio pequeno começar. Ressalvas honestas: o webhook usa token estático — por isso o PrintUp **nunca confia no corpo** do evento: o usuário e o plano vêm do nosso próprio banco (checkout/assinatura) e a **reconciliação** (`fetchSnapshot`) consulta o gateway.
 
-## O que falta para ligar de verdade (depende de você)
-1. Confirmar a escolha (Asaas) e conferir as taxas na página oficial.
-2. Criar a conta Asaas e a chave de **sandbox** (nunca colar chaves no chat).
-3. Eu implemento o adaptador real (`src/lib/billing/asaas.ts`, interface `BillingGateway`) e os testes com respostas gravadas.
-4. Testar em sandbox; só então, com sua autorização, trocar para chaves de produção.
+## Mercado Pago — como está integrado
+- Assinatura `/preapproval` **sem plano associado**, criada como `pending`: o cliente paga no checkout hospedado do Mercado Pago (nenhum dado de cartão passa pelo PrintUp). `external_reference` = id do nosso checkout.
+- Webhook (`/api/webhooks/billing`): verificação do `x-signature` (HMAC-SHA256 do manifesto `id:…;request-id:…;ts:…;`). O aviso traz só o id; o estado é lido da API com **nosso** token, então um corpo forjado não muda nada.
+- Tópicos tratados: `subscription_authorized_payment` (aprovado → confirmada; recusada/reciclando → falhou) e `subscription_preapproval` (cancelada → cancelamento no fim do período). Falha de rede com o Mercado Pago → 500 para ele reenviar.
+- Cancelar: o Mercado Pago cancela na hora (para de cobrar); o PrintUp mantém o plano até o fim do período já pago. Mudar de plano atualiza o valor da recorrência.
+- Pessoa física: use **cartão**. Pix recorrente não é tratado (depende de liberação/CNPJ).
+- **Trava de segurança:** token que não começa com `TEST-` só funciona com `BILLING_ALLOW_LIVE=sim`. Não ligue isso sem decidir lançar.
+- Limitações: o manifesto usa `data.id` do corpo (a documentação cita o parâmetro da URL; confirmar no sandbox). Não foi testado contra o Mercado Pago real, só com respostas simuladas.
 
-Variáveis: `BILLING_GATEWAY` (hoje só `simulado`), `BILLING_WEBHOOK_SECRET` (≥ 16 caracteres), `SUPABASE_SERVICE_ROLE_KEY` (somente servidor).
+## Configurar o ambiente de teste (você)
+1. Mercado Pago Developers → criar aplicação → **credenciais de teste** (token `TEST-…`) e criar **usuário de teste** vendedor e comprador.
+2. Webhooks da aplicação (modo teste): URL `https://SEU-DOMINIO/api/webhooks/billing`, eventos "Planos e assinaturas"; copiar o segredo.
+3. No `.env.local` (nunca no chat): `BILLING_GATEWAY=mercadopago`, `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`, `NEXT_PUBLIC_SITE_URL` (https público; o webhook precisa de URL alcançável, ex.: deploy de preview) e, em teste, `MERCADOPAGO_TEST_PAYER_EMAIL` (e-mail do comprador de teste).
+4. `npm run check:env`.

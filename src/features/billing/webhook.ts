@@ -1,5 +1,5 @@
 import { parseCanonicalEvents } from "@/lib/billing/events";
-import type { BillingGateway, CanonicalEvent } from "@/lib/billing/gateway";
+import { GatewayUnavailableError, type BillingGateway, type CanonicalEvent } from "@/lib/billing/gateway";
 
 export interface WebhookDeps {
   gateway: BillingGateway | null;
@@ -36,11 +36,15 @@ export async function handleBillingWebhook(req: Request, deps: WebhookDeps): Pro
 
   let events: CanonicalEvent[];
   try {
-    const parsed = gateway.parseWebhook(raw);
+    const parsed = await gateway.parseWebhook(raw);
     const checked = parseCanonicalEvents(parsed);
     if (checked.invalid > 0 && checked.events.length === 0) return json(400, { error: "invalid_events" });
     events = checked.events.map((e) => ({ ...e, gateway: gateway.id }));
-  } catch {
+  } catch (e) {
+    if (e instanceof GatewayUnavailableError) {
+      log("webhook_gateway_indisponivel", { gateway: gateway.id });
+      return json(500, { error: "gateway_unavailable" });
+    }
     return json(400, { error: "invalid_body" });
   }
 

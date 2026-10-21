@@ -29,4 +29,4 @@ Em desenvolvimento: `BILLING_GATEWAY=simulado` e `BILLING_WEBHOOK_SECRET=<≥16 
 `npm test` (assinatura, eventos, webhook) · `npm run test:db` (`rls_billing.test.sql`, `concurrency_billing.sh`: limites, upgrade, downgrade, cancelamento, falha, webhook duplicado/inválido, recurso sem permissão, concorrência, dados preservados) · `npm run test:e2e` (fluxo completo no navegador).
 
 ## Pendências
-Aplicar `0009_billing_plans.sql` no SQL Editor · escolher/configurar gateway real (ver `GATEWAY.md`) · rota de reconciliação periódica (cron) ainda não agendada.
+Aplicar `0009_billing_plans.sql` no SQL Editor · configurar credenciais de TESTE do Mercado Pago e validar no sandbox (ver `GATEWAY.md`) · rota de reconciliação periódica (cron) ainda não agendada.

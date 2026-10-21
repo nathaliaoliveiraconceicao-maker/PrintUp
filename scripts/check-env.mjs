@@ -15,7 +15,10 @@ const checks = [
   ["NEXT_PUBLIC_SUPABASE_URL", "obrigatória", (v) => /^https?:\/\/.+/.test(v)],
   ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "obrigatória", (v) => v.length >= 20],
   ["SUPABASE_SERVICE_ROLE_KEY", "só para pagamentos/webhooks (servidor)", (v) => v.length >= 20],
-  ["BILLING_GATEWAY", "opcional: 'simulado' só em desenvolvimento", (v) => v === "simulado"],
+  ["BILLING_GATEWAY", "opcional: 'simulado' (só desenvolvimento) ou 'mercadopago'", (v) => v === "simulado" || v === "mercadopago"],
+  ["MERCADOPAGO_ACCESS_TOKEN", "opcional: use TEST-… até autorizar cobrança real", (v) => v.length >= 20],
+  ["MERCADOPAGO_WEBHOOK_SECRET", "opcional: segredo do webhook (≥ 16 caracteres)", (v) => v.length >= 16],
+  ["NEXT_PUBLIC_SITE_URL", "opcional: URL pública https do app (volta do checkout)", (v) => /^https:\/\/.+/.test(v)],
   ["BILLING_WEBHOOK_SECRET", "opcional: segredo do webhook (≥ 16 caracteres)", (v) => v.length >= 16],
 ];
 

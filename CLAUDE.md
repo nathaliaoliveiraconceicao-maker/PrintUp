@@ -69,4 +69,4 @@ Identidade (Etapa 4): **grafite** (`--ink`), **laranja vibrante** (`--accent`) e
 ## Assinaturas e cobrança (Etapa 6) — `docs/ASSINATURAS.md`, `docs/GATEWAY.md`
 - Plano/limites/recursos vivem em `plans` (jsonb), nunca em constantes. O acesso efetivo vem de `current_entitlements()`; limites por trigger com `pg_advisory_xact_lock`; PDFs por `consume_quota`.
 - **Nunca** ativar plano pago por ação do frontend: só `apply_billing_event` (service_role), chamado pelo webhook verificado (HMAC no corpo bruto, idempotente, fora de ordem ignorado). Usuário/plano vêm do nosso banco, não do payload.
-- Cancelar/rebaixar não apaga dados. Simulador (`BILLING_GATEWAY=simulado`) é bloqueado em produção. Cobrança real só com autorização do usuário; gateway recomendado: Asaas (não integrado).
+- Cancelar/rebaixar não apaga dados. Simulador (`BILLING_GATEWAY=simulado`) é bloqueado em produção. Cobrança real só com autorização do usuário; gateway escolhido: **Mercado Pago** (`lib/billing/mercadopago.ts`; token não-`TEST-` bloqueado sem `BILLING_ALLOW_LIVE=sim`). O webhook do MP traz só o id: o estado vem da API, nunca do corpo.
