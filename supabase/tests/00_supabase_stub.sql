@@ -8,3 +8,9 @@ create function auth.uid() returns uuid language sql stable as $$ select nullif(
 create function auth.role() returns text language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), 'service_role') $$;
 grant usage on schema auth to anon, authenticated;
 grant usage on schema public to anon, authenticated, service_role;
+
+-- Reproduz os privilégios padrão do Supabase: objetos criados no schema public já nascem
+-- acessíveis a anon/authenticated/service_role (por isso o teste não pode "dar" grants depois).
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;

@@ -6,7 +6,8 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - `npm run dev` · `npm run build`
 - `npm run lint` · `npm run typecheck` · `npm test` (Vitest) — rodar os três antes de concluir qualquer tarefa
 - `npm run check:env` — confere variáveis de ambiente sem imprimir valores
-- `npm run test:db` — valida migrations (0001 e 0002) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
+- `npm run test:e2e` — fluxos no navegador contra um Supabase **falso** local (`e2e/`); exige `npm run build` antes e Chromium (`PLAYWRIGHT_CHROMIUM_PATH`)
+- `npm run test:db` — valida migrations (0001, 0002 e 0004) + RLS num Postgres descartável (precisa de `PGHOST/PGPORT/PGUSER`; usa `supabase/tests/00_supabase_stub.sql`, nunca em produção)
 
 ## Next.js 16 (leia `node_modules/next/dist/docs/` antes de usar APIs novas)
 - `middleware` agora é `src/proxy.ts`. `params`, `searchParams`, `cookies()`, `headers()` são **assíncronos**.
@@ -19,6 +20,7 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 - **Nunca inventar dados ausentes** (importações): campo desconhecido é `undefined` e a origem do dado é registrada.
 
 ## Segurança (inegociável)
+- Funções `SECURITY DEFINER` nunca confiam em ids vindos do chamador e têm `EXECUTE` revogado de `public`/`anon` (o Supabase concede a `anon` por padrão). Teste em `supabase/tests/rls_etapa0.test.sql`.
 - Autorização no banco: toda tabela de cliente tem RLS `user_id = auth.uid()`. Nova tabela = RLS + policy + teste em `supabase/tests/rls.test.sql`.
 - Limites e recursos pagos são impostos por trigger/`current_entitlements()`; **nunca** só no frontend.
 - Use `supabase.auth.getUser()` (valida o token), não `getSession()`, para decisões de acesso.

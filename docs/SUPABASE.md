@@ -1,0 +1,38 @@
+# PrintUp — checklist do Supabase
+
+Estado do projeto real do PrintUp (o código não acessa nem guarda credenciais; só o que você confirmou).
+Legenda: ✅ confirmado · ⏳ ação pendente · ❓ não verificado (confira no painel).
+
+## Banco
+| Item | Status | Observação |
+|---|---|---|
+| `0001_core.sql` | ✅ | perfis, planos, assinaturas, impressoras, filamentos, custos, auditoria, RLS |
+| `0002_products_pricings.sql` | ✅ | produtos, precificações imutáveis, view `latest_pricings` |
+| `0004_harden_functions.sql` | ⏳ **rodar no SQL Editor** | corrige leitura de plano de outro usuário via RPC |
+| Trigger de novo usuário (perfil + teste grátis) | ✅ | cadastro real funcionou |
+| Conta superadmin + plano Profissional | ✅ | |
+| Security Advisor (*Database → Advisors*) | ❓ | abrir e enviar o resultado |
+| RLS ligada em todas as tabelas do schema `public` | ❓ | *Table Editor*: nenhuma tabela deve mostrar "RLS disabled" |
+
+## Autenticação
+| Item | Status | Observação |
+|---|---|---|
+| Site URL e Redirect URLs de `localhost:3000` | ✅ | |
+| URL da prévia/produção nos Redirect URLs | ⏳ | quando houver endereço público (ver prévia) |
+| "Confirm email" | ❓ | desligado em desenvolvimento; **ligar antes de lançar** |
+| Tamanho mínimo de senha | ❓ | o app exige 8; alinhe o Supabase (*Sign In / Providers → Email*) |
+| E-mail de confirmação/recuperação | ❓ | o remetente padrão do Supabase serve só para teste e tem limite baixo de envios; **configurar SMTP próprio antes de lançar** |
+| Recuperar senha ("esqueci a senha") | ⏳ | **não existe tela no app ainda**; entra na etapa do assistente/experiência |
+
+## Operação (antes de cobrar clientes)
+| Item | Status | Observação |
+|---|---|---|
+| Região | East US | só latência; trocar exige recriar o projeto (mais fácil antes de haver clientes) |
+| Plano pago, backups e sem pausa por inatividade | ❓ | confirme limites do plano gratuito na página de preços do Supabase |
+| Chaves | ✅ | no app só a chave pública (`publishable`/`anon`). A `secret`/`service_role` só entra na etapa de pagamentos, apenas no servidor |
+| Logs e alertas | ❓ | definir quem recebe aviso de erro |
+
+## Como aplicar a migration 0004 (uma vez)
+1. Abra [`0004_harden_functions.sql`](../supabase/migrations/0004_harden_functions.sql) no GitHub → **Copy raw file**.
+2. Supabase → **SQL Editor → New query** → cole → **Run**.
+3. Esperado: "Success. No rows returned". O app continua funcionando igual.

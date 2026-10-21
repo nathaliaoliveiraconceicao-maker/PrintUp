@@ -15,7 +15,7 @@ Sem `.env.local`, o app abre uma tela de instruções (`/setup`) em vez de quebr
 1. Crie um projeto em https://supabase.com (região São Paulo, se disponível).
 2. **Project Settings → API**: copie *Project URL* e a chave pública (*anon* / *publishable*) para `.env.local`.
    Nunca use a `service_role` no front-end; ela só será necessária na etapa 5 (webhooks) e fica apenas no servidor.
-3. **SQL Editor**: execute `supabase/migrations/0001_core.sql` (cria tabelas, RLS, planos e gatilhos).
+3. **SQL Editor**: execute, nesta ordem, `supabase/migrations/0001_core.sql`, `0002_products_pricings.sql` e `0004_harden_functions.sql`.
 4. **Authentication → URL Configuration**: em *Site URL* use `http://localhost:3000` e em *Redirect URLs* adicione `http://localhost:3000/auth/callback`.
 5. (Opcional, só em desenvolvimento) **Authentication → Providers → Email**: desligue *Confirm email* para entrar logo após o cadastro.
 
@@ -23,6 +23,7 @@ Sem `.env.local`, o app abre uma tela de instruções (`/setup`) em vez de quebr
 ```bash
 npm run lint && npm run typecheck && npm test   # qualidade + fórmulas financeiras
 npm run test:db                                  # migrations + RLS (Postgres descartável, ver CLAUDE.md)
+npm run test:e2e                                 # navegador + Supabase falso local (precisa de build e Chromium)
 npm run build
 ```
 

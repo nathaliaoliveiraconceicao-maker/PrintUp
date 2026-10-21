@@ -5,6 +5,19 @@ Data da análise: 2026-10-21 · Base analisada: branch `etapa-2-produtos` (commi
 
 ---
 
+## Decisões do dono do produto (2026-10-21)
+
+Ordem de desenvolvimento aprovada (substitui a ordem das seções 4 onde diferir):
+1. **Validar e concluir a base**: Supabase, autenticação, impressoras, filamentos, calculadora (**Etapa 0**, em andamento).
+2. **Importação de arquivos 3MF e G-code**, com leitura de peso e tempo quando disponíveis.
+3. **Catálogo de produtos, histórico de precificações e orçamentos em PDF.**
+4. **Experiência visual**: assistente de configuração inicial e calculadora intuitiva (camadas de custo).
+5. **Planos de assinatura, pagamentos e superadministrador.**
+
+Diretrizes: a **precificação automatizada** é o principal diferencial comercial; a **importação por link do MakerWorld** fica no roadmap, **sem ser dependência do MVP**; conceito visual de cores quentes e composição de custos em camadas **aprovado**; cada funcionalidade é testada antes de avançar.
+
+---
+
 ## 1. Situação real
 
 ### 1.1 Código e testes (verificado agora, do zero)
@@ -105,10 +118,10 @@ Requisitos de experiência:
 
 Regra de trabalho: **uma etapa por vez; cada etapa termina com critério de aceite verificado** (testes automatizados + roteiro que você executa no navegador) antes da próxima. Tamanhos: P (pequena), M (média), G (grande).
 
-### Etapa 0 — Endurecimento (P)
+### Etapa 0 — Validação e endurecimento (P) — **implementada; falta aplicar a migration 0004 no Supabase real**
 - Migration `0004`: corrigir `current_entitlements`, revogar execução desnecessária de funções.
 - Teste de regressão (anônimo e outro usuário não leem direitos alheios).
-- Levar E2E (Playwright) para o repositório.
+- E2E (Playwright + Supabase falso local) versionado em `e2e/` (`npm run test:e2e`); checklist do Supabase em `docs/SUPABASE.md`.
 - Você: conferir Security Advisor no Supabase.
 - **Aceite:** `test:db` com o novo teste; Advisors sem erro.
 
