@@ -105,7 +105,7 @@ describe("3MF sem informações de impressão", () => {
     expect(m.hasSliceData).toBe(false);
     expect(m.title).toBe("Engrenagem");
     expect(m.layerHeightMm).toBe(0.15);
-    expect(m.notes[0]).toContain("PrusaSlicer sem fatiamento");
+    expect(m.notes.join(" ")).toContain("PrusaSlicer sem fatiamento");
   });
 
   it("slice_info presente porém sem tempo nem peso => hasSliceData falso", async () => {

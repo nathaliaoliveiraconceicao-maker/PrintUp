@@ -29,6 +29,11 @@ Nome do modelo · autor · programa e versão · impressora (modelo ou código d
 - Bucket `model-files` **privado**, uma pasta por usuário (RLS), links assinados de 1 hora.
 - **Limite de armazenamento por plano**: policy no banco bloqueia novos envios ao atingir `plans.limits.max_storage_mb` (trial 50 · starter 300 · pro 1000, **valores provisórios**). É um teto "flexível": o envio que cruza o limite é aceito, o seguinte é bloqueado.
 
+## Arquivos de exemplo SINTÉTICOS (para testar sem arquivo real)
+Em `public/exemplos/` (gerados por `npm run exemplos:gerar`, a partir do mesmo código dos testes) e disponíveis na tela **Importar → “Sem arquivo à mão? Teste com um exemplo sintético”** (botão **Testar agora**). São 9 arquivos: **3 completos** (3MF com 2 placas e miniatura, G-code estilo Prusa, G-code estilo Bambu), **4 incompletos** (3MF sem fatiamento, 3MF projeto Prusa, G-code Cura sem peso, G-code só com tempo) e **2 inválidos** (texto com extensão .3mf, STL).
+
+**Não são exportações reais** do MakerWorld nem de nenhum programa; os valores são inventados. Cada arquivo carrega o marcador `PRINTUP-SYNTHETIC` (3MF: metadado `PrintUpSynthetic`; G-code: linha de comentário), por isso a ficha exibe o aviso fixo de arquivo sintético, o título começa com “[EXEMPLO SINTÉTICO]” e o aviso é gravado junto aos dados do modelo.
+
 ## O que foi testado (e com quê)
 | Formato / cenário | Como | Resultado |
 |---|---|---|
@@ -41,10 +46,13 @@ Nome do modelo · autor · programa e versão · impressora (modelo ou código d
 | Arquivo acima de 50 MB | fonte simulada + arquivo de 51 MB no navegador | ✅ recusado sem ler |
 | ZIP bomb, zip-slip, senha, duplicados, ZIP64, entradas demais, deflate corrompido | sintético | ✅ recusados |
 | Impressora do arquivo ≠ cadastrada | testes de comparação + ficha + calculadora + histórico | ✅ |
-| Fluxo no navegador (ficha → calculadora → produto) | Playwright + Supabase **falso** | ✅ |
+| Arquivos publicados em `public/exemplos` (completos, incompletos, inválidos) | `samples.test.ts` com valores esperados | ✅ |
+| Marcação de sintético, relatório de leitura (sem vazar conteúdo) | testes unitários | ✅ |
+| Fluxo no navegador (ficha → calculadora → produto), inclusive pelos botões “Testar agora” | Playwright + Supabase **falso** | ✅ |
 | Regras do banco (origens obrigatórias, isolamento, Storage, cota) | Postgres 16 real com stub do Storage | ✅ |
 
 ### NÃO testado (importante)
+- **Validação com arquivos reais: pendente.** Roteiro, critérios de aceite e status por programa em `docs/VALIDACAO-ARQUIVOS-REAIS.md`; ferramenta: `npm run validar:arquivo -- arquivo`.
 - **Nenhum arquivo real** gerado por Bambu Studio, OrcaSlicer, PrusaSlicer ou Cura. Os leitores seguem a estrutura **conhecida** de cada formato; os arquivos de teste foram montados a partir dela. Portanto **não declaramos compatibilidade** com arquivos reais ainda. Para validar: importe um 3MF baixado do MakerWorld e um G-code real; a ficha mostra "Origem dos dados" e a tela do modelo lista o que foi/não foi encontrado.
 - Upload real ao **Supabase Storage** (o teste usa um Storage falso) e as policies do Storage no painel real.
 - Navegadores além do Chromium; `DecompressionStream('deflate-raw')` exige Chrome 103+, Safari 16.4+ ou Firefox 113+.

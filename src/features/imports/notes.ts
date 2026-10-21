@@ -17,3 +17,14 @@ export function missingNotes(m: ParsedModel): string[] {
   if (!m.title) notes.push("Nome do modelo: o arquivo não traz; usamos o nome do arquivo.");
   return notes;
 }
+
+/** Aviso gravado junto aos dados quando o arquivo é um exemplo sintético (a interface o destaca à parte). */
+export const SYNTHETIC_NOTE = "Arquivo SINTÉTICO de exemplo do PrintUp: não é uma exportação real de nenhum programa; serve para testar o fluxo.";
+
+/** Separa o aviso de arquivo sintético dos demais avisos. */
+export function splitNotes(notes: readonly string[]): { synthetic: boolean; rest: string[] } {
+  return { synthetic: notes.includes(SYNTHETIC_NOTE), rest: notes.filter((n) => n !== SYNTHETIC_NOTE) };
+}
+
+/** Marcador que os exemplos sintéticos carregam dentro do próprio arquivo. */
+export const SYNTHETIC_MARKER = "PRINTUP-SYNTHETIC";

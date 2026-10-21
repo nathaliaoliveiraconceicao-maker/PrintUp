@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ImportReview, type RegisteredPrinter } from "./import-review";
 import { parseBlob } from "./parse-file";
+import { SampleFiles } from "./sample-files";
 import type { ParsedModel } from "./types";
 
 type Stage =
@@ -80,6 +81,8 @@ export function ImportWizard({ userId, printers }: { userId: string; printers: R
           </span>
         </div>
       </div>
+
+      <SampleFiles onFile={onFile} onError={(message) => setStage({ kind: "rejected", name: "exemplo", message })} />
 
       {stage.kind === "reading" && (
         <Card role="status" className="text-sm">Lendo “{stage.name}”…</Card>

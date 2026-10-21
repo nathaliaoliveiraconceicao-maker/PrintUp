@@ -330,6 +330,56 @@ async function main() {
   await p.getByRole("button", { name: /Excluir Chaveiro/ }).click();
   await p.waitForURL(B + "/importar");
   ok(!(await main$()).includes("Chaveiro"), "excluir modelo funciona");
+  // ── Exemplos SINTÉTICOS da própria tela (fluxo completo sem nenhum arquivo seu) ──
+  await p.goto(B + "/importar");
+  await p.locator('[data-testid="exemplos"] summary').click();
+  ok((await p.locator('[data-testid="exemplos"]').innerText()).includes("Não são exportações reais"), "exemplos: a tela declara que são sintéticos e NÃO reais");
+  ok((await p.locator('[data-testid^="exemplo-exemplo-sintetico"]').count()) === 9, "exemplos: nove arquivos (completos, incompletos e inválidos)");
+  await p.locator('[data-testid="exemplo-exemplo-sintetico-3mf-completo.3mf"]').click();
+  await p.waitForSelector('[data-testid="origem"]');
+  ok((await p.locator('[data-testid="aviso-sintetico"]').count()) === 1, "exemplo 3MF: aviso fixo de arquivo SINTÉTICO na ficha");
+  ok((await p.locator('input[value="[EXEMPLO SINTÉTICO] Suporte de celular"]').count()) === 1, "exemplo 3MF: nome marcado como exemplo sintético");
+  ok((await p.locator('img[alt="Prévia do modelo"]').evaluate((i) => i.complete && i.naturalWidth === 96)), "exemplo 3MF: miniatura PNG real (96x96) exibida");
+  await p.locator('[data-testid="relatorio"] summary').click();
+  const rel = await p.locator('[data-testid="relatorio"] pre').innerText();
+  ok(rel.includes("Arquivo sintético de exemplo: SIM") && rel.includes("Metadata/slice_info.config") && rel.includes("Placa 1"), "exemplo 3MF: relatório técnico com estrutura e dados lidos");
+  await p.getByRole("button", { name: "Copiar relatório de leitura" }).click();
+  await p.waitForSelector('[data-testid="relatorio"] [role=status]');
+  ok(true, "exemplo 3MF: botão de copiar o relatório responde (copiado ou instrução manual)");
+  await p.getByRole("button", { name: "Calcular preço" }).first().click();
+  await p.waitForURL(/calculadora\?perfil=/);
+  await p.waitForSelector('[data-testid="perfil-banner"]');
+  ok((await p.locator('[data-testid="perfil-banner"]').innerText()).includes("[EXEMPLO SINTÉTICO] Suporte de celular"), "exemplo 3MF → calculadora: dados chegam sem novo preenchimento");
+  ok((await p.getByLabel("Peso (g)").first().inputValue()) === "25,5" && (await p.getByLabel("Horas").first().inputValue()) === "2", "exemplo 3MF → calculadora: peso 25,5 g e 2 h");
+  await p.getByRole("button", { name: "Salvar precificação" }).click();
+  await p.waitForSelector("text=Precificação salva.");
+  await p.getByRole("link", { name: "Ver produto" }).click();
+  await p.waitForURL(/produtos\/[0-9a-f-]{36}/);
+  ok((await p.locator("main").innerText()).includes("[EXEMPLO SINTÉTICO] Suporte de celular"), "exemplo 3MF → produto: salvo no catálogo com a marcação de exemplo");
+  await p.locator('[data-testid="produto-modelo"] a').click();
+  await p.waitForURL(/importar\/[0-9a-f-]{36}/);
+  ok((await p.locator('[data-testid="aviso-sintetico"]').count()) === 1, "modelo salvo continua avisando que veio de arquivo sintético");
+
+  // incompleto: o que falta fica em branco e o fluxo segue
+  await p.goto(B + "/importar");
+  await p.locator('[data-testid="exemplos"] summary').click();
+  await p.locator('[data-testid="exemplo-exemplo-sintetico-gcode-so-tempo.gcode"]').click();
+  await p.waitForSelector('[data-testid="origem"]');
+  ok((await p.getByLabel("Peso (g)").first().inputValue()) === "" && (await p.locator("body").innerText()).includes("Peso do filamento: não encontrado"), "exemplo incompleto: peso em branco e avisado");
+  await p.getByRole("button", { name: "Calcular preço" }).first().click();
+  await p.waitForURL(/calculadora\?perfil=/);
+  ok((await p.getByLabel("Peso (g)").first().inputValue()) === "" && (await p.getByLabel("Minutos").first().inputValue()) === "45,17", "exemplo incompleto → calculadora: só o tempo foi transferido");
+
+  // inválidos: recusados com mensagem
+  await p.goto(B + "/importar");
+  await p.locator('[data-testid="exemplos"] summary').click();
+  await p.locator('[data-testid="exemplo-exemplo-sintetico-invalido-stl.stl"]').click();
+  await p.waitForSelector('[role=alert]:has-text("Não foi possível importar")');
+  ok((await p.locator('[role=alert]:has-text("Não foi possível importar")').innerText()).includes("STL"), "exemplo inválido (STL): recusado com orientação");
+  await p.locator('[data-testid="exemplo-exemplo-sintetico-invalido-nao-e-3mf.3mf"]').click();
+  await p.waitForFunction(() => document.body.innerText.includes("não é um 3MF válido"));
+  ok(true, "exemplo inválido (texto .3mf): recusado");
+
   require("node:fs").rmSync(fx.dir, { recursive: true, force: true });
 
   ok(errors.length === 0, "sem erros no console/página" + (errors.length ? `: ${errors.slice(0, 3).join(" | ")}` : ""));

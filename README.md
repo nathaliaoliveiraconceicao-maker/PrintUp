@@ -27,4 +27,6 @@ npm run test:e2e                                 # navegador + Supabase falso lo
 npm run build
 ```
 
+Sem arquivo 3MF/G-code real? A tela **Importar** tem exemplos sintéticos para testar o fluxo (`docs/IMPORTADOR.md`). Para validar com arquivos reais: `npm run validar:arquivo -- arquivo` (`docs/VALIDACAO-ARQUIVOS-REAIS.md`).
+
 Veja `docs/PLANO.md` (arquitetura e etapas) e `CLAUDE.md` (convenções).

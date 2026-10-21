@@ -11,7 +11,9 @@
     "check:env": "node scripts/check-env.mjs",
     "test": "vitest run",
     "test:db": "bash supabase/tests/run.sh",
-    "test:e2e": "node e2e/smoke.cjs"
+    "test:e2e": "node e2e/smoke.cjs",
+    "exemplos:gerar": "tsx scripts/gerar-exemplos.ts",
+    "validar:arquivo": "tsx scripts/validar-arquivo.ts"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.17",
@@ -37,6 +39,7 @@
     "playwright-core": "^1.56.1",
     "prettier": "^3.9.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.5"
   }

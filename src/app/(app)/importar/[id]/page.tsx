@@ -5,6 +5,8 @@ import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Card, PageHeader } from "@/components/ui/card";
 import { addProfile, deleteModel } from "@/features/imports/actions";
+import { splitNotes } from "@/features/imports/notes";
+import { SyntheticBanner } from "@/features/imports/synthetic-banner";
 import { ProfileEditor, type StoredProfileView } from "@/features/imports/profile-editor";
 import { signedUrls } from "@/features/imports/storage";
 import { createClient } from "@/lib/supabase/server";
@@ -29,6 +31,7 @@ export default async function ModelPage({ params }: { params: Promise<{ id: stri
     supabase.from("printers").select("name, brand, model").eq("is_active", true).order("name").limit(1),
   ]);
   const list = (profiles.data ?? []) as (StoredProfileView & { id: string })[];
+  const notes = splitNotes(model.parse_notes);
   const urls = await signedUrls(supabase, [model.thumb_path, model.file_path]);
   const thumb = urls.get(model.thumb_path ?? "");
   const download = urls.get(model.file_path ?? "");
@@ -74,10 +77,12 @@ export default async function ModelPage({ params }: { params: Promise<{ id: stri
         </div>
       </Card>
 
-      {model.parse_notes.length > 0 && (
+      {notes.synthetic && <div className="mb-6"><SyntheticBanner /></div>}
+
+      {notes.rest.length > 0 && (
         <Card className="mb-6 space-y-2 border-import/30 bg-import-soft/40">
           <p className="flex items-center gap-2 text-sm font-semibold text-import"><Info size={16} /> O que não foi encontrado no arquivo</p>
-          <ul className="list-disc space-y-1 pl-5 text-sm">{model.parse_notes.map((n) => <li key={n}>{n}</li>)}</ul>
+          <ul className="list-disc space-y-1 pl-5 text-sm">{notes.rest.map((n) => <li key={n}>{n}</li>)}</ul>
         </Card>
       )}
 

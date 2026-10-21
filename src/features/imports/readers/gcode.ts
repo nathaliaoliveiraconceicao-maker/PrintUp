@@ -1,6 +1,6 @@
 import type { ByteSource } from "../bytes";
 import { GCODE_HEAD_BYTES, GCODE_TAIL_BYTES } from "../limits";
-import { missingNotes } from "../notes";
+import { missingNotes, SYNTHETIC_MARKER, SYNTHETIC_NOTE } from "../notes";
 import { cleanText, parseCommentConfig, parseDurationToMinutes, parseNumber, round2, splitList } from "../text";
 import type { ParsedMaterial, ParsedModel, SlicerFamily } from "../types";
 
@@ -150,9 +150,12 @@ export async function readGcode(src: ByteSource, fileName: string): Promise<Pars
     thumbnail: null,
     hasSliceData,
     notes: [],
+    synthetic: new RegExp(`^;\\s*${SYNTHETIC_MARKER}\\b`, "m").test(text),
+    structure: [...kv.keys()].slice(0, 80),
     rawMeta,
   };
   model.notes = missingNotes(model);
+  if (model.synthetic) model.notes.unshift(SYNTHETIC_NOTE);
 
   if (family === "cura" && weightG === null) {
     const meters = cleanText(kv.get("filament used"), 40);

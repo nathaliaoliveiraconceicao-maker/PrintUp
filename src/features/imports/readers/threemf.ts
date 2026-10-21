@@ -1,6 +1,6 @@
 import type { ByteSource } from "../bytes";
 import { ZIP_LIMITS } from "../limits";
-import { missingNotes } from "../notes";
+import { missingNotes, SYNTHETIC_NOTE } from "../notes";
 import { ZipError, ZipReader } from "../safe-zip";
 import {
   cleanText,
@@ -229,12 +229,15 @@ export async function readThreeMf(src: ByteSource, fileName: string): Promise<Pa
     thumbnail,
     hasSliceData,
     notes: [],
+    synthetic: /^true$/i.test((modelMeta.PrintUpSynthetic ?? "").trim()),
+    structure: zip.entries.slice(0, 200).map((e) => cleanText(e.name, 120) ?? ""),
     rawMeta,
   };
   model.notes = missingNotes(model);
   if (!model.hasSliceData && family === "prusa") {
     model.notes.unshift("Este é um projeto do PrusaSlicer sem fatiamento: fatie o modelo e exporte o G-code para obter peso e tempo.");
   }
+  if (model.synthetic) model.notes.unshift(SYNTHETIC_NOTE);
   void fileName;
   return model;
 }

@@ -40,6 +40,10 @@ export interface ParsedModel {
   hasSliceData: boolean;
   /** Mensagens (pt-BR) sobre o que NÃO foi encontrado. */
   notes: string[];
+  /** `true` quando o arquivo se declara um exemplo SINTÉTICO do PrintUp (não é exportação real de nenhum programa). */
+  synthetic: boolean;
+  /** Só NOMES: entradas do ZIP (3MF) ou chaves de comentário vistas (G-code). Serve para conferir arquivos reais. */
+  structure: string[];
   /** Chaves reconhecidas e seus valores, para conferência na tela. */
   rawMeta: Record<string, string>;
 }

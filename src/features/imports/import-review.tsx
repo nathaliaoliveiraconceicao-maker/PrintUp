@@ -11,7 +11,10 @@ import { createClient } from "@/lib/supabase/client";
 import { buildDrafts, defaultTitle, type ProfileDraft } from "./drafts";
 import { saveImport } from "./actions";
 import { BUCKET, filePath, thumbPath, uuid4 } from "./paths";
+import { splitNotes } from "./notes";
 import { comparePrinters, printerMatchMessage } from "./printer-match";
+import { buildReadingReport } from "./report";
+import { SyntheticBanner } from "./synthetic-banner";
 import {
   minutesFromValues,
   originalFromDraft,
@@ -105,6 +108,17 @@ export function ImportReview({
   useEffect(() => () => { if (thumbUrl) URL.revokeObjectURL(thumbUrl); }, [thumbUrl]);
 
   const chosen = printers.find((p) => p.id === printerId) ?? null;
+  const notes = useMemo(() => splitNotes(model.notes), [model.notes]);
+  const report = useMemo(() => buildReadingReport(model, { name: file.name, size: file.size }), [model, file]);
+  const [copied, setCopied] = useState<"sim" | "falhou" | null>(null);
+  async function copyReport() {
+    try {
+      await navigator.clipboard.writeText(report);
+      setCopied("sim");
+    } catch {
+      setCopied("falhou"); // contexto sem permissão: o texto continua selecionável logo abaixo
+    }
+  }
   const multiple = drafts.length > 1;
 
   async function save(calcKey?: string) {
@@ -212,11 +226,13 @@ export function ImportReview({
         )}
       </Card>
 
-      {model.notes.length > 0 && (
+      {notes.synthetic && <SyntheticBanner />}
+
+      {notes.rest.length > 0 && (
         <Card className="space-y-2 border-import/30 bg-import-soft/40">
           <p className="flex items-center gap-2 text-sm font-semibold text-import"><Info size={16} /> O que não encontramos no arquivo</p>
           <ul className="list-disc space-y-1 pl-5 text-sm">
-            {model.notes.map((n) => (
+            {notes.rest.map((n) => (
               <li key={n}>{n}</li>
             ))}
           </ul>
@@ -243,6 +259,20 @@ export function ImportReview({
           </Card>
         );
       })}
+
+      <details className="rounded-2xl border border-line bg-surface p-4" data-testid="relatorio">
+        <summary className="cursor-pointer text-sm font-medium">Detalhes técnicos da leitura</summary>
+        <p className="mt-3 text-xs text-muted">
+          O que o leitor reconheceu e a estrutura do arquivo (só nomes, nunca o conteúdo). Útil para conferir a leitura de um arquivo real: copie e cole numa conversa de suporte.
+          Remova o nome do arquivo se ele for sensível.
+        </p>
+        <pre className="num mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl bg-paper p-3 text-xs">{report}</pre>
+        <div className="mt-3 flex items-center gap-3">
+          <Button size="sm" variant="secondary" onClick={copyReport}>Copiar relatório de leitura</Button>
+          {copied === "sim" && <span role="status" className="text-xs text-ok">Copiado.</span>}
+          {copied === "falhou" && <span role="status" className="text-xs text-warn">Não foi possível copiar automaticamente; selecione o texto acima.</span>}
+        </div>
+      </details>
 
       <Card className="space-y-3">
         <Checkbox label="Guardar o arquivo original na minha conta" checked={storeFile} onChange={(e) => setStoreFile(e.target.checked)} />
