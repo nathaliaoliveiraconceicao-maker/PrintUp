@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Check, Copy, Download, Link2, MessageCircle, Pencil, Send, Share2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { convertQuoteToOrder } from "@/features/orders/actions";
 import { createShareLink, deleteQuote, duplicateQuote, setQuoteStatus } from "./actions";
 import type { QuoteActionState } from "./schema";
 import { nextStatuses, STATUS_LABEL, type QuoteStatus } from "./status";
@@ -26,7 +27,7 @@ const STATUS_BUTTON: Partial<Record<QuoteStatus, string>> = {
   rascunho: "Voltar para rascunho",
 };
 
-export function QuoteActions({ id, status, share }: { id: string; status: QuoteStatus; share: ShareInfo }) {
+export function QuoteActions({ id, status, share, orderId }: { id: string; status: QuoteStatus; share: ShareInfo; orderId?: string | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<QuoteActionState>({});
@@ -103,8 +104,13 @@ export function QuoteActions({ id, status, share }: { id: string; status: QuoteS
             {STATUS_BUTTON[to] ?? STATUS_LABEL[to]}
           </Button>
         ))}
-        {status === "aprovado" && (
-          <Button variant="secondary" size="sm" disabled title="Chega numa próxima etapa">Transformar em pedido (em breve)</Button>
+        {status === "aprovado" && orderId && (
+          <Button asChild size="sm"><Link href={`/pedidos/${orderId}`}>Ver pedido deste orçamento</Link></Button>
+        )}
+        {status === "aprovado" && !orderId && (
+          <Button size="sm" disabled={pending} data-testid="transformar-pedido" onClick={() => run(() => convertQuoteToOrder(id), (r) => (r as { orderId?: string }).orderId && router.push(`/pedidos/${(r as { orderId?: string }).orderId}`))}>
+            Transformar em pedido
+          </Button>
         )}
         {draft && (
           <Button

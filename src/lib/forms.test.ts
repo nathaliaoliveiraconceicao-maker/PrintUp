@@ -33,6 +33,13 @@ describe("zodToState / dbErrorMessage", () => {
     expect(dbErrorMessage({ code: "P0001", message: "Limite do plano atingido (max_printers)" })).toMatch(/limite/i);
     expect(dbErrorMessage({ code: "XX" })).toMatch(/Não foi possível/);
   });
+  it("mostra as mensagens próprias de estoque e pedidos, sem vazar texto técnico", () => {
+    expect(dbErrorMessage({ code: "P0001", message: "Estoque insuficiente: faltam 900.0 g de PLA Preto" })).toMatch(/faltam 900/);
+    expect(dbErrorMessage({ code: "P0001", message: "Só orçamentos aprovados viram pedido" })).toMatch(/aprovados/);
+    expect(dbErrorMessage({ code: "P0001", message: "O valor passa do saldo a receber do pedido" })).toMatch(/saldo/);
+    expect(dbErrorMessage({ code: "P0002", message: "x" })).toMatch(/não encontrado/);
+    expect(dbErrorMessage({ code: "P0001", message: "relation foo violates something" })).not.toMatch(/relation/);
+  });
   it("traduz as regras de orçamento sem vazar texto técnico", () => {
     expect(dbErrorMessage({ code: "P0001", message: "Orçamento enviado ou decidido não pode ser alterado. Duplique-o." })).toMatch(/Duplique/);
     expect(dbErrorMessage({ code: "P0001", message: "Mudança de status não permitida (aprovado -> rascunho)" })).not.toMatch(/->/);

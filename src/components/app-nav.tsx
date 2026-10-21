@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, Calculator, ClipboardList, FileText, FileUp, Home, Layers, MoreHorizontal, Package, Printer, Settings } from "lucide-react";
+import { Boxes, Calculator, ClipboardList, FileText, FileUp, Home, KanbanSquare, Layers, MoreHorizontal, Package, Printer, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: string; icon: typeof Home; also?: string[] };
@@ -13,24 +13,25 @@ export const MAIN_NAV: Item[] = [
   { href: "/importar", label: "Importar modelo", icon: FileUp },
   { href: "/produtos", label: "Meus produtos", icon: Package },
   { href: "/orcamentos", label: "Orçamentos", icon: FileText },
+  { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
+  { href: "/producao", label: "Produção", icon: KanbanSquare },
+  { href: "/estoque", label: "Estoque", icon: Boxes },
   { href: "/impressoras", label: "Impressoras", icon: Printer },
   { href: "/filamentos", label: "Filamentos", icon: Layers },
   { href: "/configuracoes", label: "Configurações", icon: Settings, also: ["/negocio", "/historico", "/boas-vindas"] },
 ];
 
 /** Módulos planejados: aparecem só como aviso, sem link, para não parecerem disponíveis. */
-export const FUTURE_NAV = [
-  { label: "Pedidos", icon: ClipboardList },
-  { label: "Estoque", icon: Boxes },
-] as const;
+export const FUTURE_NAV: readonly { label: string; icon: typeof Home }[] = [];
 
 // No celular cabem 5 itens; o resto fica em "Mais".
 const BOTTOM: Item[] = [
   { href: "/", label: "Painel", icon: Home },
   { href: "/calculadora", label: "Precificar", icon: Calculator },
-  { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/orcamentos", label: "Orçamentos", icon: FileText },
-  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/importar", "/impressoras", "/filamentos", "/configuracoes", "/negocio", "/historico", "/boas-vindas"] },
+  { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
+  { href: "/producao", label: "Produção", icon: KanbanSquare },
+  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/produtos", "/estoque", "/importar", "/impressoras", "/filamentos", "/configuracoes", "/negocio", "/historico", "/boas-vindas"] },
 ];
 
 const isActive = (path: string, { href, also = [] }: Item) =>
@@ -54,7 +55,7 @@ export function SideNav() {
           {item.label}
         </Link>
       ))}
-      <div className="pt-4">
+      {FUTURE_NAV.length > 0 && <div className="pt-4">
         <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">Em breve</p>
         <ul>
           {FUTURE_NAV.map((f) => (
@@ -65,7 +66,7 @@ export function SideNav() {
             </li>
           ))}
         </ul>
-      </div>
+      </div>}
     </nav>
   );
 }
@@ -73,7 +74,7 @@ export function SideNav() {
 export function BottomNav() {
   const path = usePathname();
   return (
-    <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-20 grid h-16 grid-cols-5 border-t border-line bg-surface lg:hidden">
+    <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-20 grid h-16 grid-cols-6 border-t border-line bg-surface lg:hidden">
       {BOTTOM.map((item) => (
         <Link
           key={item.href}

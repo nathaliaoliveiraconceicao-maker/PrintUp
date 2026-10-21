@@ -33,6 +33,10 @@ export function zodToState(error: z.ZodError): FormState {
 /** Traduz erros do Postgres/Supabase para mensagens ao usuário (sem vazar detalhes internos). */
 export function dbErrorMessage(err: { code?: string; message?: string }): string {
   if (err.code === "P0001") {
+    // Mensagens próprias das regras de pedidos, produção e estoque (migration 0008): escritas por nós, seguras para mostrar.
+    if (err.message && /^(Estoque (insuficiente|físico)|Quantidade (maior|do lote)|O valor (passa|recebido)|O estorno|Pedido (cancelado|em produção|entregue)|Só pedidos|Só orçamentos|Tarefa|Informe|Escolha|Este (pedido|item)|Há tarefas|Bobina|Use Concluir|Para cancelar|O saldo|O pedido precisa|Os totais do pedido)/.test(err.message)) {
+      return err.message;
+    }
     // Mensagens próprias das regras de orçamento (migration 0006): seguras para mostrar.
     if (err.message?.includes("não pode ser alterado")) return "Este orçamento já foi enviado e não pode ser alterado. Duplique-o para fazer mudanças.";
     if (err.message?.includes("Mudança de status")) return "Essa mudança de status não é permitida.";
@@ -42,6 +46,7 @@ export function dbErrorMessage(err: { code?: string; message?: string }): string
       ? "Você atingiu o limite do seu plano. Faça upgrade para cadastrar mais itens."
       : "Sua assinatura está inativa ou expirada.";
   }
+  if (err.code === "P0002") return "Registro não encontrado. Atualize a página e tente de novo.";
   if (err.code === "42501") return "Você não tem permissão para esta operação.";
   return "Não foi possível salvar. Tente novamente.";
 }

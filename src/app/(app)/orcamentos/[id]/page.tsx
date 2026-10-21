@@ -18,9 +18,10 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
   const { data } = await supabase.from("quotes").select(QUOTE_COLUMNS).eq("id", id).maybeSingle();
   if (!data) notFound();
   const q = data as QuoteRow;
-  const [{ data: it }, business] = await Promise.all([
+  const [{ data: it }, business, { data: linked }] = await Promise.all([
     supabase.from("quote_items").select(ITEM_COLUMNS).eq("quote_id", id).order("position"),
     loadBusiness(supabase),
+    supabase.from("orders").select("id").eq("quote_id", id).maybeSingle(),
   ]);
   const items = (it ?? []) as QuoteItemRow[];
   const shown = effectiveStatus(q.status, q.valid_until);
@@ -41,6 +42,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         <QuoteActions
           id={id}
           status={q.status}
+          orderId={(linked as { id: string } | null)?.id ?? null}
           share={{
             customerName: q.customer_name,
             customerPhone: q.customer_phone,

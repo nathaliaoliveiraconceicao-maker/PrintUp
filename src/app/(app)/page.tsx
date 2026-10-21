@@ -3,6 +3,13 @@ import { redirect } from "next/navigation";
 import { ArrowRight, Calculator, FilePlus2, FileUp, Layers, PackagePlus, Printer, RefreshCw } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
 import { quoteMetrics, type QuoteForMetrics } from "@/features/dashboard/metrics";
+import { summarizeOrders } from "@/features/orders/financials";
+import { loadOrders } from "@/features/orders/server";
+import { isOrderOverdue } from "@/features/orders/status";
+import { todayBR } from "@/features/quotes/status";
+import { SPOOL_COLUMNS, type SpoolRow } from "@/features/stock/schema";
+import { stockByFilament } from "@/features/stock/summary";
+import type { FilamentRow } from "@/features/filaments/schema";
 import { GettingStarted } from "@/features/onboarding/getting-started";
 import { loadStaleness } from "@/features/products/queries";
 import type { CatalogProduct } from "@/features/products/catalog-schema";
@@ -44,6 +51,25 @@ export default async function DashboardPage() {
   const names = new Map(productRows.map((p) => [p.id, p.name]));
   const qm = quoteMetrics((quotesRes.data ?? []) as QuoteForMetrics[]);
   const staleCount = [...(await loadStaleness(supabase, activeProducts)).values()].filter((x) => x.stale).length;
+
+  // Pedidos, produção e estoque: tudo vem do banco; nada é estimado "de enfeite".
+  const [ordersData, movRes, spoolsRes, filRes] = await Promise.all([
+    loadOrders(supabase),
+    supabase.from("stock_movements").select("delta_remaining").in("kind", ["consumo", "falha"]).limit(10000),
+    supabase.from("filament_spools").select(SPOOL_COLUMNS),
+    supabase.from("filaments").select("*").eq("is_active", true),
+  ]);
+  const today = todayBR();
+  const om = summarizeOrders(ordersData.orders.map((o) => ({ status: o.status, total: o.total, fin: ordersData.fin.get(o.id)! })));
+  const ordersOpen = ordersData.orders.filter((o) => ["novo", "aguardando_pagamento", "em_producao", "pronto"].includes(o.status)).length;
+  const ordersInProd = ordersData.orders.filter((o) => o.status === "em_producao").length;
+  const ordersLate = ordersData.orders.filter((o) => isOrderOverdue(o.status, o.due_date, today)).length;
+  const ordersDone = ordersData.orders.filter((o) => o.status === "entregue").length;
+  const consumedG = ((movRes.data ?? []) as { delta_remaining: number }[]).reduce((a, m) => a - m.delta_remaining, 0);
+  const lowStock = stockByFilament(
+    ((filRes.data ?? []) as FilamentRow[]).map((f) => ({ id: f.id, name: f.name, material: f.material, color: f.color, min_stock_g: f.min_stock_g ?? 250 })),
+    (spoolsRes.data ?? []) as SpoolRow[],
+  ).filter((x) => x.spools > 0 && x.low);
   const belowTarget = latest.filter((l) => l.margin_percent < s.margin_percent - 1).length;
 
   const entitlement = (ent.data as Entitlement[] | null)?.[0];
@@ -125,6 +151,37 @@ export default async function DashboardPage() {
         )}
       </section>
 
+      <section aria-labelledby="h-pedidos" className="mb-8" data-testid="indicadores-pedidos">
+        <h2 id="h-pedidos" className="text-lg font-semibold">Pedidos e produção</h2>
+        <p className="mb-3 text-sm text-muted">
+          <strong>Receita recebida</strong> vem dos pagamentos lançados nos pedidos; pedido não pago não conta. O lucro realizado só aparece quando a produção do pedido termina.
+        </p>
+        {ordersData.orders.length === 0 ? (
+          <Card className="text-sm text-muted">
+            <p className="font-medium text-ink">Nenhum pedido ainda.</p>
+            <p className="mt-1">Aprove um orçamento e use <strong>Transformar em pedido</strong>, ou <Link href="/pedidos/novo" className="font-medium text-accent-strong underline">crie um pedido manual</Link>.</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Kpi label="Pedidos em aberto" value={String(ordersOpen)} href="/pedidos" />
+            <Kpi label="Em produção" value={String(ordersInProd)} href="/pedidos?status=em_producao" />
+            <Kpi label="Atrasados" value={String(ordersLate)} href="/pedidos?atrasados=1" tone={ordersLate > 0 ? "danger" : undefined} />
+            <Kpi label="Concluídos (entregues)" value={String(ordersDone)} href="/pedidos?status=entregue" />
+            <Kpi label="Valor de vendas (pedidos)" value={formatBRL(om.salesValue)} detail="Sem cancelados" />
+            <Kpi label="A receber" value={formatBRL(om.toReceive)} href="/pedidos" />
+            <Kpi label="Receita recebida" value={formatBRL(om.received)} tone="ok" />
+            <Kpi label="Consumo de filamento" value={`${(Math.round(consumedG * 10) / 10).toLocaleString("pt-BR")} g`} href="/estoque" detail="Consumo real + falhas" />
+            <Kpi label="Lucro estimado" value={om.estimatedProfit === null ? "—" : formatBRL(om.estimatedProfit)} detail="Total − custo estimado" />
+            <Kpi label="Lucro realizado" value={om.realizedProfit === null ? "—" : formatBRL(om.realizedProfit)} tone={om.realizedProfit !== null ? "ok" : undefined} detail={om.pendingRealized > 0 ? `${om.pendingRealized} pedido${om.pendingRealized > 1 ? "s" : ""} aguardando a produção terminar` : "Recebido − custo real"} />
+          </div>
+        )}
+        {lowStock.length > 0 && (
+          <p className="mt-3 rounded-xl bg-accent-soft px-3 py-2 text-sm text-warn" role="alert">
+            Estoque baixo: {lowStock.map((l) => l.filament.name).join(", ")}. <Link href="/estoque" className="font-medium underline">Ver estoque</Link>
+          </p>
+        )}
+      </section>
+
       <section aria-labelledby="h-recentes" className="mb-8">
         <h2 id="h-recentes" className="mb-3 text-lg font-semibold">Produtos precificados recentemente</h2>
         {recent.length === 0 ? (
@@ -183,11 +240,11 @@ function usage(count: number | null, limit: number | null | undefined) {
   return `${count ?? 0}${limit == null ? "" : ` de ${limit}`} cadastrado(s)`;
 }
 
-function Kpi({ label, value, tone, detail, href }: { label: string; value: string; tone?: "ok"; detail?: string; href?: string }) {
+function Kpi({ label, value, tone, detail, href }: { label: string; value: string; tone?: "ok" | "danger"; detail?: string; href?: string }) {
   const inner = (
     <Card className={`h-full p-4 ${href ? "transition-colors hover:border-accent" : ""}`}>
       <p className="text-xs font-medium text-muted">{label}</p>
-      <p className={`num mt-1 text-2xl font-semibold ${tone === "ok" ? "text-ok" : ""}`}>{value}</p>
+      <p className={`num mt-1 text-2xl font-semibold ${tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : ""}`}>{value}</p>
       {detail && <p className="mt-1 text-xs text-muted">{detail}</p>}
     </Card>
   );

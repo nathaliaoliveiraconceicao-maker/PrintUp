@@ -21,6 +21,7 @@ export type FilamentRow = {
   color: string | null;
   price_per_kg: number;
   spool_weight_g: number;
+  min_stock_g?: number;
   notes: string | null;
 };
 
