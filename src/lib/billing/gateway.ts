@@ -50,7 +50,12 @@ export interface GatewaySnapshot {
 }
 
 /** O gateway não respondeu (rede/5xx): o webhook devolve 500 para ele reenviar mais tarde. */
-export class GatewayUnavailableError extends Error {}
+export class GatewayUnavailableError extends Error {
+  /** Explicação curta do gateway, já sem e-mails/números (para o monitoramento). */
+  constructor(message: string, readonly detail?: string) {
+    super(message);
+  }
+}
 
 export interface BillingGateway {
   readonly id: string;

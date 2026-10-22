@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { GatewayUnavailableError } from "./gateway";
-import { MercadoPagoGateway, mercadoPagoIsTest, mercadoPagoIsTestAccount } from "./mercadopago";
+import { MercadoPagoGateway, mercadoPagoIsTest, mercadoPagoIsTestAccount, sanitizeGatewayText } from "./mercadopago";
 import { hmacHex } from "./signature";
 
 const SECRET = "segredo-mp-de-teste-0123456789";
@@ -132,5 +132,18 @@ describe("mercadoPagoIsTestAccount (APP_USR- só vale se for conta de teste)", (
     expect(await mercadoPagoIsTestAccount("APP_USR-real", reply({ nickname: "MINHALOJA", tags: ["normal"] }))).toBe(false);
     expect(await mercadoPagoIsTestAccount("APP_USR-401", reply({ message: "invalid" }, 401))).toBe(false);
     expect(await mercadoPagoIsTestAccount("APP_USR-rede", (async () => { throw new Error("rede"); }) as unknown as typeof fetch)).toBe(false);
+  });
+});
+
+describe("sanitizeGatewayText (texto de erro seguro para o monitoramento)", () => {
+  it("remove e-mails e números longos e limita o tamanho", () => {
+    expect(sanitizeGatewayText("Invalid payer_email ana@x.com for user 123456789")).toBe("Invalid payer_email [e-mail] for user [n]");
+    expect(sanitizeGatewayText("a".repeat(500)).length).toBe(160);
+    expect(sanitizeGatewayText({ x: 1 })).toBe("");
+    expect(sanitizeGatewayText("linha1\nlinha2 <script>")).toBe("linha1 linha2 script");
+  });
+  it("o erro do gateway leva o detalhe sanitizado", async () => {
+    const gw = make({ "/preapproval": new Response(JSON.stringify({ message: "Cannot operate between different countries para joao@x.com", status: 400 }), { status: 400 }) });
+    await expect(gw.createCheckout({ checkoutId: "co", planCode: "pro", planName: "Pro", amountCents: 2990, cycle: "mensal", customer: { userId: "u", email: "r@x.com", name: null } })).rejects.toMatchObject({ message: "mercadopago_http_400", detail: "Cannot operate between different countries para [e-mail]" });
   });
 });

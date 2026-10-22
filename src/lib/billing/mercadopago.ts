@@ -14,6 +14,18 @@ const API = "https://api.mercadopago.com";
 /** Token de teste do Mercado Pago começa com `TEST-`. Qualquer outro é tratado como PRODUÇÃO (bloqueado sem autorização). */
 export const mercadoPagoIsTest = (token: string): boolean => token.startsWith("TEST-");
 
+/** Texto de erro do gateway para o monitoramento: sem e-mails, sem sequências de números, sem quebras de linha, curto. */
+export function sanitizeGatewayText(text: unknown): string {
+  if (typeof text !== "string") return "";
+  return text
+    .replace(/\S+@\S+/g, "[e-mail]")
+    .replace(/\d{4,}/g, "[n]")
+    .replace(/[^\p{L}\p{N}\s.,:;()\-_\[\]]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+}
+
 const testAccountCache = new Map<string, { ok: boolean; at: number }>();
 
 /**
@@ -105,14 +117,16 @@ export class MercadoPagoGateway implements BillingGateway {
     if (!res.ok) {
       // Só o código curto do erro (nunca o texto livre): ajuda a diagnosticar sem registrar dados pessoais.
       let code = "";
+      let detail = "";
       try {
-        const e = (await res.json()) as { error?: unknown; cause?: { code?: unknown }[] };
+        const e = (await res.json()) as { error?: unknown; message?: unknown; cause?: { code?: unknown; description?: unknown }[] };
         const raw = String(e.cause?.[0]?.code ?? e.error ?? "");
         if (/^[A-Za-z0-9_]{1,40}$/.test(raw)) code = `_${raw}`;
+        detail = sanitizeGatewayText(e.message) || sanitizeGatewayText(e.cause?.[0]?.description);
       } catch {
         // resposta sem JSON
       }
-      throw new GatewayUnavailableError(`mercadopago_http_${res.status}${code}`);
+      throw new GatewayUnavailableError(`mercadopago_http_${res.status}${code}`, detail);
     }
     return (await res.json()) as T;
   }
