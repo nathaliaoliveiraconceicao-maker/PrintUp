@@ -8,7 +8,8 @@ import { completeJobSchema, createJobSchema, failureSchema, type JobActionState 
 function refresh(orderId?: string) {
   revalidatePath("/producao");
   revalidatePath("/pedidos");
-  revalidatePath("/estoque");
+  revalidatePath("/filamentos/estoque");
+  revalidatePath("/filamentos");
   revalidatePath("/");
   if (orderId) revalidatePath(`/pedidos/${orderId}`);
 }

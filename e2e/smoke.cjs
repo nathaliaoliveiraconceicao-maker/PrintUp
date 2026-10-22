@@ -522,7 +522,7 @@ async function main() {
   // Celular
   const mq = await browser.newPage({ viewport: { width: 390, height: 800 } });
   await mq.context().addCookies(await p.context().cookies());
-  for (const route of ["/", "/calculadora", "/calculadora?modo=avancado", "/boas-vindas?refazer=1", "/orcamentos/novo", "/orcamentos", "/produtos", "/negocio", "/mais", "/pedidos", "/pedidos/novo", "/producao", "/estoque"]) {
+  for (const route of ["/", "/calculadora", "/calculadora?modo=avancado", "/boas-vindas?refazer=1", "/orcamentos/novo", "/orcamentos", "/produtos", "/negocio", "/mais", "/pedidos", "/pedidos/novo", "/producao", "/estoque", "/filamentos/estoque"]) {
     await mq.goto(B + route);
     await shot(mq, "mobile" + route.replace(/[/?=]/g, "-"));
     ok(await mq.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `celular: ${route} sem rolagem horizontal`);
@@ -537,7 +537,7 @@ async function main() {
   const bodyTxt = async () => (await p.locator("main").innerText()).replace(/\s+/g, " ").replace(/ /g, " ");
 
   // Estoque: duas bobinas do mesmo material e cor
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   ok((await bodyTxt()).includes("sem bobinas"), "estoque: filamento sem bobinas aparece como 'sem bobinas' (sem alarme)");
   for (const [maker, g, price, loc] of [["Marca X", "300", "36", "Prateleira 1"], ["Marca Y", "200", "24", "Prateleira 2"]]) {
     await p.getByRole("button", { name: "Nova bobina" }).click();
@@ -593,7 +593,7 @@ async function main() {
   t = await bodyTxt();
   ok((await p.locator('[data-testid="tarefa"]').count()) === 3 && (await itensP.nth(0).locator('[data-testid="criar-lote"]').count()) === 0, `pedido dividido em 2 lotes do Vaso + 1 do Suporte; item totalmente distribuído [tarefas=${await p.locator('[data-testid="tarefa"]').count()} botoes=${await itensP.nth(0).locator('[data-testid="criar-lote"]').count()}]`);
   ok(/Personalização\/serviço: não vai para a fila/.test(t), "personalização não vai para a produção");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   t = await bodyTxt();
   ok(/Reservado 260 g/.test(t) && /No saldo 500 g/.test(t) && /Disponível 240 g/.test(t), "reservar não baixa o saldo físico: 500 g no saldo, 260 g reservados, 240 g disponíveis");
   ok((await p.locator('[data-testid="alertas-estoque"]').innerText()).includes("estoque baixo"), "alerta de estoque baixo (240 g disponíveis < mínimo de 250 g)");
@@ -619,7 +619,7 @@ async function main() {
   await p.getByRole("button", { name: "Criar mesmo assim, sem reservar" }).click();
   await p.waitForSelector('[data-testid="tarefa"]');
   ok((await bodyTxt()).includes("Sem material reservado"), "criada sem reserva: a tarefa avisa 'Sem material reservado'");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   ok(/Reservado 260 g/.test(await bodyTxt()), "o lote sem reserva não comprometeu o estoque dos outros pedidos");
 
   // Pedido atrasado (simula a passagem do tempo no dublê)
@@ -654,7 +654,7 @@ async function main() {
   await p.waitForFunction(() => document.body.innerText.includes("Falha registrada"));
   await p.waitForFunction(() => /1 falha/.test(document.body.innerText));
   { const tt = await p.locator('[data-testid="tarefa"]', { hasText: "Suporte de celular" }).first().innerText(); ok(tt.includes("1 falha"), `falha de impressão registrada na tarefa [${tt.replace(/\s+/g, " ")}]`); }
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   t = await bodyTxt();
   ok(/No saldo 480 g/.test(t) && /Reservado 260 g/.test(t), "falha baixou 20 g do estoque (480 g) e manteve a reserva da reimpressão");
 
@@ -668,7 +668,7 @@ async function main() {
     await p.waitForFunction(() => document.body.innerText.includes("Tarefa concluída e consumo registrado."));
   };
   await concluir(p.locator('[data-testid="coluna-imprimindo"] [data-testid="tarefa"]', { hasText: "Vaso espiral" }), "90");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   t = await bodyTxt();
   ok(/No saldo 390 g/.test(t) && /Reservado 180 g/.test(t), "consumo real (90 g) diferente do previsto (80 g): saldo 390 g; reserva do lote liberada");
   await p.goto(B + "/producao");
@@ -677,10 +677,10 @@ async function main() {
   await concluir(card("Suporte de celular"), "100");
   await p.goto(`${B}/pedidos/${o1}`);
   ok((await p.locator("h1").innerText()).includes("#0001") && (await bodyTxt()).includes("Pronto"), "todas as unidades concluídas: pedido fica 'Pronto'");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   t = await bodyTxt();
   ok(/No saldo 210 g/.test(t) && /Reservado 0 g/.test(t), "estoque final: 500 − 90 − 80 − 100 − 20 (falha) = 210 g, nada reservado");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   const spoolHref = await p.locator('[data-testid="lista-bobinas"] a', { hasText: "Marca X" }).first().getAttribute("href");
   await p.goto(B + spoolHref);
   t = await bodyTxt();
@@ -773,7 +773,7 @@ async function main() {
   await shot(p, "pedido-detalhe-desktop");
   await p.goto(B + "/producao");
   await shot(p, "producao-desktop");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   await shot(p, "estoque-desktop");
 
   // ── Exclusão de produto e logout ──
@@ -988,6 +988,22 @@ async function main() {
   await p.waitForFunction(() => document.body.innerText.includes("não é um 3MF válido"));
   ok(true, "exemplo inválido (texto .3mf): recusado");
 
+
+  // ── Estoque de produtos (unidades prontas) e estoque de filamento dentro de Filamentos ──
+  await p.goto(B + "/estoque");
+  ok((await main$()).includes("Estoque de produtos") && (await p.locator('[data-testid="resumo-estoque-produtos"]').count()) === 1, "estoque: a tela principal agora é de PRODUTOS (unidades prontas)");
+  ok((await p.locator('[data-testid="lista-estoque-produtos"] li').count()) >= 1, "estoque de produtos: lista os produtos cadastrados");
+  const firstStock = p.locator('[data-testid="lista-estoque-produtos"] li').first();
+  await firstStock.locator("input").fill("7");
+  await firstStock.getByRole("button", { name: "Atualizar" }).click();
+  await firstStock.getByText("Estoque atualizado").waitFor();
+  await p.goto(B + "/estoque");
+  ok((await p.locator('[data-testid="lista-estoque-produtos"] li').first().locator("input").inputValue()) === "7", "estoque de produtos: a quantidade é salva e continua depois de recarregar");
+  await p.goto(B + "/filamentos");
+  ok((await p.getByRole("link", { name: "Estoque de bobinas" }).count()) === 1, "filamentos: aba 'Estoque de bobinas' (o estoque de filamento fica dentro de Filamentos)");
+  await p.getByRole("link", { name: "Estoque de bobinas" }).click();
+  await p.waitForURL(/\/filamentos\/estoque$/);
+  ok((await main$()).includes("Bobinas") || (await main$()).includes("bobinas"), "filamentos → estoque de bobinas abre");
 
   // ── Etapa 6: planos, assinatura e webhooks (simulador; nenhuma cobrança real) ──
   p.on("dialog", (d) => d.accept());

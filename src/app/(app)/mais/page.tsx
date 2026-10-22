@@ -6,7 +6,8 @@ export const metadata = { title: "Mais" };
 
 const LINKS = [
   { href: "/produtos", label: "Meus produtos", detail: "Catálogo com custo, preço e estoque de peças", icon: Package },
-  { href: "/estoque", label: "Estoque de filamento", detail: "Bobinas, saldo e material reservado", icon: Boxes },
+  { href: "/estoque", label: "Estoque de produtos", detail: "Unidades prontas de cada produto", icon: Boxes },
+  { href: "/filamentos/estoque", label: "Estoque de filamento", detail: "Bobinas, saldo e material reservado", icon: Boxes },
   { href: "/importar", label: "Importar modelo", detail: "3MF, G-code ou entrada manual", icon: FileUp },
   { href: "/impressoras", label: "Impressoras", detail: "Custo e potência de cada máquina", icon: Printer },
   { href: "/filamentos", label: "Filamentos", detail: "Preço por kg dos seus materiais", icon: Layers },

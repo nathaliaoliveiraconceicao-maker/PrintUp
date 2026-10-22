@@ -171,14 +171,14 @@ export default async function DashboardPage() {
             <Kpi label="Valor de vendas (pedidos)" value={formatBRL(om.salesValue)} detail="Sem cancelados" />
             <Kpi label="A receber" value={formatBRL(om.toReceive)} href="/pedidos" />
             <Kpi label="Receita recebida" value={formatBRL(om.received)} tone="ok" />
-            <Kpi label="Consumo de filamento" value={`${(Math.round(consumedG * 10) / 10).toLocaleString("pt-BR")} g`} href="/estoque" detail="Consumo real + falhas" />
+            <Kpi label="Consumo de filamento" value={`${(Math.round(consumedG * 10) / 10).toLocaleString("pt-BR")} g`} href="/filamentos/estoque" detail="Consumo real + falhas" />
             <Kpi label="Lucro estimado" value={om.estimatedProfit === null ? "—" : formatBRL(om.estimatedProfit)} detail="Total − custo estimado" />
             <Kpi label="Lucro realizado" value={om.realizedProfit === null ? "—" : formatBRL(om.realizedProfit)} tone={om.realizedProfit !== null ? "ok" : undefined} detail={om.pendingRealized > 0 ? `${om.pendingRealized} pedido${om.pendingRealized > 1 ? "s" : ""} aguardando a produção terminar` : "Recebido − custo real"} />
           </div>
         )}
         {lowStock.length > 0 && (
           <p className="mt-3 rounded-xl bg-accent-soft px-3 py-2 text-sm text-warn" role="alert">
-            Estoque baixo: {lowStock.map((l) => l.filament.name).join(", ")}. <Link href="/estoque" className="font-medium underline">Ver estoque</Link>
+            Estoque baixo: {lowStock.map((l) => l.filament.name).join(", ")}. <Link href="/filamentos/estoque" className="font-medium underline">Ver estoque de filamento</Link>
           </p>
         )}
       </section>

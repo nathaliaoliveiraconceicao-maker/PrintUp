@@ -15,7 +15,7 @@ export const MAIN_NAV: Item[] = [
   { href: "/orcamentos", label: "Orçamentos", icon: FileText },
   { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
   { href: "/producao", label: "Produção", icon: KanbanSquare },
-  { href: "/estoque", label: "Estoque", icon: Boxes },
+  { href: "/estoque", label: "Estoque de produtos", icon: Boxes },
   { href: "/impressoras", label: "Impressoras", icon: Printer },
   { href: "/filamentos", label: "Filamentos", icon: Layers },
   { href: "/configuracoes", label: "Configurações", icon: Settings, also: ["/negocio", "/historico", "/boas-vindas", "/assinatura"] },

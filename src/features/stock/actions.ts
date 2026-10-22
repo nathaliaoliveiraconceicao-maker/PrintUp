@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { adjustSpoolSchema, createSpoolSchema, spoolMetaSchema, type StockActionState } from "./schema";
 
 const refresh = () => {
-  revalidatePath("/estoque");
+  revalidatePath("/filamentos/estoque");
+  revalidatePath("/filamentos");
   revalidatePath("/producao");
   revalidatePath("/");
 };

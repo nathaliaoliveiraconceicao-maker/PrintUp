@@ -62,7 +62,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
           {noReserveCount > 0 && (
             <p className="flex items-center gap-2 rounded-xl bg-accent-soft px-3 py-2 text-sm text-warn">
               <AlertTriangle size={16} aria-hidden="true" />
-              {noReserveCount} tarefa{noReserveCount > 1 ? "s estão" : " está"} sem material reservado. Veja o <Link href="/estoque" className="font-medium underline">estoque</Link>.
+              {noReserveCount} tarefa{noReserveCount > 1 ? "s estão" : " está"} sem material reservado. Veja o <Link href="/filamentos/estoque" className="font-medium underline">estoque de filamento</Link>.
             </p>
           )}
         </div>

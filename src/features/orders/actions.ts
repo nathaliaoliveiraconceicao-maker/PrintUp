@@ -12,7 +12,8 @@ type Db = Awaited<ReturnType<typeof createClient>>;
 function refresh(id?: string) {
   revalidatePath("/pedidos");
   revalidatePath("/producao");
-  revalidatePath("/estoque");
+  revalidatePath("/filamentos/estoque");
+  revalidatePath("/filamentos");
   revalidatePath("/");
   if (id) revalidatePath(`/pedidos/${id}`);
 }
