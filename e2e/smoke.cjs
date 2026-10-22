@@ -176,10 +176,17 @@ async function main() {
   ok((await p.getByLabel("Mão de obra (min)").count()) === 0 && (await p.getByLabel("Perdas (%)").count()) === 0 && (await p.getByLabel("Impostos (%)").count()) === 0, "modo rápido esconde mão de obra, perdas e impostos");
   ok((await p.getByLabel("Margem de lucro (%)").count()) === 1 && (await p.getByLabel("Unidades", { exact: true }).count()) === 1, "modo rápido mostra margem e unidades");
   ok((await p.locator('[data-testid="padroes-rapido"]').innerText()).includes("padrões já estão aplicados"), "modo rápido avisa que os padrões configurados foram carregados");
+  ok((await p.locator('[data-testid="preencha-dados"]').count()) >= 1 && !/zerado/.test(await res()), "calculadora vazia: convida a informar peso e tempo (sem R$ 0,00 nem avisos de erro)");
   await fill("Horas", "2"); await fill("Minutos", "30"); await fill("Peso (g)", "80");
   t = await res();
   ok(/Perdas|5%/.test(await p.locator('[data-testid="padroes-rapido"]').innerText()) && /R\$\s?\d+,\d\d/.test(t), "modo rápido calcula com os padrões já carregados (perdas 5%)");
   const quickPrice = (await p.locator('[data-testid="preco-sugerido"]').first().innerText()).replace(/\s+/g, " ");
+  if (process.env.E2E_SHOTS) {
+    await p.screenshot({ path: `${process.env.E2E_SHOTS}/calculadora-rapido-desktop.png`, fullPage: true });
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.screenshot({ path: `${process.env.E2E_SHOTS}/calculadora-rapido-celular.png` });
+    await p.setViewportSize({ width: 1200, height: 900 });
+  }
   await p.getByRole("radio", { name: /Modo avançado/ }).click();
   await fill("Mão de obra (min)", "10"); await fill("Embalagem (R$/unid.)", "2");
   t = await res();
@@ -203,13 +210,15 @@ async function main() {
   await p.getByRole("button", { name: "Voltar aos padrões" }).click();
   ok(/Custo unitário R\$\s?28,87/.test(await res()), "voltar aos padrões restaura o custo da impressora");
   await p.getByRole("radio", { name: /Modo rápido/ }).click();
-  ok(/Custo unitário R\$\s?28,87/.test(await res()) && /R\$\s?65,74/.test(await p.locator('[data-testid="preco-sugerido"]').first().innerText()), "mesmo motor: voltar ao modo rápido mantém exatamente o mesmo resultado");
+  ok(/Custo R\$\s?28,87/.test(await res()) && /R\$\s?65,74/.test(await p.locator('[data-testid="preco-sugerido"]').first().innerText()), "mesmo motor: voltar ao modo rápido mantém exatamente o mesmo resultado (modo rápido mostra preço, custo, lucro e margem)");
+  ok((await p.locator('[data-testid="resumo-simples"]').count()) >= 1 && (await p.locator('[data-testid="detalhes-calculo"]').count()) >= 1, "modo rápido: resumo simples e detalhes recolhidos");
   ok(quickPrice.length > 0, "modo rápido sem ajustes avançados mostrou um preço");
   await p.getByRole("radio", { name: /Modo avançado/ }).click();
   await fill("Unidades", "10"); t = await res();
   ok(/Custo do lote \(10\) R\$\s?288,72/.test(t), "lote de 10: custo = R$ 288,72");
   await fill("Unidades", "1");
 
+  await p.locator('[data-testid="salvar-produto"] summary').click();
   const saveBtn = p.getByRole("button", { name: /Salvar como produto|Atualizar produto/ });
   const productSelect = p.locator("select").last();
   ok(await saveBtn.isDisabled(), "salvar fica desabilitado até dar nome ao produto novo");
