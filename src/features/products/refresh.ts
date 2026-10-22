@@ -35,7 +35,9 @@ export function refreshInput(
       allocation: settings.fixed_allocation,
       productiveHoursPerMonth: settings.productive_hours_per_month,
       monthlyUnits: settings.monthly_units,
+      expectedRevenue: settings.expected_revenue,
     },
+    rounding: settings.price_rounding,
   };
 }
 

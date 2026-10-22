@@ -13,7 +13,12 @@ export interface HourlyCostIncludes {
   fixed: boolean;
 }
 
-export type FixedAllocation = "per_hour" | "per_unit";
+/**
+ * Como ratear os custos fixos mensais:
+ *  - per_hour: por hora produtiva; per_unit: por peça produzida;
+ *  - revenue_percent: percentual do faturamento previsto (custos fixos ÷ faturamento) aplicado sobre os custos diretos.
+ */
+export type FixedAllocation = "per_hour" | "per_unit" | "revenue_percent";
 
 export interface PricingInput {
   /** Quantidade de unidades produzidas no lote (>= 1). */
@@ -47,6 +52,8 @@ export interface PricingInput {
     productiveHoursPerMonth: number;
     /** Unidades produzidas por mês (usado em `per_unit`). */
     monthlyUnits: number;
+    /** Faturamento previsto por mês, em R$ (usado em `revenue_percent`). */
+    expectedRevenue?: number;
   };
 
   /** Perdas e desperdícios (falhas), % sobre o custo direto de produção. */
@@ -61,8 +68,11 @@ export interface PricingInput {
     setupMinutesPerBatch: number;
   };
 
-  /** Embalagem e acabamento, por unidade. */
+  /** Embalagem, frete e acabamento, por unidade. */
   packagingPerUnit: number;
+
+  /** `real`: arredonda o preço sugerido PARA CIMA, para o próximo real inteiro (taxas, impostos e lucro seguem o preço arredondado). */
+  rounding?: "none" | "real";
 
   sale: {
     /** Taxa de venda (comissão de marketplace, gateway), % do preço. */

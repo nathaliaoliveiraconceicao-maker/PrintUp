@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { dbErrorMessage } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
+import { settingsOrDefault, type SettingsRow } from "@/features/settings/schema";
 import { wearPerHour } from "./hourly";
 import { printerDisplayName } from "@/features/printers/schema";
 import { businessStepSchema, costStepSchema, filamentStepSchema, marginStepSchema, printerStepSchema, type OnboardingState } from "./schema";
@@ -111,7 +111,7 @@ export async function saveMarginStep(payload: unknown): Promise<OnboardingState>
   const { supabase, user } = await session();
   if (!user) return { error: "Sessão expirada. Entre novamente." };
   const { data } = await supabase.from("cost_settings").select("*").maybeSingle();
-  const cur = (data as SettingsRow | null) ?? DEFAULT_SETTINGS;
+  const cur = settingsOrDefault(data as Partial<SettingsRow> | null);
   if (cur.sale_fee_percent + cur.tax_percent + parsed.data.marginPercent >= 100) {
     return { error: "Taxas + impostos + margem devem somar menos de 100%. Reduza a margem ou ajuste as taxas em Configurações." };
   }

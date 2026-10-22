@@ -72,6 +72,11 @@ export function calculatePricing(input: PricingInput): PricingResult {
     wear = 0;
   }
 
+  // Mão de obra e embalagem
+  const laborHours = (labor.setupMinutesPerBatch + labor.minutesPerUnit * qty) / 60;
+  const laborCost = laborHours * labor.hourlyRate;
+  const packaging = input.packagingPerUnit * qty;
+
   // Custos fixos
   let fixed = 0;
   if (fixedCosts.monthlyTotal > 0) {
@@ -85,6 +90,10 @@ export function calculatePricing(input: PricingInput): PricingResult {
         fixedCosts.productiveHoursPerMonth > 0
           ? (fixedCosts.monthlyTotal / fixedCosts.productiveHoursPerMonth) * batchHours
           : 0;
+    } else if (fixedCosts.allocation === "revenue_percent") {
+      // Custos fixos ÷ faturamento previsto = quanto cada R$ de custo direto "carrega" de despesa fixa.
+      const expected = fixedCosts.expectedRevenue ?? 0;
+      fixed = expected > 0 ? (filament + machineHour + energy + wear + laborCost + packaging) * (fixedCosts.monthlyTotal / expected) : 0;
     } else {
       fixed =
         fixedCosts.monthlyUnits > 0
@@ -96,11 +105,6 @@ export function calculatePricing(input: PricingInput): PricingResult {
   // Perdas: só sobre o custo direto de produção
   const directProduction = filament + machineHour + energy + wear;
   const losses = directProduction * (input.lossPercent / 100);
-
-  // Mão de obra e embalagem
-  const laborHours = (labor.setupMinutesPerBatch + labor.minutesPerUnit * qty) / 60;
-  const laborCost = laborHours * labor.hourlyRate;
-  const packaging = input.packagingPerUnit * qty;
 
   const batch: CostBreakdown = {
     filament,
@@ -130,7 +134,8 @@ export function calculatePricing(input: PricingInput): PricingResult {
     unitPriceRaw = unitCostRaw * (1 + input.pricing.markupPercent / 100);
   }
 
-  const suggestedUnitPrice = round2(unitPriceRaw);
+  // Arredondar para o próximo real inteiro (opcional): as taxas e o lucro abaixo já saem do preço arredondado.
+  const suggestedUnitPrice = input.rounding === "real" ? Math.max(0, Math.ceil(unitPriceRaw - 1e-9)) + 0 : round2(unitPriceRaw);
   // Taxas e lucro derivados do preço JÁ arredondado, para fechar a conta em centavos.
   const unitFees = round2(suggestedUnitPrice * feeRate + sale.feeFixed);
   const unitTaxes = round2(suggestedUnitPrice * taxRate);

@@ -22,9 +22,10 @@ export const pricingInputSchema = z
     }),
     fixedCosts: z.object({
       monthlyTotal: nonNeg,
-      allocation: z.enum(["per_hour", "per_unit"]),
+      allocation: z.enum(["per_hour", "per_unit", "revenue_percent"]),
       productiveHoursPerMonth: nonNeg,
       monthlyUnits: nonNeg,
+      expectedRevenue: nonNeg.optional().default(0),
     }),
     lossPercent: pct,
     labor: z.object({
@@ -33,6 +34,7 @@ export const pricingInputSchema = z
       setupMinutesPerBatch: nonNeg,
     }),
     packagingPerUnit: nonNeg,
+    rounding: z.enum(["none", "real"]).optional().default("none"),
     sale: z.object({
       feePercent: pct,
       feeFixed: nonNeg,
@@ -50,6 +52,13 @@ export const pricingInputSchema = z
           code: "custom",
           path: ["fixedCosts", "productiveHoursPerMonth"],
           message: "Informe as horas produtivas por mês para ratear o custo fixo.",
+        });
+      }
+      if (v.fixedCosts.allocation === "revenue_percent" && v.fixedCosts.expectedRevenue <= 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["fixedCosts", "expectedRevenue"],
+          message: "Informe o faturamento previsto por mês para ratear o custo fixo.",
         });
       }
       if (v.fixedCosts.allocation === "per_unit" && v.fixedCosts.monthlyUnits <= 0) {

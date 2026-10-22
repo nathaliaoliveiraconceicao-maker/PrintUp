@@ -151,11 +151,23 @@ async function main() {
 
   // ── Configurações ──
   await p.goto(B + "/configuracoes");
-  const cfg = { monthlyFixedCosts: "480", productiveHoursPerMonth: "160", laborHourlyRate: "30", lossPercent: "5", saleFeePercent: "14", saleFeeFixed: "4", taxPercent: "6", marginPercent: "30", energyPricePerKwh: "0,90" };
+  ok((await p.locator('[data-testid="como-calcula"]').count()) === 1 && (await p.locator('[data-testid="canais-de-venda"]').count()) === 1, "configurações: despesas, preço de venda, explicação do cálculo e canais de venda numa página só");
+  await p.selectOption("select[name=fixedAllocation]", "per_hour");
+  const cfg = { item_aluguel: "300", item_softwares: "100", item_plataformas: "80", productiveHoursPerMonth: "160", laborHourlyRate: "30", lossPercent: "5", saleFeePercent: "14", saleFeeFixed: "4", taxPercent: "6", marginPercent: "30", energyPricePerKwh: "0,90" };
   for (const [k, v] of Object.entries(cfg)) await p.fill(`input[name=${k}]`, v);
-  await p.click("button[type=submit]");
+  ok((await p.locator('[data-testid="total-despesas"]').innerText()).replace(/\s/g, " ").includes("480,00"), "configurações: o total das despesas mensais soma os itens (R$ 480,00)");
+  await p.click("form[data-testid=form-configuracoes-custo] button[type=submit]");
   await p.waitForSelector("form [role=status]");
   ok(true, "configurações salvas");
+
+  // Canal de venda: configurado uma vez, usado em todos os cálculos
+  await p.getByRole("button", { name: "Shopee", exact: true }).click();
+  const novoCanal = p.locator('[data-testid="novo-canal"]');
+  await novoCanal.locator("input[name=feePercent]").fill("20");
+  await novoCanal.locator("input[name=feeFixed]").fill("4");
+  await novoCanal.getByRole("button", { name: "Adicionar canal" }).click();
+  await p.waitForFunction(() => document.querySelectorAll('[data-testid="canal"]').length === 1);
+  ok(true, "canal de venda (Shopee) cadastrado nas configurações");
 
   await p.goto(B + "/impressoras/nova");
   await p.fill("input[name=brand]", "Creality");
@@ -187,6 +199,7 @@ async function main() {
     await p.screenshot({ path: `${process.env.E2E_SHOTS}/calculadora-rapido-celular.png` });
     await p.setViewportSize({ width: 1200, height: 900 });
   }
+  ok(/Preço por canal de venda\s*Shopee/.test((await p.locator('[data-testid="preco-por-canal"]').first().innerText()).replace(/\s+/g, " ")), "calculadora mostra o preço do canal cadastrado (Shopee)");
   await p.getByRole("radio", { name: /Modo avançado/ }).click();
   await fill("Mão de obra (min)", "10"); await fill("Embalagem (R$/unid.)", "2");
   t = await res();

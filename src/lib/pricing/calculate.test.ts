@@ -307,3 +307,52 @@ describe("caso completo conferido à mão", () => {
     expect(r.batchCost).toBe(288.72);
   });
 });
+
+describe("rateio pelo faturamento previsto (custos fixos ÷ faturamento × custos diretos)", () => {
+  const fx = (over: Partial<PricingInput["fixedCosts"]> = {}) => ({ monthlyTotal: 300, allocation: "revenue_percent" as const, productiveHoursPerMonth: 0, monthlyUnits: 0, expectedRevenue: 3000, ...over });
+  it("fixo = (filamento + máquina + energia + desgaste + mão de obra + embalagem) × 300/3000", () => {
+    // filamento R$10 + mão de obra 30 min a R$40/h (R$20) + embalagem R$5 = R$35 de custo direto → 10% = R$3,50
+    const r = calculatePricing(base({ fixedCosts: fx(), labor: { hourlyRate: 40, minutesPerUnit: 30, setupMinutesPerBatch: 0 }, packagingPerUnit: 5 }));
+    expect(r.unit.fixed).toBe(3.5);
+    expect(r.unitCost).toBe(38.5);
+  });
+  it("sem faturamento previsto não rateia (e o schema pede o valor)", () => {
+    const r = calculatePricing(base({ fixedCosts: fx({ expectedRevenue: 0 }) }));
+    expect(r.unit.fixed).toBe(0);
+    const parsed = pricingInputSchema.safeParse(base({ fixedCosts: fx({ expectedRevenue: 0 }) }));
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) expect(parsed.error.issues[0].message).toMatch(/faturamento previsto/);
+  });
+  it("não conta o custo fixo duas vezes quando o custo/hora já o inclui", () => {
+    const r = calculatePricing(base({ fixedCosts: fx(), machine: { ...base().machine, hourlyCostIncludes: { energy: false, wear: false, fixed: true } } }));
+    expect(r.unit.fixed).toBe(0);
+  });
+  it("escala com o lote (custo fixo proporcional ao custo direto)", () => {
+    const um = calculatePricing(base({ fixedCosts: fx() }));
+    const dez = calculatePricing(base({ quantity: 10, fixedCosts: fx() }));
+    expect(dez.unit.fixed).toBe(um.unit.fixed);
+  });
+});
+
+describe("arredondar o preço para o próximo real", () => {
+  it("sobe para o real inteiro seguinte e fecha a conta com o preço arredondado", () => {
+    const sem = calculatePricing(base({ pricing: { mode: "margin", marginPercent: 30 } })); // custo 10 → 14,29
+    expect(sem.suggestedUnitPrice).toBe(14.29);
+    const com = calculatePricing(base({ pricing: { mode: "margin", marginPercent: 30 }, rounding: "real", sale: { feePercent: 10, feeFixed: 1, taxPercent: 5 } }));
+    expect(Number.isInteger(com.suggestedUnitPrice)).toBe(true);
+    expect(com.suggestedUnitPrice).toBeGreaterThanOrEqual(calculatePricing(base({ pricing: { mode: "margin", marginPercent: 30 }, sale: { feePercent: 10, feeFixed: 1, taxPercent: 5 } })).suggestedUnitPrice);
+    expect(com.unitFees).toBe(round2(com.suggestedUnitPrice * 0.1 + 1));
+    expect(com.unitProfit).toBe(round2(com.suggestedUnitPrice - 10 - com.unitFees - com.unitTaxes));
+  });
+  it("preço que já é inteiro não sobe; zero continua zero", () => {
+    expect(calculatePricing(base({ pricing: { mode: "markup", markupPercent: 100 }, rounding: "real" })).suggestedUnitPrice).toBe(20);
+    expect(calculatePricing(base({ filamentGramsPerUnit: 0, rounding: "real" })).suggestedUnitPrice).toBe(0);
+  });
+  it("entradas antigas (sem os campos novos) continuam válidas", () => {
+    const antigo = JSON.parse(JSON.stringify(base()));
+    delete antigo.rounding;
+    const r = pricingInputSchema.safeParse(antigo);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.rounding).toBe("none");
+  });
+});

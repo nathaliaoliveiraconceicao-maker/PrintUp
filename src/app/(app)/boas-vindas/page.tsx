@@ -1,7 +1,7 @@
 import { OnboardingWizard, type WizardInitial } from "@/features/onboarding/wizard";
 import type { PrinterRow } from "@/features/printers/schema";
 import type { FilamentRow } from "@/features/filaments/schema";
-import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
+import { settingsOrDefault, type SettingsRow } from "@/features/settings/schema";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Configuração inicial" };
@@ -17,7 +17,7 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
   ]);
   const p = (printers.data?.[0] ?? null) as PrinterRow | null;
   const f = (filaments.data?.[0] ?? null) as FilamentRow | null;
-  const s = (settings.data as SettingsRow | null) ?? DEFAULT_SETTINGS;
+  const s = settingsOrDefault(settings.data as Partial<SettingsRow> | null);
   const initial: WizardInitial = {
     businessName: (profile.data?.business_name as string | null) ?? "",
     printer: p ? { id: p.id, name: p.name, brand: p.brand ?? "", model: p.model ?? (p.brand ? "" : p.name), power: p.power_watts, hourlyCost: p.hourly_cost, purchasePrice: p.purchase_price, lifespanHours: p.lifespan_hours ?? 0 } : null,

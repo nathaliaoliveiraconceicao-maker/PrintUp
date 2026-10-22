@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/field";
 import { applyDiscount, calculatePricing, costGroups, pricingInputSchema, type PricingInput } from "@/lib/pricing";
 import { COST_LABELS } from "@/lib/pricing/labels";
-import type { SettingsRow } from "@/features/settings/schema";
+import type { ChannelRow, SettingsRow } from "@/features/settings/schema";
 import type { PrinterRow } from "@/features/printers/schema";
 import type { FilamentRow } from "@/features/filaments/schema";
 import { SavePricing } from "./save-pricing";
@@ -25,12 +25,15 @@ const num = (s: string) => {
   return Number.isNaN(n) ? (s.trim() === "" ? 0 : NaN) : n;
 };
 
+type ChannelPrice = { id: string; name: string; price: number | null; profit: number | null };
+
 const fmt = (n: number) => String(n).replace(".", ",");
 
 export function Calculator({
   printers,
   filaments,
   settings,
+  channels = [],
   products,
   profile = null,
   initialPrinterId,
@@ -39,6 +42,7 @@ export function Calculator({
   printers: PrinterRow[];
   filaments: FilamentRow[];
   settings: SettingsRow;
+  channels?: ChannelRow[];
   products: { id: string; name: string }[];
   profile?: CalcProfile | null;
   initialPrinterId?: string;
@@ -67,12 +71,13 @@ export function Calculator({
   const [laborMin, setLaborMin] = useState("0");
   const [setupMin, setSetupMin] = useState("0");
   const [laborRate, setLaborRate] = useState(String(settings.labor_hourly_rate).replace(".", ","));
-  const [packaging, setPackaging] = useState("0");
+  const [packaging, setPackaging] = useState(fmt(settings.packaging_per_unit));
+  const [shipping, setShipping] = useState(fmt(settings.shipping_per_unit));
   const [feePct, setFeePct] = useState(String(settings.sale_fee_percent).replace(".", ","));
   const [feeFixed, setFeeFixed] = useState(String(settings.sale_fee_fixed).replace(".", ","));
   const [taxPct, setTaxPct] = useState(String(settings.tax_percent).replace(".", ","));
-  const [mode, setMode] = useState<"margin" | "markup">("margin");
-  const [target, setTarget] = useState(String(settings.margin_percent).replace(".", ","));
+  const [mode, setMode] = useState<"margin" | "markup">(settings.pricing_mode);
+  const [target, setTarget] = useState(fmt(settings.pricing_mode === "markup" ? settings.markup_percent : settings.margin_percent));
 
   const [uiMode, setUiMode] = useState<"rapido" | "avancado">(initialMode);
   const advanced = uiMode === "avancado";
@@ -105,11 +110,13 @@ export function Calculator({
         allocation: settings.fixed_allocation,
         productiveHoursPerMonth: settings.productive_hours_per_month,
         monthlyUnits: settings.monthly_units,
+        expectedRevenue: settings.expected_revenue,
       },
       lossPercent: num(loss),
       labor: { hourlyRate: num(laborRate), minutesPerUnit: num(laborMin), setupMinutesPerBatch: num(setupMin) },
       // Embalagem e acabamento somam num único custo por unidade (é como o motor os trata).
-      packagingPerUnit: num(packaging) + num(finishing),
+      packagingPerUnit: num(packaging) + num(finishing) + num(shipping),
+      rounding: settings.price_rounding,
       sale: { feePercent: num(feePct), feeFixed: num(feeFixed), taxPercent: num(taxPct) },
       pricing:
         mode === "margin"
@@ -119,7 +126,18 @@ export function Calculator({
     const parsed = pricingInputSchema.safeParse(draft);
     if (!parsed.success) return { result: null, input: null, errors: parsed.error.issues.map((i) => i.message) };
     return { result: calculatePricing(parsed.data), input: parsed.data, errors: [] as string[] };
-  }, [quantity, hours, minutes, grams, effectivePricePerKg, printer, settings, ov, loss, laborRate, laborMin, setupMin, packaging, finishing, feePct, feeFixed, taxPct, mode, target]);
+  }, [shipping, quantity, hours, minutes, grams, effectivePricePerKg, printer, settings, ov, loss, laborRate, laborMin, setupMin, packaging, finishing, feePct, feeFixed, taxPct, mode, target]);
+
+  // Preço por canal de venda: mesma conta, trocando só as taxas da venda direta pelas do canal.
+  const channelPrices = useMemo<ChannelPrice[]>(() => {
+    if (!input) return [];
+    return channels.map((c): ChannelPrice => {
+      const p = pricingInputSchema.safeParse({ ...input, sale: { ...input.sale, feePercent: c.fee_percent, feeFixed: c.fee_fixed } });
+      if (!p.success) return { id: c.id, name: c.name, price: null, profit: null };
+      const r = calculatePricing(p.data);
+      return { id: c.id, name: c.name, price: r.suggestedUnitPrice, profit: r.unitProfit };
+    });
+  }, [input, channels]);
 
   const qty = Math.max(1, Math.floor(num(quantity) || 1));
   const discountPct = advanced ? Math.min(100, Math.max(0, num(discount) || 0)) : 0;
@@ -275,6 +293,7 @@ export function Calculator({
                 <Field label="Valor da hora (R$)"><Input inputMode="decimal" value={laborRate} onChange={(e) => setLaborRate(e.target.value)} /></Field>
                 <Field label="Perdas (%)"><Input inputMode="decimal" value={loss} onChange={(e) => setLoss(e.target.value)} /></Field>
                 <Field label="Embalagem (R$/unid.)"><Input inputMode="decimal" value={packaging} onChange={(e) => setPackaging(e.target.value)} /></Field>
+                <Field label="Frete (R$/unid.)"><Input inputMode="decimal" value={shipping} onChange={(e) => setShipping(e.target.value)} /></Field>
                 <Field label="Acabamento (R$/unid.)" hint="Lixa, tinta, colagem… soma com a embalagem."><Input inputMode="decimal" value={finishing} onChange={(e) => setFinishing(e.target.value)} /></Field>
               </div>
             </Card>
@@ -337,7 +356,7 @@ export function Calculator({
       {/* Resultado: coluna lateral no desktop, barra fixa no celular */}
       <aside className="lg:sticky lg:top-6 lg:self-start">
         <Card className="hidden space-y-4 lg:block">
-          <ResultBody result={result} errors={errors} qty={qty} discountPct={discountPct} sale={input?.sale ?? null} simple={!advanced} />
+          <ResultBody result={result} errors={errors} qty={qty} discountPct={discountPct} sale={input?.sale ?? null} simple={!advanced} channelPrices={channelPrices} />
         </Card>
         <div className="fixed inset-x-0 bottom-16 z-10 border-t border-line bg-surface/95 px-5 py-3 backdrop-blur lg:hidden">
           <details>
@@ -348,7 +367,7 @@ export function Calculator({
               </span>
             </summary>
             <div className="mt-3 max-h-[55dvh] space-y-4 overflow-y-auto pb-2">
-              <ResultBody result={result} errors={errors} qty={qty} discountPct={discountPct} sale={input?.sale ?? null} compact simple={!advanced} />
+              <ResultBody result={result} errors={errors} qty={qty} discountPct={discountPct} sale={input?.sale ?? null} compact simple={!advanced} channelPrices={channelPrices} />
             </div>
           </details>
         </div>
@@ -365,6 +384,7 @@ function ResultBody({
   sale,
   compact,
   simple,
+  channelPrices,
 }: {
   result: ReturnType<typeof calculatePricing> | null;
   errors: string[];
@@ -374,6 +394,7 @@ function ResultBody({
   compact?: boolean;
   /** Modo rápido: preço, custo, lucro e margem; o resto fica em "Ver detalhes". */
   simple?: boolean;
+  channelPrices: ChannelPrice[];
 }) {
   if (!result) {
     return (
@@ -406,6 +427,21 @@ function ResultBody({
           {disc.belowCost && <p className="text-xs">Atenção: neste preço você não cobre custo, taxas e impostos.</p>}
         </div>
       )}
+      <div className="rounded-xl border border-line bg-paper px-3 py-2 text-sm" data-testid="preco-por-canal">
+        <p className="font-medium">Preço por canal de venda</p>
+        {channelPrices.length === 0 ? (
+          <p className="text-xs text-muted">Cadastre Shopee, Mercado Livre e outros canais em <Link href="/configuracoes" className="font-medium text-accent-strong underline">Configurações</Link> para ver o preço de cada um.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {channelPrices.map((c) => (
+              <li key={c.id} className="flex items-baseline justify-between gap-3 py-1.5" data-testid="canal-preco">
+                <span>{c.name}</span>
+                <span className="num text-right">{c.price == null ? "—" : <><strong>{formatBRL(c.price)}</strong> <span className="text-xs text-muted">lucro {formatBRL(c.profit ?? 0)}</span></>}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {simple ? (
         <>
           <dl className="grid grid-cols-3 gap-3 text-sm" data-testid="resumo-simples">

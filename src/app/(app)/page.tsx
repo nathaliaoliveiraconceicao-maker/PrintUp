@@ -15,7 +15,7 @@ import { GettingStarted } from "@/features/onboarding/getting-started";
 import { loadStaleness } from "@/features/products/queries";
 import type { CatalogProduct } from "@/features/products/catalog-schema";
 import type { PricingRow } from "@/features/products/schema";
-import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
+import { settingsOrDefault, type SettingsRow } from "@/features/settings/schema";
 import { createClient } from "@/lib/supabase/server";
 import { daysUntil, formatBRL, formatDateTime, formatPercent } from "@/lib/utils";
 
@@ -44,7 +44,7 @@ export default async function DashboardPage() {
   // Primeiro acesso: leva ao assistente de configuração (ele pode ser pulado e não volta a aparecer).
   if (profile.data && !profile.data.onboarding_done_at) redirect("/boas-vindas");
 
-  const s = (settingsRes.data as SettingsRow | null) ?? DEFAULT_SETTINGS;
+  const s = settingsOrDefault(settingsRes.data as Partial<SettingsRow> | null);
   const latest = (latestRes.data ?? []) as Latest[];
   const recent = (recentRes.data ?? []) as Recent[];
   const productRows = (products.data ?? []) as (Pick<CatalogProduct, "id" | "name" | "pricing_id" | "production_cost" | "sale_price" | "printer_id" | "filament_id" | "archived_at">)[];
