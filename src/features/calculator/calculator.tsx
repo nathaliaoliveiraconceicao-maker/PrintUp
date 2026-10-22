@@ -420,9 +420,11 @@ function ResultBody({
           <p className="mt-1 text-xs opacity-75">
             Lucro {formatBRL(result.unitProfit)} · margem {formatPercent(result.marginPercent)}
           </p>
-          <p className="mt-1 text-xs opacity-75" data-testid="custo-placa">
-            Placa com {qty} peça{qty > 1 ? "s" : ""}: custo {formatBRL(result.batchCost)} · cada peça custa {formatBRL(result.unitCost)}
-          </p>
+          <div className="mt-3 grid grid-cols-3 gap-2" data-testid="custo-placa">
+            <div className="rounded-xl bg-white/10 p-2"><p className="text-xs opacity-75">Custo da placa{qty > 1 ? ` (${qty} peças)` : ""}</p><p className="num text-lg font-semibold text-white">{formatBRL(result.batchCost)}</p></div>
+            <div className="rounded-xl bg-white/10 p-2"><p className="text-xs opacity-75">Custo por peça</p><p className="num text-lg font-semibold text-white">{formatBRL(result.unitCost)}</p></div>
+            <div className="rounded-xl bg-white/10 p-2"><p className="text-xs opacity-75">Lucro por peça</p><p className="num text-lg font-semibold text-white">{formatBRL(result.unitProfit)}</p></div>
+          </div>
         </div>
       )}
       {disc && (
@@ -446,6 +448,27 @@ function ResultBody({
             ))}
           </ul>
         )}
+      </div>
+      <div data-testid="detalhamento-custo" className="text-sm">
+        <h3 className="mb-1 text-sm font-semibold">Detalhamento do custo</h3>
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 text-xs text-muted"><span /><span className="text-right">placa</span><span className="text-right">por peça</span></div>
+        <ul className="divide-y divide-line">
+          {COST_LABELS.map(([key, label]) => {
+            const value = result.unit[key];
+            return (
+              <li key={key} className={cn("grid grid-cols-[1fr_auto_auto] gap-x-4 py-1.5", value === 0 && "text-muted")}>
+                <span>{label}</span>
+                <span className="num text-right">{formatBRL(value * qty)}</span>
+                <span className="num text-right">{formatBRL(value)}</span>
+              </li>
+            );
+          })}
+          <li className="grid grid-cols-[1fr_auto_auto] gap-x-4 py-1.5 font-semibold">
+            <span>Custo total</span>
+            <span className="num text-right">{formatBRL(result.batchCost)}</span>
+            <span className="num text-right">{formatBRL(result.unitCost)}</span>
+          </li>
+        </ul>
       </div>
       {simple ? (
         <>
@@ -488,20 +511,7 @@ function ResultBody({
         <Stat label="Taxas / unid." value={formatBRL(result.unitFees)} />
         <Stat label="Impostos / unid." value={formatBRL(result.unitTaxes)} />
       </dl>
-      <details className="text-sm">
-        <summary className="min-h-11 cursor-pointer py-2 font-medium text-accent-strong">Ver custo item a item</summary>
-        <ul className="divide-y divide-line">
-          {COST_LABELS.map(([key, label]) => {
-            const value = result.unit[key];
-            return (
-              <li key={key} className="flex justify-between py-1.5">
-                <span className={value === 0 ? "text-muted" : ""}>{label}</span>
-                <span className="num">{formatBRL(value)}</span>
-              </li>
-            );
-          })}
-        </ul>
-      </details>
+
       </>)}
       {result.warnings.map((w) => (
         <p key={w.code} className="flex gap-2 rounded-xl bg-accent-soft px-3 py-2 text-xs text-warn">
