@@ -44,9 +44,24 @@ export const profileInputSchema = z
     }
   });
 
+/** Link de referência de QUALQUER site (MakerWorld, Printables, Thingiverse…): só http/https, sem usuário/senha embutidos. O PrintUp não lê a página. */
+export const referenceUrl = z
+  .string()
+  .trim()
+  .max(500, "O link é longo demais.")
+  .refine((s) => {
+    try {
+      const u = new URL(s);
+      return (u.protocol === "https:" || u.protocol === "http:") && u.hostname.includes(".") && !u.username && !u.password;
+    } catch {
+      return false;
+    }
+  }, "Informe um link completo, começando com http:// ou https://.");
+
 export const saveImportSchema = z
   .object({
-    source: z.enum(["arquivo", "manual"]),
+    source: z.enum(["arquivo", "manual", "link"]),
+    sourceUrl: referenceUrl.nullable().optional(),
     title: z.string().trim().min(1, "Dê um nome ao modelo.").max(160),
     designer: optText(120),
     slicerLabel: optText(120),
@@ -59,7 +74,9 @@ export const saveImportSchema = z
     thumbPath: z.string().max(300).nullable(),
     profiles: z.array(profileInputSchema).min(1, "Selecione ao menos uma placa.").max(100),
   })
-  .refine((v) => (v.filePath === null) === (v.fileKind === null), { message: "Arquivo e tipo precisam andar juntos.", path: ["filePath"] });
+  .refine((v) => (v.filePath === null) === (v.fileKind === null), { message: "Arquivo e tipo precisam andar juntos.", path: ["filePath"] })
+  .refine((v) => (v.source === "link") === Boolean(v.sourceUrl), { message: "Informe o link do modelo.", path: ["sourceUrl"] })
+  .refine((v) => v.source === "arquivo" || (v.filePath === null && v.thumbPath === null), { message: "Só a importação de arquivo leva arquivos.", path: ["filePath"] });
 
 export type ProfileInput = z.infer<typeof profileInputSchema>;
 export type SaveImportInput = z.infer<typeof saveImportSchema>;

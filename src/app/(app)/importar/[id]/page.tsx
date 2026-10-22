@@ -17,7 +17,7 @@ export const metadata = { title: "Modelo importado" };
 type ModelRow = {
   id: string; title: string; designer: string | null; source: string; slicer_label: string | null; plate_count: number | null;
   parse_notes: string[]; file_path: string | null; file_name: string | null; file_size: number | null; file_kind: string | null;
-  thumb_path: string | null; created_at: string;
+  thumb_path: string | null; created_at: string; source_url: string | null;
 };
 
 export default async function ModelPage({ params }: { params: Promise<{ id: string }> }) {
@@ -62,7 +62,8 @@ export default async function ModelPage({ params }: { params: Promise<{ id: stri
           <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-xl border border-dashed border-line text-muted"><Box /></span>
         )}
         <div className="min-w-0 space-y-1 text-sm">
-          <p><strong>Origem dos dados:</strong> {model.source === "manual" ? "informados manualmente" : `arquivo ${model.file_kind === "3mf" ? "3MF" : "G-code"}`}{model.slicer_label ? ` · ${model.slicer_label}` : ""}</p>
+          <p><strong>Origem dos dados:</strong> {model.source === "manual" ? "informados manualmente" : model.source === "link" ? "informados por você (modelo de um link)" : `arquivo ${model.file_kind === "3mf" ? "3MF" : "G-code"}`}{model.slicer_label ? ` · ${model.slicer_label}` : ""}</p>
+          {model.source === "link" && model.source_url && /^https?:\/\//i.test(model.source_url) && <p className="break-all"><strong>Link:</strong> <a href={model.source_url} target="_blank" rel="noopener noreferrer" className="font-medium text-accent-strong underline">{model.source_url}</a></p>}
           {model.designer && <p><strong>Autor:</strong> {model.designer}</p>}
           {model.plate_count && <p><strong>Placas no projeto:</strong> {model.plate_count}</p>}
           <p className="num text-muted">Importado em {formatDateTime(model.created_at)}</p>

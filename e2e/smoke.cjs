@@ -832,9 +832,9 @@ async function main() {
   await p.waitForURL(B + "/");
   await p.goto(B + "/importar");
   t = await main$();
-  ok(t.includes("Arquivo 3MF") && t.includes("Arquivo G-code") && t.includes("Informar manualmente") && t.includes("Link do MakerWorld"), "importar: quatro opções (3MF, G-code, manual e link)");
-  ok(t.includes("em breve"), "importar: link do MakerWorld aparece como 'em breve'");
-  ok((await p.locator('[aria-disabled="true"]').count()) === 1, "importar: opção do link está desabilitada");
+  ok(t.includes("Arquivo 3MF") && t.includes("Arquivo G-code") && t.includes("Informar manualmente") && t.includes("Guardar o link de um modelo"), "importar: quatro opções (3MF, G-code, manual e link de qualquer site)");
+  ok(!t.includes("em breve") && t.includes("qualquer site"), "importar: o link vale para qualquer site (nada marcado como 'em breve')");
+  ok((await p.locator('[aria-disabled="true"]').count()) === 0 && (await p.getByRole("link", { name: /Guardar o link de um modelo/ }).count()) === 1, "importar: a opção do link está ativa (qualquer site)");
 
   // arquivos recusados, sempre com mensagem clara e sem enviar nada
   const rejectCase = async (file, expected, label) => {
@@ -988,6 +988,19 @@ async function main() {
   await p.waitForFunction(() => document.body.innerText.includes("não é um 3MF válido"));
   ok(true, "exemplo inválido (texto .3mf): recusado");
 
+
+  // ── Importar por link de qualquer site ──
+  await p.goto(B + "/importar/link");
+  await p.getByLabel("Link do modelo").fill("javascript:alert(1)");
+  await p.getByLabel("Nome do produto").fill("Vaso por link");
+  await p.getByRole("button", { name: "Salvar sem calcular" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("começando com http"));
+  ok(true, "link: endereço que não é http(s) é recusado com mensagem");
+  await p.getByLabel("Link do modelo").fill("https://www.printables.com/model/123-vaso");
+  await p.getByRole("button", { name: "Salvar sem calcular" }).click();
+  await p.waitForURL(/\/importar\/[0-9a-f-]{36}$/);
+  const modelTxt = await main$();
+  ok(modelTxt.includes("modelo de um link") && (await p.locator('a[href="https://www.printables.com/model/123-vaso"][rel~="noopener"]').count()) === 1, "link: modelo salvo de qualquer site, com o link como referência (abre em nova aba com rel=noopener)");
 
   // ── Estoque de produtos (unidades prontas) e estoque de filamento dentro de Filamentos ──
   await p.goto(B + "/estoque");

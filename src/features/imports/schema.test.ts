@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { profileInputSchema, saveImportSchema } from "./schema";
+import { profileInputSchema, referenceUrl, saveImportSchema } from "./schema";
 
 const profile = {
   name: "Placa 1", plateIndex: 1, pieceCount: 2, slicerPrinterName: "Bambu Lab A1 mini", printerModelCode: null, nozzleMm: 0.4, layerHeightMm: 0.2,
@@ -38,5 +38,19 @@ describe("saveImportSchema (o servidor não confia no navegador)", () => {
   });
   it("tipo de arquivo fora da lista (ex.: stl) é recusado", () => {
     expect(saveImportSchema.safeParse({ ...model, fileKind: "stl", filePath: "x" }).success).toBe(false);
+  });
+});
+
+describe("link de qualquer site", () => {
+  it("aceita http/https de qualquer site e recusa o resto", () => {
+    for (const ok of ["https://makerworld.com/pt/models/123", "https://www.printables.com/model/1-x", "http://exemplo.com.br/peca?id=3#x"]) expect(referenceUrl.safeParse(ok).success).toBe(true);
+    for (const bad of ["javascript:alert(1)", "ftp://x.com/a", "makerworld.com/x", "https://usuario:senha@site.com/a", "https://localhost", "texto qualquer", ""]) expect(referenceUrl.safeParse(bad).success).toBe(false);
+  });
+  it("modelo por link exige o link e não leva arquivos; os outros tipos não levam link", () => {
+    const link = { ...model, source: "link", sourceUrl: "https://makerworld.com/x", profiles: [{ ...profile, weightG: null, weightOrigin: null, printMinutes: null, timeOrigin: null }] };
+    expect(saveImportSchema.safeParse(link).success).toBe(true);
+    expect(saveImportSchema.safeParse({ ...link, sourceUrl: null }).success).toBe(false);
+    expect(saveImportSchema.safeParse({ ...model, sourceUrl: "https://makerworld.com/x" }).success).toBe(false);
+    expect(saveImportSchema.safeParse({ ...link, filePath: "x", fileKind: "3mf" }).success).toBe(false);
   });
 });

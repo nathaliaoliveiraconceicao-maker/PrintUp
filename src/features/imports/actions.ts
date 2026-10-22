@@ -63,7 +63,7 @@ export async function saveImport(payload: unknown): Promise<SaveImportState> {
   if ((v.filePath && !isValidFilePath(user.id, v.filePath)) || (v.thumbPath && !isValidThumbPath(user.id, v.thumbPath))) {
     return { error: "Caminho de arquivo inválido." };
   }
-  if (v.source === "manual" && (v.filePath || v.thumbPath)) return { error: "Entrada manual não leva arquivos." };
+  if (v.source !== "arquivo" && (v.filePath || v.thumbPath)) return { error: "Só a importação de arquivo leva arquivos." };
 
   const uploaded = [v.filePath, v.thumbPath].filter((p): p is string => !!p);
   const cleanup = async () => {
@@ -92,6 +92,7 @@ export async function saveImport(payload: unknown): Promise<SaveImportState> {
       title: v.title,
       designer: v.designer,
       source: v.source,
+      source_url: v.source === "link" ? v.sourceUrl : null,
       slicer_label: v.slicerLabel,
       plate_count: v.plateCount,
       parse_notes: v.parseNotes,
