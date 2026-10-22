@@ -35,7 +35,7 @@ describe("probeMercadoPago", () => {
     const byLabel = Object.fromEntries(lines.map((l) => [l.label.slice(0, 5), l]));
     expect(lines[0].label).toBe("Conta da credencial");
     expect(byLabel["A. e-"].ok).toBe(false);
-    expect(byLabel["Candi"].ok).toBe(false);
+    expect(lines.find((l) => l.label === "Candidato 1")?.ok).toBe(false);
     expect(lines.filter((l) => l.label.startsWith("Candidato"))).toHaveLength(2); // o texto inválido é ignorado
     expect(lines.find((l) => l.label === "Candidato 2")?.ok).toBe(true);
     expect(JSON.stringify(lines)).not.toMatch(/@testuser\.com|pre_ok_1/);
