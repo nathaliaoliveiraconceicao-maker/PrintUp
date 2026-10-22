@@ -95,3 +95,42 @@ export const profileEditSchema = z.object({
   wasteG: z.number().min(0).max(100000).nullable(),
 });
 export type ProfileEditInput = z.infer<typeof profileEditSchema>;
+
+const FIELD_LABEL: Record<string, string> = {
+  weightG: "peso", printMinutes: "tempo de impressão", nozzleMm: "diâmetro do bico", layerHeightMm: "altura da camada", grams: "peso do material",
+  pieceCount: "número de peças", wasteG: "desperdício", plateIndex: "número da placa", materials: "materiais", name: "nome do perfil", title: "nome do modelo",
+};
+
+/** Mensagem em português para o primeiro problema do payload (nunca o texto técnico em inglês do validador). */
+export function friendlyImportIssue(issue: { code?: string; path: PropertyKey[]; message: string }): string {
+  if (issue.code === "custom" || /[áéíóúçã]/i.test(issue.message)) return issue.message; // mensagens nossas, já em português
+  const last = [...issue.path].reverse().find((p) => typeof p === "string") as string | undefined;
+  const label = last ? FIELD_LABEL[last] : undefined;
+  if (label) return `O campo "${label}" tem um valor que não pôde ser usado (por exemplo, zero ou negativo). Corrija-o ou deixe-o em branco, ou use "Salvar modelo sem calcular".`;
+  return "Alguns dados lidos do arquivo não puderam ser usados. Use \"Salvar modelo sem calcular\" ou informe os dados manualmente.";
+}
+
+/** Caminho do campo com problema, só para o monitoramento (ex.: profiles.0.materials.0.grams). */
+export const issuePath = (issue: { path: PropertyKey[] }): string => issue.path.map(String).join(".").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 80);
+
+/**
+ * Valor zero ou negativo vindo do arquivo significa "desconhecido": vira vazio (null), nunca um número inventado.
+ * Só toca em bico, altura de camada e gramas por material.
+ */
+export function normalizeImportPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object") return payload;
+  const p = payload as { profiles?: unknown };
+  if (!Array.isArray(p.profiles)) return payload;
+  const pos = (n: unknown) => (typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null);
+  const profiles = p.profiles.map((pr) => {
+    if (!pr || typeof pr !== "object") return pr;
+    const x = pr as Record<string, unknown>;
+    return {
+      ...x,
+      nozzleMm: "nozzleMm" in x ? pos(x.nozzleMm) : x.nozzleMm,
+      layerHeightMm: "layerHeightMm" in x ? pos(x.layerHeightMm) : x.layerHeightMm,
+      materials: Array.isArray(x.materials) ? x.materials.map((m) => (m && typeof m === "object" ? { ...(m as object), grams: pos((m as { grams?: unknown }).grams) } : m)) : x.materials,
+    };
+  });
+  return { ...(payload as object), profiles };
+}
