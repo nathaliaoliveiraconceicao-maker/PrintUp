@@ -14,6 +14,31 @@ const API = "https://api.mercadopago.com";
 /** Token de teste do Mercado Pago começa com `TEST-`. Qualquer outro é tratado como PRODUÇÃO (bloqueado sem autorização). */
 export const mercadoPagoIsTest = (token: string): boolean => token.startsWith("TEST-");
 
+const testAccountCache = new Map<string, { ok: boolean; at: number }>();
+
+/**
+ * Credencial `APP_USR-` pode ser de uma conta de TESTE (usuário vendedor de teste, só dinheiro fictício) ou da conta REAL.
+ * Pergunta ao Mercado Pago de quem é o token (`/users/me`) e só aceita se for conta de teste. Falha de rede = NÃO aceita.
+ * O resultado fica em memória por alguns minutos (nunca grava o token em lugar nenhum).
+ */
+export async function mercadoPagoIsTestAccount(token: string, fetchImpl: typeof fetch = fetch): Promise<boolean> {
+  const cached = testAccountCache.get(token);
+  if (cached && Date.now() - cached.at < (cached.ok ? 600_000 : 30_000)) return cached.ok;
+  let ok = false;
+  try {
+    const res = await fetchImpl(`${API}/users/me`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8_000), cache: "no-store" });
+    if (res.ok) {
+      const me = (await res.json()) as { nickname?: unknown; tags?: unknown };
+      const tags = Array.isArray(me.tags) ? me.tags : [];
+      ok = (typeof me.nickname === "string" && /^TESTUSER/i.test(me.nickname)) || tags.includes("test_user");
+    }
+  } catch {
+    ok = false;
+  }
+  testAccountCache.set(token, { ok, at: Date.now() });
+  return ok;
+}
+
 export interface MercadoPagoConfig {
   accessToken: string;
   /** Segredo da assinatura do webhook (painel de desenvolvedores). */

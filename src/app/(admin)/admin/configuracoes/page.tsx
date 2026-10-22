@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/ui/card";
 import { SettingsForm } from "@/features/admin/forms";
 import { Card } from "@/components/ui/card";
 import { diagnoseBilling } from "@/features/admin/diagnostics";
+import { mercadoPagoIsTestAccount } from "@/lib/billing/mercadopago";
 import { requireAdminPage } from "@/features/admin/guard";
 import { Badge } from "@/features/admin/ui";
 
@@ -10,7 +11,9 @@ export const metadata = { title: "Configurações · Administração" };
 export default async function PlatformSettingsPage() {
   const { supabase } = await requireAdminPage();
   const { data } = await supabase.from("platform_settings").select("key, value");
-  const diag = diagnoseBilling(process.env);
+  const token = process.env.MERCADOPAGO_ACCESS_TOKEN ?? "";
+  const accountIsTest = token.startsWith("APP_USR-") ? await mercadoPagoIsTestAccount(token) : null;
+  const diag = diagnoseBilling(process.env, accountIsTest);
   const get = (k: string) => (data ?? []).find((r) => r.key === k)?.value as unknown;
   return (
     <>

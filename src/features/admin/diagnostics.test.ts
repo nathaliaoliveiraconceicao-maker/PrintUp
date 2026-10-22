@@ -19,8 +19,10 @@ describe("diagnoseBilling", () => {
     expect(bad({ ...OK, NEXT_PUBLIC_SITE_URL: "print-up-six.vercel.app" })).toEqual(["NEXT_PUBLIC_SITE_URL"]);
     expect(bad({ ...OK, SUPABASE_SERVICE_ROLE_KEY: "" })).toEqual(["SUPABASE_SERVICE_ROLE_KEY"]);
   });
-  it("produção só passa com a autorização explícita", () => {
+  it("APP_USR- só passa se for de conta de teste confirmada, ou com autorização explícita", () => {
     expect(diagnoseBilling({ ...OK, MERCADOPAGO_ACCESS_TOKEN: "APP_USR-999" }).enabled).toBe(false);
+    expect(diagnoseBilling({ ...OK, MERCADOPAGO_ACCESS_TOKEN: "APP_USR-999" }, false).enabled).toBe(false);
+    expect(diagnoseBilling({ ...OK, MERCADOPAGO_ACCESS_TOKEN: "APP_USR-999" }, true).enabled).toBe(true);
     expect(diagnoseBilling({ ...OK, MERCADOPAGO_ACCESS_TOKEN: "APP_USR-999", BILLING_ALLOW_LIVE: "sim" }).enabled).toBe(true);
   });
   it("NUNCA devolve valores de segredos", () => {

@@ -5,7 +5,7 @@ export type BillingDiagnosis = { enabled: boolean; summary: string; items: DiagI
  * Diagnóstico da configuração de pagamentos. NUNCA devolve valores: só se a variável existe e se o formato é o esperado
  * (por exemplo, "começa com TEST-"). Serve para o superadmin descobrir o que falta sem abrir segredos.
  */
-export function diagnoseBilling(env: Record<string, string | undefined>): BillingDiagnosis {
+export function diagnoseBilling(env: Record<string, string | undefined>, tokenAccountIsTest: boolean | null = null): BillingDiagnosis {
   const items: DiagItem[] = [];
   const has = (k: string) => Boolean(env[k] && env[k]!.trim() !== "");
   const raw = (k: string) => env[k] ?? "";
@@ -25,8 +25,12 @@ export function diagnoseBilling(env: Record<string, string | undefined>): Billin
     : token !== token.trim() ? { name: "MERCADOPAGO_ACCESS_TOKEN", ok: false, detail: "tem espaço ou quebra de linha no começo ou no fim" }
     : token.startsWith("TEST-") ? { name: "MERCADOPAGO_ACCESS_TOKEN", ok: true, detail: "credencial de TESTE (começa com TEST-)" }
     : token.startsWith("APP_USR-") ? (env.BILLING_ALLOW_LIVE === "sim"
-        ? { name: "MERCADOPAGO_ACCESS_TOKEN", ok: true, detail: "credencial de PRODUÇÃO com cobrança real autorizada" }
-        : { name: "MERCADOPAGO_ACCESS_TOKEN", ok: false, detail: "é credencial de PRODUÇÃO (APP_USR-) e a cobrança real está bloqueada; use a de teste (TEST-)" })
+        ? { name: "MERCADOPAGO_ACCESS_TOKEN", ok: true, detail: "credencial APP_USR- com cobrança real autorizada" }
+        : tokenAccountIsTest === true
+          ? { name: "MERCADOPAGO_ACCESS_TOKEN", ok: true, detail: "credencial APP_USR- de uma conta de TESTE (confirmado no Mercado Pago)" }
+          : tokenAccountIsTest === false
+            ? { name: "MERCADOPAGO_ACCESS_TOKEN", ok: false, detail: "credencial APP_USR- de uma conta REAL (ou não foi possível confirmar): bloqueada. Use as credenciais do usuário de teste vendedor" }
+            : { name: "MERCADOPAGO_ACCESS_TOKEN", ok: false, detail: "credencial APP_USR-: ainda não foi possível confirmar que é de uma conta de teste" })
     : { name: "MERCADOPAGO_ACCESS_TOKEN", ok: false, detail: `formato inesperado (começa com outra coisa, tamanho ${token.length}); pode ser a Public Key ou outro campo` });
 
   const secret = raw("MERCADOPAGO_WEBHOOK_SECRET");

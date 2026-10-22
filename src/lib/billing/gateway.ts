@@ -90,9 +90,10 @@ export async function resolveGateway(env: Record<string, string | undefined> = p
     const secret = env.MERCADOPAGO_WEBHOOK_SECRET;
     const site = env.NEXT_PUBLIC_SITE_URL;
     if (!token || !secret || secret.length < 16 || !site) return { enabled: false, reason: "mercadopago_incompleto" };
-    const { mercadoPagoIsTest, MercadoPagoGateway } = await import("./mercadopago");
-    // Cobrança REAL exige autorização explícita (BILLING_ALLOW_LIVE=sim). Sem ela, só credenciais de teste.
-    if (!mercadoPagoIsTest(token) && env.BILLING_ALLOW_LIVE !== "sim") return { enabled: false, reason: "cobranca_real_bloqueada" };
+    const { mercadoPagoIsTest, mercadoPagoIsTestAccount, MercadoPagoGateway } = await import("./mercadopago");
+    // Cobrança REAL exige autorização explícita (BILLING_ALLOW_LIVE=sim). Sem ela, só credenciais de teste:
+    // `TEST-…` ou `APP_USR-…` que o Mercado Pago confirme ser de uma conta de teste.
+    if (!mercadoPagoIsTest(token) && env.BILLING_ALLOW_LIVE !== "sim" && !(await mercadoPagoIsTestAccount(token))) return { enabled: false, reason: "cobranca_real_bloqueada" };
     return { enabled: true, gateway: new MercadoPagoGateway({ accessToken: token, webhookSecret: secret, siteUrl: site, testPayerEmail: env.MERCADOPAGO_TEST_PAYER_EMAIL }) };
   }
   return { enabled: false, reason: "sem_gateway" };

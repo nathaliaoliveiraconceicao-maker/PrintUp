@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { GatewayUnavailableError } from "./gateway";
-import { MercadoPagoGateway, mercadoPagoIsTest } from "./mercadopago";
+import { MercadoPagoGateway, mercadoPagoIsTest, mercadoPagoIsTestAccount } from "./mercadopago";
 import { hmacHex } from "./signature";
 
 const SECRET = "segredo-mp-de-teste-0123456789";
@@ -98,9 +98,24 @@ describe("resolveGateway com Mercado Pago", () => {
     expect(await resolveGateway({ ...base, MERCADOPAGO_ACCESS_TOKEN: "TEST-1", MERCADOPAGO_WEBHOOK_SECRET: "curto" })).toEqual({ enabled: false, reason: "mercadopago_incompleto" });
   });
   it("credencial de produção fica bloqueada sem autorização explícita", async () => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ nickname: "LOJA_REAL", tags: ["normal"] }), { status: 200 }));
     const { resolveGateway } = await import("./gateway");
     expect(await resolveGateway({ ...base, MERCADOPAGO_ACCESS_TOKEN: "APP_USR-1" })).toEqual({ enabled: false, reason: "cobranca_real_bloqueada" });
+    vi.unstubAllGlobals();
     expect((await resolveGateway({ ...base, MERCADOPAGO_ACCESS_TOKEN: "TEST-1" })).enabled).toBe(true);
     expect((await resolveGateway({ ...base, MERCADOPAGO_ACCESS_TOKEN: "APP_USR-1", BILLING_ALLOW_LIVE: "sim" })).enabled).toBe(true);
+  });
+});
+
+describe("mercadoPagoIsTestAccount (APP_USR- só vale se for conta de teste)", () => {
+  const reply = (body: unknown, status = 200) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+  it("aceita conta de teste (TESTUSER ou tag test_user)", async () => {
+    expect(await mercadoPagoIsTestAccount("APP_USR-teste-a", reply({ nickname: "TESTUSER123", tags: [] }))).toBe(true);
+    expect(await mercadoPagoIsTestAccount("APP_USR-teste-b", reply({ nickname: "x", tags: ["normal", "test_user"] }))).toBe(true);
+  });
+  it("recusa conta real, resposta de erro e falha de rede (fecha por segurança)", async () => {
+    expect(await mercadoPagoIsTestAccount("APP_USR-real", reply({ nickname: "MINHALOJA", tags: ["normal"] }))).toBe(false);
+    expect(await mercadoPagoIsTestAccount("APP_USR-401", reply({ message: "invalid" }, 401))).toBe(false);
+    expect(await mercadoPagoIsTestAccount("APP_USR-rede", (async () => { throw new Error("rede"); }) as unknown as typeof fetch)).toBe(false);
   });
 });

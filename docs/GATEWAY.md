@@ -27,7 +27,7 @@ Motivos: fluxo de assinatura direto (cobrança por ciclo com boleto/cartão/Pix)
 - Tópicos tratados: `subscription_authorized_payment` (aprovado → confirmada; recusada/reciclando → falhou) e `subscription_preapproval` (cancelada → cancelamento no fim do período). Falha de rede com o Mercado Pago → 500 para ele reenviar.
 - Cancelar: o Mercado Pago cancela na hora (para de cobrar); o PrintUp mantém o plano até o fim do período já pago. Mudar de plano atualiza o valor da recorrência.
 - Pessoa física: use **cartão**. Pix recorrente não é tratado (depende de liberação/CNPJ).
-- **Trava de segurança:** token que não começa com `TEST-` só funciona com `BILLING_ALLOW_LIVE=sim`. Não ligue isso sem decidir lançar.
+- **Trava de segurança:** token `TEST-` é aceito. Token `APP_USR-` só é aceito se o Mercado Pago (`/users/me`) confirmar que pertence a um **usuário de teste** (nickname `TESTUSER…` ou tag `test_user`); falha de rede = recusa. Qualquer outro token (conta real) só funciona com `BILLING_ALLOW_LIVE=sim`. Não ligue isso sem decidir lançar. O painel **Administração → Configurações → Pagamentos: diagnóstico** mostra o que está certo ou errado, sem revelar valores.
 - Limitações: o manifesto usa `data.id` do corpo (a documentação cita o parâmetro da URL; confirmar no sandbox). Não foi testado contra o Mercado Pago real, só com respostas simuladas.
 
 ## Configurar o ambiente de teste (você)
