@@ -51,10 +51,10 @@ export async function savePricing(payload: unknown): Promise<SavePricingState> {
       // "Editado" = diferente do que o arquivo trouxe: corrigido na ficha de importação OU alterado na calculadora.
       weightEdited:
         (profile.weight_origin === "manual" && ((profile.edited_fields as string[] | null) ?? []).includes("weight")) ||
-        (profile.weight_g !== null && !close(profile.weight_g as number, input.filamentGramsPerUnit)),
+        (profile.weight_g !== null && !close(profile.weight_g as number, input.filamentGramsPerUnit * input.quantity)),
       timeEdited:
         (profile.time_origin === "manual" && ((profile.edited_fields as string[] | null) ?? []).includes("time")) ||
-        (profile.print_minutes !== null && !close(profile.print_minutes as number, input.printMinutesPerUnit)),
+        (profile.print_minutes !== null && !close(profile.print_minutes as number, input.printMinutesPerUnit * input.quantity)),
       printerMatch: comparePrinters(profile.slicer_printer_name as string | null, chosen as { name: string; brand: string | null; model: string | null } | null),
     };
   }

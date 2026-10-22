@@ -65,7 +65,7 @@ export function Calculator({
   const [hours, setHours] = useState(() => valuesFromMinutes(profile?.printMinutes ?? null).hours);
   const [minutes, setMinutes] = useState(() => valuesFromMinutes(profile?.printMinutes ?? null).minutes);
   const [grams, setGrams] = useState(() => (profile?.weightG != null ? String(profile.weightG).replace(".", ",") : ""));
-  const [quantity, setQuantity] = useState("1");
+  const [quantity, setQuantity] = useState(() => String(profile?.pieceCount && profile.pieceCount > 0 ? profile.pieceCount : 1));
   const [pricePerKg, setPricePerKg] = useState<string | null>(null); // null = usar o do filamento escolhido
   const [loss, setLoss] = useState(String(settings.loss_percent).replace(".", ","));
   const [laborMin, setLaborMin] = useState("0");
@@ -88,11 +88,13 @@ export function Calculator({
 
   const effectivePricePerKg = pricePerKg ?? (filament ? String(filament.price_per_kg).replace(".", ",") : "");
 
+  const plateQty = Math.max(1, Math.floor(num(quantity) || 1));
   const { result, errors, input } = useMemo(() => {
     const draft = {
-      quantity: Math.max(1, Math.floor(num(quantity) || 1)),
-      printMinutesPerUnit: num(hours) * 60 + num(minutes),
-      filamentGramsPerUnit: num(grams),
+      quantity: plateQty,
+      // Tempo e peso são da PLACA inteira; o motor trabalha por peça.
+      printMinutesPerUnit: (num(hours) * 60 + num(minutes)) / plateQty,
+      filamentGramsPerUnit: num(grams) / plateQty,
       filamentPricePerKg: num(effectivePricePerKg),
       machine: {
         hourlyCost: num(ov.hourly ?? fmt(printer?.hourly_cost ?? 0)),
@@ -126,7 +128,7 @@ export function Calculator({
     const parsed = pricingInputSchema.safeParse(draft);
     if (!parsed.success) return { result: null, input: null, errors: parsed.error.issues.map((i) => i.message) };
     return { result: calculatePricing(parsed.data), input: parsed.data, errors: [] as string[] };
-  }, [shipping, quantity, hours, minutes, grams, effectivePricePerKg, printer, settings, ov, loss, laborRate, laborMin, setupMin, packaging, finishing, feePct, feeFixed, taxPct, mode, target]);
+  }, [plateQty, shipping, hours, minutes, grams, effectivePricePerKg, printer, settings, ov, loss, laborRate, laborMin, setupMin, packaging, finishing, feePct, feeFixed, taxPct, mode, target]);
 
   // Preço por canal de venda: mesma conta, trocando só as taxas da venda direta pelas do canal.
   const channelPrices = useMemo<ChannelPrice[]>(() => {
@@ -230,9 +232,9 @@ export function Calculator({
             <Field label="Peso (g)" tag={weightTag ? <Tag value={weightTag} /> : undefined}><Input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} placeholder="0" /></Field>
             <Field label="Horas" tag={timeTag ? <Tag value={timeTag} /> : undefined}><Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="0" /></Field>
             <Field label="Minutos"><Input inputMode="decimal" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="0" /></Field>
-            <Field label="Unidades"><Input inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
+            <Field label="Peças na placa"><Input inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
           </div>
-          <p className="text-xs text-muted">Peso e tempo de <strong>uma</strong> unidade (com suportes).</p>
+          <p className="-mt-2 text-xs text-muted">Informe o tempo e o peso da <strong>placa inteira</strong> e quantas peças ela rende: o PrintUp calcula o custo da placa e o valor de cada peça.</p>
           {advanced && (
             <Field label="Preço do filamento (R$/kg)" hint="Preenchido pelo filamento escolhido; edite se precisar.">
               <Input inputMode="decimal" value={effectivePricePerKg} onChange={(e) => setPricePerKg(e.target.value)} />
@@ -418,6 +420,9 @@ function ResultBody({
           <p className="mt-1 text-xs opacity-75">
             Lucro {formatBRL(result.unitProfit)} · margem {formatPercent(result.marginPercent)}
           </p>
+          <p className="mt-1 text-xs opacity-75" data-testid="custo-placa">
+            Placa com {qty} peça{qty > 1 ? "s" : ""}: custo {formatBRL(result.batchCost)} · cada peça custa {formatBRL(result.unitCost)}
+          </p>
         </div>
       )}
       {disc && (
@@ -457,8 +462,8 @@ function ResultBody({
                 <Stat label="Custo do filamento" value={formatBRL(g.filament)} />
                 <Stat label="Custo da impressora" value={formatBRL(g.printer)} />
                 <Stat label="Custos adicionais" value={formatBRL(g.additional)} />
-                <Stat label={`Custo do lote (${qty})`} value={formatBRL(result.batchCost)} />
-                <Stat label="Lucro do lote" value={formatBRL(result.batchProfit)} tone="ok" />
+                <Stat label={`Custo da placa (${qty} peça${qty > 1 ? "s" : ""})`} value={formatBRL(result.batchCost)} />
+                <Stat label="Lucro da placa" value={formatBRL(result.batchProfit)} tone="ok" />
                 <Stat label="Taxas / unid." value={formatBRL(result.unitFees)} />
                 <Stat label="Impostos / unid." value={formatBRL(result.unitTaxes)} />
               </dl>
@@ -475,9 +480,9 @@ function ResultBody({
         <Stat label="Custo da impressora" value={formatBRL(g.printer)} />
         <Stat label="Custos adicionais" value={formatBRL(g.additional)} />
         <Stat label="Custo unitário" value={formatBRL(result.unitCost)} />
-        <Stat label={`Custo do lote (${qty})`} value={formatBRL(result.batchCost)} />
+        <Stat label={`Custo da placa (${qty} peça${qty > 1 ? "s" : ""})`} value={formatBRL(result.batchCost)} />
         <Stat label="Lucro / unid." value={formatBRL(result.unitProfit)} tone="ok" />
-        <Stat label="Lucro do lote" value={formatBRL(result.batchProfit)} tone="ok" />
+        <Stat label="Lucro da placa" value={formatBRL(result.batchProfit)} tone="ok" />
         <Stat label="Margem (sobre o preço)" value={formatPercent(result.marginPercent)} />
         <Stat label="Markup (sobre o custo)" value={formatPercent(result.markupPercent)} />
         <Stat label="Taxas / unid." value={formatBRL(result.unitFees)} />

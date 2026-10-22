@@ -186,7 +186,7 @@ async function main() {
   const res = async () => (await p.locator("main aside").first().innerText()).replace(/\s+/g, " ");
   ok((await p.getByRole("radio", { name: /Modo rápido/ }).getAttribute("aria-checked")) === "true", "calculadora abre no modo rápido");
   ok((await p.getByLabel("Mão de obra (min)").count()) === 0 && (await p.getByLabel("Perdas (%)").count()) === 0 && (await p.getByLabel("Impostos (%)").count()) === 0, "modo rápido esconde mão de obra, perdas e impostos");
-  ok((await p.getByLabel("Margem de lucro (%)").count()) === 1 && (await p.getByLabel("Unidades", { exact: true }).count()) === 1, "modo rápido mostra margem e unidades");
+  ok((await p.getByLabel("Margem de lucro (%)").count()) === 1 && (await p.getByLabel(/^Peças na placa/).count()) === 1, "modo rápido mostra margem e unidades");
   ok((await p.locator('[data-testid="padroes-rapido"]').innerText()).includes("padrões já estão aplicados"), "modo rápido avisa que os padrões configurados foram carregados");
   ok((await p.locator('[data-testid="preencha-dados"]').count()) >= 1 && !/zerado/.test(await res()), "calculadora vazia: convida a informar peso e tempo (sem R$ 0,00 nem avisos de erro)");
   await fill("Horas", "2"); await fill("Minutos", "30"); await fill("Peso (g)", "80");
@@ -227,9 +227,9 @@ async function main() {
   ok((await p.locator('[data-testid="resumo-simples"]').count()) >= 1 && (await p.locator('[data-testid="detalhes-calculo"]').count()) >= 1, "modo rápido: resumo simples e detalhes recolhidos");
   ok(quickPrice.length > 0, "modo rápido sem ajustes avançados mostrou um preço");
   await p.getByRole("radio", { name: /Modo avançado/ }).click();
-  await fill("Unidades", "10"); t = await res();
-  ok(/Custo do lote \(10\) R\$\s?288,72/.test(t), "lote de 10: custo = R$ 288,72");
-  await fill("Unidades", "1");
+  await fill("Peças na placa", "10"); t = await res();
+  ok(/Custo da placa \(10 peças\)/.test(t) && /Custo unitário R\$\s?\d+,\d\d/.test(t), "placa de 10 peças: custo da placa e custo por peça");
+  await fill("Peças na placa", "1");
 
   await p.locator('[data-testid="salvar-produto"] summary').click();
   const saveBtn = p.getByRole("button", { name: /Salvar como produto|Atualizar produto/ });
