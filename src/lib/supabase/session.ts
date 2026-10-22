@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/env";
 
 // /planos é a página comercial (pública); /api/webhooks recebe o gateway (autenticado pela ASSINATURA do corpo, não por login).
-const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/auth", "/planos", "/api/webhooks"];
+const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/auth", "/planos", "/inicio", "/api/webhooks"];
 
 /** Renova a sessão e redireciona visitantes anônimos para /login. A autorização real continua no RLS. */
 export async function updateSession(request: NextRequest) {
@@ -45,6 +45,14 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 
+  // Visitante na raiz vê a página de apresentação (a URL continua "/"); quem está logado vê o painel.
+  if (!user && path === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/inicio";
+    const rewritten = NextResponse.rewrite(url, { request });
+    response.cookies.getAll().forEach((c) => rewritten.cookies.set(c));
+    return rewritten;
+  }
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

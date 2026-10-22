@@ -78,6 +78,10 @@ async function main() {
   await p.goto(B + "/auth/confirm?token_hash=curto&type=signup");
   ok((await p.locator('[data-testid="confirmar-invalido"]').count()) === 1, "link malformado: página de link inválido");
   // ── Acesso ──
+  await p.goto(B + "/");
+  ok(p.url() === B + "/" && (await p.getByRole("link", { name: "Criar conta grátis" }).count()) >= 1, "visitante na raiz vê a página de apresentação (URL continua /)");
+  const home = (await p.locator("main").innerText()).replace(/\s+/g, " ");
+  ok(!/relatório|produção avançada|nota fiscal emitida/i.test(home.replace("O PrintUp emite nota fiscal? Ainda não.", "")) && /3MF/.test(home), "apresentação só promete o que existe");
   await p.goto(B + "/calculadora");
   ok(p.url().endsWith("/login"), "anônimo é redirecionado ao login");
   await p.fill("input[name=email]", "teste@printup.local");
