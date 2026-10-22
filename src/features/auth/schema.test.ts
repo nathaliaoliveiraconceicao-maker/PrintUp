@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { forgotPasswordSchema, newPasswordSchema, safeNextPath } from "./schema";
+import { confirmLinkSchema, forgotPasswordSchema, newPasswordSchema, safeNextPath } from "./schema";
 
 describe("newPasswordSchema", () => {
   it("aceita senhas iguais com 8+ caracteres", () => {
@@ -31,5 +31,15 @@ describe("safeNextPath", () => {
     expect(safeNextPath("//evil.com")).toBe("/");
     expect(safeNextPath("/configuracoes")).toBe("/");
     expect(safeNextPath(null)).toBe("/");
+  });
+});
+
+describe("confirmLinkSchema", () => {
+  it("aceita só tipos e tokens bem formados", () => {
+    expect(confirmLinkSchema.safeParse({ token_hash: "abcdef1234567890", type: "signup" }).success).toBe(true);
+    expect(confirmLinkSchema.safeParse({ token_hash: "abcdef1234567890", type: "recovery", next: "/redefinir-senha" }).success).toBe(true);
+    for (const bad of [{ token_hash: "curto", type: "signup" }, { token_hash: "abc def 12345678", type: "signup" }, { token_hash: "abcdef1234567890", type: "magiclink" }, { token_hash: "../../etc/passwd1", type: "email" }]) {
+      expect(confirmLinkSchema.safeParse(bad).success).toBe(false);
+    }
   });
 });

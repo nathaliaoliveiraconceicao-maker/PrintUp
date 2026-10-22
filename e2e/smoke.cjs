@@ -63,6 +63,20 @@ async function main() {
   const main$ = async () => (await p.locator("main").innerText()).replace(/\s+/g, " ");
   const fill = (label, v) => p.getByLabel(label, { exact: true }).first().fill(v);
 
+  // ── Link de confirmação de e-mail: abrir a página não gasta o link; só o clique no botão confirma ──
+  await p.goto(B + "/auth/confirm?token_hash=tokenvalido123456&type=signup");
+  ok((await p.locator('[data-testid="confirmar-email"]').count()) === 1 && p.url().includes("/auth/confirm"), "link de confirmação: abrir a página só mostra o botão (não confirma sozinho)");
+  await p.goto(B + "/auth/confirm?token_hash=tokenvalido123456&type=signup");
+  await p.getByRole("button", { name: "Confirmar e entrar" }).click();
+  await p.waitForURL((u) => !u.pathname.startsWith("/auth/confirm"));
+  ok(!p.url().includes("/login"), "link de confirmação válido: o clique no botão entra na conta");
+  await p.context().clearCookies();
+  await p.goto(B + "/auth/confirm?token_hash=tokeninvalido99999&type=signup");
+  await p.getByRole("button", { name: "Confirmar e entrar" }).click();
+  await p.waitForURL(/login\?erro=link/);
+  ok((await p.locator("body").innerText()).includes("inválido ou expirou"), "link inválido/expirado: mensagem clara no login");
+  await p.goto(B + "/auth/confirm?token_hash=curto&type=signup");
+  ok((await p.locator('[data-testid="confirmar-invalido"]').count()) === 1, "link malformado: página de link inválido");
   // ── Acesso ──
   await p.goto(B + "/calculadora");
   ok(p.url().endsWith("/login"), "anônimo é redirecionado ao login");

@@ -192,6 +192,11 @@ http.createServer(async (req, res) => {
     if (b.password !== PASSWORD) return send(req, res, 400, { code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials" });
     return send(req, res, 200, session());
   }
+  if (p === "/auth/v1/verify") {
+    const b = await readBody(req);
+    if (b && b.token_hash === "tokenvalido123456") return send(req, res, 200, session());
+    return send(req, res, 403, { code: 403, error_code: "otp_expired", msg: "Email link is invalid or has expired" });
+  }
   if (p === "/auth/v1/recover") return send(req, res, 200, {});
   if (p === "/auth/v1/user" && req.method === "PUT") { const b = await readBody(req); if (b && b.password) PASSWORD = b.password; return send(req, res, 200, USER); }
   if (p === "/auth/v1/user") return /Bearer .+\..+\./.test(req.headers.authorization || "") ? send(req, res, 200, USER) : send(req, res, 401, { code: 401, msg: "no token" });

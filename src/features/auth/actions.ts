@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { forgotPasswordSchema, newPasswordSchema } from "./schema";
+import { confirmLinkSchema, forgotPasswordSchema, newPasswordSchema, safeNextPath } from "./schema";
 
 export type AuthState = { error?: string; ok?: string };
 
@@ -80,4 +80,14 @@ export async function updatePassword(_: AuthState, formData: FormData): Promise<
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) return { error: "Não foi possível alterar a senha. Tente outra senha ou peça um novo link." };
   redirect("/");
+}
+
+/** Confirma o e-mail (ou a recuperação de senha) quando a pessoa clica no botão da página /auth/confirm. */
+export async function confirmEmailLink(formData: FormData) {
+  const parsed = confirmLinkSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/login?erro=link");
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({ token_hash: parsed.data.token_hash, type: parsed.data.type });
+  if (error) redirect("/login?erro=link");
+  redirect(parsed.data.type === "recovery" ? "/redefinir-senha" : safeNextPath(parsed.data.next));
 }
