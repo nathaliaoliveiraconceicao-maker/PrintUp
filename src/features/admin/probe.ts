@@ -4,7 +4,7 @@ export type ProbeLine = { label: string; ok: boolean; detail: string };
 
 const API = "https://api.mercadopago.com";
 
-type Cfg = { accessToken: string; siteUrl: string; testPayerEmail?: string; fetchImpl?: typeof fetch };
+type Cfg = { accessToken: string; siteUrl: string; testPayerEmail?: string; /** E-mails de comprador para experimentar (a tela nunca os repete). */ candidates?: string[]; fetchImpl?: typeof fetch };
 
 /**
  * Teste de conexão (SÓ conta de teste): consulta a conta e tenta criar uma assinatura "pendente" com variações do pedido,
@@ -34,16 +34,12 @@ export async function probeMercadoPago(cfg: Cfg): Promise<ProbeLine[]> {
     lines.push({ label: "Conta da credencial", ok: true, detail: `país: ${sanitizeGatewayText(me.json.site_id)} · tipo: ${sanitizeGatewayText(me.json.user_type) || "?"} · marcas: ${tags || "—"}` });
   } else lines.push({ label: "Conta da credencial", ok: false, detail: `não respondeu (HTTP ${me.status})` });
 
-  const rnd = () => `test_user_${Math.floor(Math.random() * 9_000_000_000 + 1_000_000_000)}@testuser.com`;
   const base = { reason: "PrintUp teste de conexão", back_url: `${cfg.siteUrl.replace(/\/$/, "")}/assinatura`, status: "pending", auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 29.9, currency_id: "BRL" } };
-  const startDate = new Date(Date.now() + 120_000).toISOString();
-  const variants: { label: string; body: Record<string, unknown> }[] = [
-    { label: "A. como o PrintUp faz (e-mail configurado)", body: { ...base, external_reference: "probe-a", payer_email: cfg.testPayerEmail ?? rnd() } },
-    { label: "B. com data de início", body: { ...base, external_reference: "probe-b", payer_email: cfg.testPayerEmail ?? rnd(), auto_recurring: { ...base.auto_recurring, start_date: startDate } } },
-    { label: "C. e-mail de teste aleatório", body: { ...base, external_reference: "probe-c", payer_email: rnd() } },
-    { label: "D. sem e-mail do comprador", body: { ...base, external_reference: "probe-d" } },
-    { label: "E. sem endereço de retorno", body: { reason: base.reason, status: "pending", external_reference: "probe-e", payer_email: cfg.testPayerEmail ?? rnd(), auto_recurring: base.auto_recurring } },
-  ];
+  const emailOk = (e: string) => /^[^@\s]{1,80}@[^@\s]{3,80}$/.test(e);
+  const variants: { label: string; body: Record<string, unknown> }[] = [];
+  if (cfg.testPayerEmail) variants.push({ label: "A. e-mail configurado na Vercel", body: { ...base, external_reference: "probe-a", payer_email: cfg.testPayerEmail } });
+  (cfg.candidates ?? []).filter(emailOk).slice(0, 6).forEach((email, n) => variants.push({ label: `Candidato ${n + 1}`, body: { ...base, external_reference: `probe-c${n + 1}`, payer_email: email } }));
+  if (variants.length === 0) lines.push({ label: "Experimentos", ok: false, detail: "Digite ao menos um e-mail de comprador para experimentar." });
   for (const v of variants) {
     const r = await call("/preapproval", "POST", v.body);
     if (r.status >= 200 && r.status < 300) {

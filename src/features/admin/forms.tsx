@@ -174,10 +174,14 @@ export function SettingsForm({ values }: { values: { billing_grace_days: number;
 /** Botão "Testar conexão com o Mercado Pago": mostra o que ele aceita ou recusa (só conta de teste, sem segredos). */
 export function ProbeButton() {
   const [state, setState] = useState<ProbeState>({});
+  const [emails, setEmails] = useState("");
   const [pending, start] = useTransition();
   return (
     <div className="space-y-3" data-testid="teste-conexao-mp">
-      <Button variant="secondary" disabled={pending} onClick={() => start(async () => setState(await runMercadoPagoProbe()))}>
+      <Field label="E-mails de comprador de teste para experimentar (um por linha)" hint="Os e-mails digitados aqui não aparecem no resultado. Só use contas de TESTE.">
+        <Textarea value={emails} onChange={(e) => setEmails(e.target.value)} rows={3} placeholder="comprador@testuser.com" />
+      </Field>
+      <Button variant="secondary" disabled={pending} onClick={() => start(async () => { const fd = new FormData(); fd.set("emails", emails); setState(await runMercadoPagoProbe(fd)); })}>
         {pending ? "Testando…" : "Testar conexão com o Mercado Pago"}
       </Button>
       {state.error && <p role="alert" className="text-sm text-danger">{state.error}</p>}

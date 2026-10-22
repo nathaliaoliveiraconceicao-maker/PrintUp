@@ -22,23 +22,22 @@ describe("probeMercadoPago", () => {
     expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
 
-  it("mostra o resultado de cada variação, cancela as aceitas e não vaza e-mails", async () => {
+  it("experimenta cada e-mail candidato, mostra qual o Mercado Pago aceita, cancela a assinatura criada e nunca repete e-mails", async () => {
     const { fetchImpl, calls } = fake((r) => {
       if (r.url === "/users/me") return { status: 200, json: { nickname: "TESTUSER1", site_id: "MLB", user_type: "normal", tags: ["test_user"] } };
       if (r.method === "POST") {
-        const ref = r.body?.external_reference;
-        if (ref === "probe-c") return { status: 201, json: { id: "pre_ok_1" } };
-        return { status: 400, json: { message: `User bad request para ${String(r.body?.payer_email ?? "sem")}`, cause: [{ code: 4001 }] } };
+        if (r.body?.payer_email === "certo@testuser.com") return { status: 201, json: { id: "pre_ok_1" } };
+        return { status: 400, json: { message: `User bad request para ${String(r.body?.payer_email)}`, cause: [{ code: 4001 }] } };
       }
       return { status: 200, json: {} };
     });
-    const lines = await probeMercadoPago({ accessToken: "APP_USR-teste-1", siteUrl: "https://app.exemplo.com/", testPayerEmail: "test_user_111@testuser.com", fetchImpl });
+    const lines = await probeMercadoPago({ accessToken: "APP_USR-teste-1", siteUrl: "https://app.exemplo.com/", testPayerEmail: "errado@testuser.com", candidates: ["tambem-errado@testuser.com", "certo@testuser.com", "isto não é e-mail"], fetchImpl });
+    const byLabel = Object.fromEntries(lines.map((l) => [l.label.slice(0, 5), l]));
     expect(lines[0].label).toBe("Conta da credencial");
-    const byLabel = Object.fromEntries(lines.map((l) => [l.label.slice(0, 1), l]));
-    expect(byLabel.A.ok).toBe(false);
-    expect(byLabel.A.detail).toContain("User bad request");
-    expect(byLabel.A.detail).toContain("[e-mail]");
-    expect(byLabel.C.ok).toBe(true);
+    expect(byLabel["A. e-"].ok).toBe(false);
+    expect(byLabel["Candi"].ok).toBe(false);
+    expect(lines.filter((l) => l.label.startsWith("Candidato"))).toHaveLength(2); // o texto inválido é ignorado
+    expect(lines.find((l) => l.label === "Candidato 2")?.ok).toBe(true);
     expect(JSON.stringify(lines)).not.toMatch(/@testuser\.com|pre_ok_1/);
     expect(calls.some((c) => c.method === "PUT" && c.url === "/preapproval/pre_ok_1" && c.body?.status === "cancelled")).toBe(true);
   });

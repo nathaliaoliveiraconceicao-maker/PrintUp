@@ -135,14 +135,15 @@ export async function saveSettings(_: FormState, formData: FormData): Promise<Fo
 export type ProbeState = { error?: string; lines?: import("./probe").ProbeLine[] };
 
 /** Teste de conexão com o Mercado Pago (só conta de teste). Mostra o que o Mercado Pago aceita ou recusa, sem segredos. */
-export async function runMercadoPagoProbe(): Promise<ProbeState> {
+export async function runMercadoPagoProbe(formData: FormData): Promise<ProbeState> {
   const ctx = await currentAdmin();
   if (!ctx) return { error: "Acesso restrito." };
   const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
   const site = process.env.NEXT_PUBLIC_SITE_URL;
   if (!token || !site) return { error: "Configure MERCADOPAGO_ACCESS_TOKEN e NEXT_PUBLIC_SITE_URL antes de testar." };
   const { probeMercadoPago } = await import("./probe");
-  const lines = await probeMercadoPago({ accessToken: token, siteUrl: site, testPayerEmail: process.env.MERCADOPAGO_TEST_PAYER_EMAIL });
+  const candidates = String(formData.get("emails") ?? "").split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean).slice(0, 6);
+  const lines = await probeMercadoPago({ accessToken: token, siteUrl: site, testPayerEmail: process.env.MERCADOPAGO_TEST_PAYER_EMAIL, candidates });
   await logEvent("sistema", "info", "Teste de conexão com o Mercado Pago executado", {}, ctx.userId);
   return { lines };
 }
