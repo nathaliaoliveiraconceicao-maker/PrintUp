@@ -31,7 +31,9 @@ describe("validação dos passos", () => {
     expect(filamentStepSchema.safeParse({ material: "Madeira", pricePerKg: 100 }).success).toBe(false);
   });
   it("impressora e margem", () => {
-    expect(printerStepSchema.safeParse({ name: "  " }).success).toBe(false);
+    expect(printerStepSchema.safeParse({ brand: "  ", model: "A1" }).success).toBe(false);
+    expect(printerStepSchema.safeParse({ brand: "Bambu Lab", model: "" }).success).toBe(false);
+    expect(printerStepSchema.safeParse({ brand: "Bambu Lab", model: "A1 mini" }).success).toBe(true);
     expect(marginStepSchema.safeParse({ marginPercent: 100 }).success).toBe(false);
     expect(marginStepSchema.safeParse({ marginPercent: 30 }).success).toBe(true);
   });

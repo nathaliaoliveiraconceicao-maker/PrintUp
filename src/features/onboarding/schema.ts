@@ -7,8 +7,8 @@ export const businessStepSchema = z.object({ businessName: z.string().trim().min
 
 export const printerStepSchema = z.object({
   printerId: z.uuid().nullish(),
-  name: z.string().trim().min(1, "Dê um nome à impressora.").max(80),
-  brand: z.string().trim().max(60).optional(),
+  brand: z.string().trim().min(1, "Informe a marca da impressora.").max(40),
+  model: z.string().trim().min(1, "Informe o nome ou modelo da impressora.").max(39),
 });
 
 export const costStepSchema = z

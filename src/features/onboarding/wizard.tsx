@@ -11,19 +11,20 @@ import { FormMessage } from "@/components/ui/form-message";
 import { MATERIALS } from "@/features/filaments/schema";
 import { cn, parseDecimal } from "@/lib/utils";
 import { finishOnboarding, saveBusinessStep, saveCostStep, saveFilamentStep, saveMarginStep, savePrinterStep } from "./actions";
+import { wearPerHour } from "./hourly";
 import type { OnboardingState } from "./schema";
 
 export interface WizardInitial {
   businessName: string;
-  printer: { id: string; name: string; brand: string; power: number; hourlyCost: number; purchasePrice: number; lifespanHours: number } | null;
+  printer: { id: string; name: string; brand: string; model: string; power: number; hourlyCost: number; purchasePrice: number; lifespanHours: number } | null;
   filament: { id: string; material: string; color: string; pricePerKg: number } | null;
   margin: number;
 }
 
 const STEPS = [
   { key: "negocio", title: "Seu negócio", text: "Como seu negócio se chama? O nome aparece nos orçamentos em PDF." },
-  { key: "impressora", title: "Sua impressora", text: "Qual impressora você usa? Se tiver mais de uma, comece pela principal." },
-  { key: "custo", title: "Custo da hora de impressão", text: "Quanto custa fazer a impressora trabalhar por uma hora?" },
+  { key: "impressora", title: "Sua impressora", text: "Qual impressora você usa? Informe a marca e o nome ou modelo. Se tiver mais de uma, comece pela principal." },
+  { key: "custo", title: "Custo da hora da sua impressora", text: "Quanto custa fazer a sua impressora trabalhar por uma hora? O PrintUp calcula pelo preço dela e por quanto tempo ela dura." },
   { key: "filamento", title: "Seu filamento", text: "O material que você mais usa. Depois você cadastra os outros." },
   { key: "margem", title: "Sua margem de lucro", text: "O lucro que você quer ter sobre o preço de venda. Dá para mudar em cada cálculo." },
 ] as const;
@@ -43,9 +44,9 @@ export function OnboardingWizard({ initial, redo }: { initial: WizardInitial; re
 
   const [businessName, setBusinessName] = useState(initial.businessName);
   const [printerId, setPrinterId] = useState<string | null>(initial.printer?.id ?? null);
-  const [printerName, setPrinterName] = useState(initial.printer?.name ?? "");
+  const [model, setModel] = useState(initial.printer?.model ?? "");
   const [brand, setBrand] = useState(initial.printer?.brand ?? "");
-  const [mode, setMode] = useState<"direto" | "calcular">(initial.printer && initial.printer.hourlyCost === 0 && initial.printer.purchasePrice > 0 ? "calcular" : "direto");
+  const [mode, setMode] = useState<"direto" | "calcular">(initial.printer && initial.printer.hourlyCost > 0 && initial.printer.purchasePrice === 0 ? "direto" : "calcular");
   const [hourly, setHourly] = useState(fmt(initial.printer?.hourlyCost ?? 0));
   const [incEnergy, setIncEnergy] = useState(true);
   const [incWear, setIncWear] = useState(true);
@@ -58,6 +59,7 @@ export function OnboardingWizard({ initial, redo }: { initial: WizardInitial; re
   const [pricePerKg, setPricePerKg] = useState(fmt(initial.filament?.pricePerKg ?? 0));
   const [margin, setMargin] = useState(String(initial.margin).replace(".", ","));
 
+  const wear = wearPerHour(Number.isNaN(n(price)) ? 0 : n(price), Number.isNaN(n(life)) ? 0 : n(life));
   const last = step === STEPS.length;
   const current = STEPS[step];
 
@@ -74,7 +76,7 @@ export function OnboardingWizard({ initial, redo }: { initial: WizardInitial; re
   const save = () => {
     switch (current.key) {
       case "negocio": return run("negocio", () => saveBusinessStep({ businessName }));
-      case "impressora": return run("impressora", () => savePrinterStep({ printerId, name: printerName, brand: brand || undefined }), (r) => setPrinterId(r.id ?? null));
+      case "impressora": return run("impressora", () => savePrinterStep({ printerId, brand, model }), (r) => setPrinterId(r.id ?? null));
       case "custo":
         return run("custo", () => saveCostStep({ printerId, mode, hourlyCost: n(hourly), includesEnergy: incEnergy, includesWear: incWear, purchasePrice: n(price), lifespanHours: n(life), powerWatts: n(power) }));
       case "filamento": return run("filamento", () => saveFilamentStep({ filamentId, material, color: color || undefined, pricePerKg: n(pricePerKg) }), (r) => setFilamentId(r.id ?? null));
@@ -114,8 +116,9 @@ export function OnboardingWizard({ initial, redo }: { initial: WizardInitial; re
           )}
           {current.key === "impressora" && (
             <>
-              <Field label="Nome da impressora"><Input value={printerName} onChange={(e) => setPrinterName(e.target.value)} placeholder="Ex.: Bambu A1 mini" maxLength={80} autoFocus /></Field>
-              <Field label="Marca (opcional)"><Input value={brand} onChange={(e) => setBrand(e.target.value)} maxLength={60} /></Field>
+              <Field label="Marca da impressora" hint="Ex.: Bambu Lab, Creality, Prusa."><Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Bambu Lab" maxLength={40} autoFocus /></Field>
+              <Field label="Nome ou modelo da impressora" hint="Ex.: A1 mini, Ender-3 V3 KE."><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="A1 mini" maxLength={39} /></Field>
+              {(brand.trim() || model.trim()) && <p className="text-sm text-muted">Vai aparecer como: <strong className="text-ink">{[brand.trim(), model.trim()].filter(Boolean).join(" ")}</strong></p>}
             </>
           )}
           {current.key === "custo" && (
@@ -124,7 +127,7 @@ export function OnboardingWizard({ initial, redo }: { initial: WizardInitial; re
             ) : (
               <>
                 <div role="radiogroup" aria-label="Como informar o custo" className="grid gap-2 sm:grid-cols-2">
-                  {([["direto", "Já sei o valor", "Informo quanto custa a hora"], ["calcular", "Calcular para mim", "Pelo preço e a vida útil da impressora"]] as const).map(([m, t, d]) => (
+                  {([["calcular", "Calcular pelo preço e vida útil da impressora", "Recomendado: o PrintUp faz a conta"], ["direto", "Já sei quanto custa a hora", "Informo o valor direto"]] as const).map(([m, t, d]) => (
                     <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)}
                       className={cn("min-h-14 rounded-xl border px-3 py-2 text-left", mode === m ? "border-accent bg-accent-soft" : "border-line bg-surface")}>
                       <span className="block text-sm font-semibold">{t}</span>
@@ -132,6 +135,7 @@ export function OnboardingWizard({ initial, redo }: { initial: WizardInitial; re
                     </button>
                   ))}
                 </div>
+                <p className="text-sm text-muted">Escolha <strong className="text-ink">uma</strong> das duas formas. Na maioria dos casos, a primeira é a mais simples: você só precisa do preço da impressora e de quantas horas ela dura.</p>
                 {mode === "direto" ? (
                   <>
                     <Field label="Custo da hora (R$/h)"><Input inputMode="decimal" value={hourly} onChange={(e) => setHourly(e.target.value)} placeholder="Ex.: 4,50" /></Field>
@@ -144,9 +148,10 @@ export function OnboardingWizard({ initial, redo }: { initial: WizardInitial; re
                   </>
                 ) : (
                   <>
-                    <Field label="Preço de compra (R$)"><Input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} /></Field>
-                    <Field label="Vida útil estimada (horas)" hint="Ex.: 5.000 h. O desgaste por hora será preço ÷ vida útil."><Input inputMode="decimal" value={life} onChange={(e) => setLife(e.target.value)} /></Field>
-                    <Field label="Potência média (W)" hint="Para calcular a energia."><Input inputMode="decimal" value={power} onChange={(e) => setPower(e.target.value)} /></Field>
+                    <Field label="Preço da impressora (R$)" hint="Quanto você pagou nela."><Input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} /></Field>
+                    <Field label="Vida útil da impressora (horas)" hint="Por quantas horas de impressão ela deve durar. Ex.: 5.000 h."><Input inputMode="decimal" value={life} onChange={(e) => setLife(e.target.value)} /></Field>
+                    <Field label="Potência da impressora (W)" hint="Consumo médio de energia enquanto imprime. Serve para calcular a energia."><Input inputMode="decimal" value={power} onChange={(e) => setPower(e.target.value)} /></Field>
+                    {wear > 0 && <p className="rounded-xl bg-accent-soft/50 px-3 py-2 text-sm" data-testid="desgaste-por-hora">Desgaste da impressora: <strong className="num">R$ {wear.toFixed(2).replace(".", ",")}</strong> por hora (preço ÷ vida útil).</p>}
                   </>
                 )}
               </>

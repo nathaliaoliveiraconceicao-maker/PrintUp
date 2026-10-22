@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { checkbox, decimal, optionalText } from "@/lib/forms";
 
+/** Nome que aparece nas listas: marca + nome/modelo (ex.: "Bambu Lab A1 mini"). */
+export function printerDisplayName(brand: string | null | undefined, model: string | null | undefined): string {
+  return [brand, model].map((x) => (x ?? "").trim()).filter(Boolean).join(" ").slice(0, 80);
+}
+
 export const printerSchema = z.object({
-  name: z.string().trim().min(1, "Dê um nome à impressora.").max(80),
-  brand: optionalText(60),
-  model: optionalText(60),
+  brand: z.string().trim().min(1, "Informe a marca da impressora.").max(40),
+  model: z.string().trim().min(1, "Informe o nome ou modelo da impressora.").max(39),
   purchasePrice: decimal({ max: 1_000_000 }),
   lifespanHours: decimal({ max: 100_000 }),
   powerWatts: decimal({ max: 5_000 }),
@@ -33,9 +37,9 @@ export type PrinterRow = {
 };
 
 export const toPrinterDb = (v: z.infer<typeof printerSchema>) => ({
-  name: v.name,
-  brand: v.brand ?? null,
-  model: v.model ?? null,
+  name: printerDisplayName(v.brand, v.model),
+  brand: v.brand,
+  model: v.model,
   purchase_price: v.purchasePrice,
   lifespan_hours: v.lifespanHours > 0 ? Math.round(v.lifespanHours) : null,
   power_watts: v.powerWatts,

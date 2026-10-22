@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { FileText, Link2, PencilLine, Box } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import { ImportReview, type RegisteredPrinter } from "./import-review";
 import { parseBlob } from "./parse-file";
 import { SampleFiles } from "./sample-files";
@@ -18,7 +17,7 @@ type Stage =
 
 const OPTION = "flex w-full items-start gap-3 rounded-2xl border border-line bg-surface p-4 text-left hover:border-accent focus-visible:outline-2 focus-visible:outline-accent";
 
-/** Tela "Importar modelo": quatro caminhos (3MF, G-code, manual e, em breve, link). A leitura do arquivo acontece no navegador. */
+/** Tela "Importar modelo": quatro caminhos (3MF, G-code, manual e link de qualquer site). A leitura do arquivo acontece no navegador. */
 export function ImportWizard({ userId, printers }: { userId: string; printers: RegisteredPrinter[] }) {
   const [stage, setStage] = useState<Stage>({ kind: "choose" });
   const threeMf = useRef<HTMLInputElement>(null);
@@ -71,15 +70,13 @@ export function ImportWizard({ userId, printers }: { userId: string; printers: R
             <span className="block text-sm text-muted">Digite peso, tempo e material, sem arquivo.</span>
           </span>
         </Link>
-        <div className={cn(OPTION, "cursor-not-allowed border-dashed opacity-70 hover:border-line")} aria-disabled="true">
-          <Link2 className="mt-0.5 shrink-0 text-muted" />
+        <Link href="/importar/link" className={OPTION}>
+          <Link2 className="mt-0.5 shrink-0 text-accent" />
           <span>
-            <span className="flex items-center gap-2 font-medium">
-              Link do MakerWorld <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] font-medium text-muted">em breve</span>
-            </span>
-            <span className="block text-sm text-muted">Será liberado depois de validarmos o que é permitido e tecnicamente possível. Por enquanto, baixe o 3MF do perfil de impressão e envie aqui.</span>
+            <span className="block font-medium">Guardar o link de um modelo</span>
+            <span className="block text-sm text-muted">De qualquer site (MakerWorld, Printables, Thingiverse…). O PrintUp guarda o link como referência; peso e tempo você informa.</span>
           </span>
-        </div>
+        </Link>
       </div>
 
       <SampleFiles onFile={onFile} onError={(message) => setStage({ kind: "rejected", name: "exemplo", message })} />

@@ -23,7 +23,7 @@ export default async function SpoolPage({ params }: { params: Promise<{ id: stri
 
   return (
     <>
-      <Link href="/estoque" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft size={14} /> Estoque</Link>
+      <Link href="/filamentos/estoque" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft size={14} /> Estoque de bobinas</Link>
       <PageHeader title={`${s.manufacturer ?? s.material}${s.color ? ` · ${s.color}` : ""}`} description={`${s.material} · pago ${formatBRL(s.price_paid)} (${formatBRL(s.initial_g > 0 ? (s.price_paid / s.initial_g) * 1000 : 0)}/kg)`} />
       <Card className="mb-6">
         <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">

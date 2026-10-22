@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/field";
 import { applyDiscount, calculatePricing, costGroups, pricingInputSchema, type PricingInput } from "@/lib/pricing";
 import { COST_LABELS } from "@/lib/pricing/labels";
-import type { SettingsRow } from "@/features/settings/schema";
+import type { ChannelRow, SettingsRow } from "@/features/settings/schema";
 import type { PrinterRow } from "@/features/printers/schema";
 import type { FilamentRow } from "@/features/filaments/schema";
 import { SavePricing } from "./save-pricing";
@@ -25,12 +25,15 @@ const num = (s: string) => {
   return Number.isNaN(n) ? (s.trim() === "" ? 0 : NaN) : n;
 };
 
+type ChannelPrice = { id: string; name: string; price: number | null; profit: number | null };
+
 const fmt = (n: number) => String(n).replace(".", ",");
 
 export function Calculator({
   printers,
   filaments,
   settings,
+  channels = [],
   products,
   profile = null,
   initialPrinterId,
@@ -39,6 +42,7 @@ export function Calculator({
   printers: PrinterRow[];
   filaments: FilamentRow[];
   settings: SettingsRow;
+  channels?: ChannelRow[];
   products: { id: string; name: string }[];
   profile?: CalcProfile | null;
   initialPrinterId?: string;
@@ -61,18 +65,19 @@ export function Calculator({
   const [hours, setHours] = useState(() => valuesFromMinutes(profile?.printMinutes ?? null).hours);
   const [minutes, setMinutes] = useState(() => valuesFromMinutes(profile?.printMinutes ?? null).minutes);
   const [grams, setGrams] = useState(() => (profile?.weightG != null ? String(profile.weightG).replace(".", ",") : ""));
-  const [quantity, setQuantity] = useState("1");
+  const [quantity, setQuantity] = useState(() => String(profile?.pieceCount && profile.pieceCount > 0 ? profile.pieceCount : 1));
   const [pricePerKg, setPricePerKg] = useState<string | null>(null); // null = usar o do filamento escolhido
   const [loss, setLoss] = useState(String(settings.loss_percent).replace(".", ","));
   const [laborMin, setLaborMin] = useState("0");
   const [setupMin, setSetupMin] = useState("0");
   const [laborRate, setLaborRate] = useState(String(settings.labor_hourly_rate).replace(".", ","));
-  const [packaging, setPackaging] = useState("0");
+  const [packaging, setPackaging] = useState(fmt(settings.packaging_per_unit));
+  const [shipping, setShipping] = useState(fmt(settings.shipping_per_unit));
   const [feePct, setFeePct] = useState(String(settings.sale_fee_percent).replace(".", ","));
   const [feeFixed, setFeeFixed] = useState(String(settings.sale_fee_fixed).replace(".", ","));
   const [taxPct, setTaxPct] = useState(String(settings.tax_percent).replace(".", ","));
-  const [mode, setMode] = useState<"margin" | "markup">("margin");
-  const [target, setTarget] = useState(String(settings.margin_percent).replace(".", ","));
+  const [mode, setMode] = useState<"margin" | "markup">(settings.pricing_mode);
+  const [target, setTarget] = useState(fmt(settings.pricing_mode === "markup" ? settings.markup_percent : settings.margin_percent));
 
   const [uiMode, setUiMode] = useState<"rapido" | "avancado">(initialMode);
   const advanced = uiMode === "avancado";
@@ -83,11 +88,13 @@ export function Calculator({
 
   const effectivePricePerKg = pricePerKg ?? (filament ? String(filament.price_per_kg).replace(".", ",") : "");
 
+  const plateQty = Math.max(1, Math.floor(num(quantity) || 1));
   const { result, errors, input } = useMemo(() => {
     const draft = {
-      quantity: Math.max(1, Math.floor(num(quantity) || 1)),
-      printMinutesPerUnit: num(hours) * 60 + num(minutes),
-      filamentGramsPerUnit: num(grams),
+      quantity: plateQty,
+      // Tempo e peso são da PLACA inteira; o motor trabalha por peça.
+      printMinutesPerUnit: (num(hours) * 60 + num(minutes)) / plateQty,
+      filamentGramsPerUnit: num(grams) / plateQty,
       filamentPricePerKg: num(effectivePricePerKg),
       machine: {
         hourlyCost: num(ov.hourly ?? fmt(printer?.hourly_cost ?? 0)),
@@ -105,11 +112,13 @@ export function Calculator({
         allocation: settings.fixed_allocation,
         productiveHoursPerMonth: settings.productive_hours_per_month,
         monthlyUnits: settings.monthly_units,
+        expectedRevenue: settings.expected_revenue,
       },
       lossPercent: num(loss),
       labor: { hourlyRate: num(laborRate), minutesPerUnit: num(laborMin), setupMinutesPerBatch: num(setupMin) },
       // Embalagem e acabamento somam num único custo por unidade (é como o motor os trata).
-      packagingPerUnit: num(packaging) + num(finishing),
+      packagingPerUnit: num(packaging) + num(finishing) + num(shipping),
+      rounding: settings.price_rounding,
       sale: { feePercent: num(feePct), feeFixed: num(feeFixed), taxPercent: num(taxPct) },
       pricing:
         mode === "margin"
@@ -119,7 +128,18 @@ export function Calculator({
     const parsed = pricingInputSchema.safeParse(draft);
     if (!parsed.success) return { result: null, input: null, errors: parsed.error.issues.map((i) => i.message) };
     return { result: calculatePricing(parsed.data), input: parsed.data, errors: [] as string[] };
-  }, [quantity, hours, minutes, grams, effectivePricePerKg, printer, settings, ov, loss, laborRate, laborMin, setupMin, packaging, finishing, feePct, feeFixed, taxPct, mode, target]);
+  }, [plateQty, shipping, hours, minutes, grams, effectivePricePerKg, printer, settings, ov, loss, laborRate, laborMin, setupMin, packaging, finishing, feePct, feeFixed, taxPct, mode, target]);
+
+  // Preço por canal de venda: mesma conta, trocando só as taxas da venda direta pelas do canal.
+  const channelPrices = useMemo<ChannelPrice[]>(() => {
+    if (!input) return [];
+    return channels.map((c): ChannelPrice => {
+      const p = pricingInputSchema.safeParse({ ...input, sale: { ...input.sale, feePercent: c.fee_percent, feeFixed: c.fee_fixed } });
+      if (!p.success) return { id: c.id, name: c.name, price: null, profit: null };
+      const r = calculatePricing(p.data);
+      return { id: c.id, name: c.name, price: r.suggestedUnitPrice, profit: r.unitProfit };
+    });
+  }, [input, channels]);
 
   const qty = Math.max(1, Math.floor(num(quantity) || 1));
   const discountPct = advanced ? Math.min(100, Math.max(0, num(discount) || 0)) : 0;
@@ -148,17 +168,16 @@ export function Calculator({
     <div className="grid gap-6 lg:grid-cols-[1fr_24rem]">
       <div className="space-y-6 pb-28 lg:pb-0">
         <div role="radiogroup" aria-label="Modo da calculadora" className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface p-1" data-testid="modo-calculadora">
-          {([["rapido", "Modo rápido", "Só o essencial"], ["avancado", "Modo avançado", "Todos os custos"]] as const).map(([m, label, hint]) => (
+          {([["rapido", "Modo rápido"], ["avancado", "Modo avançado"]] as const).map(([m, label]) => (
             <button
               key={m}
               type="button"
               role="radio"
               aria-checked={uiMode === m}
               onClick={() => setUiMode(m)}
-              className={cn("min-h-12 rounded-xl px-3 text-left transition-colors", uiMode === m ? "bg-ink text-paper" : "text-muted hover:text-ink")}
+              className={cn("min-h-11 rounded-xl px-3 text-center text-sm font-semibold transition-colors", uiMode === m ? "bg-ink text-paper" : "text-muted hover:text-ink")}
             >
-              <span className="block text-sm font-semibold">{label}</span>
-              <span className="block text-xs opacity-75">{hint}</span>
+              {label}
             </button>
           ))}
         </div>
@@ -210,12 +229,12 @@ export function Calculator({
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Field label="Peso (g)" tag={weightTag ? <Tag value={weightTag} /> : undefined}><Input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} placeholder="0" /></Field>
             <Field label="Horas" tag={timeTag ? <Tag value={timeTag} /> : undefined}><Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="0" /></Field>
             <Field label="Minutos"><Input inputMode="decimal" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="0" /></Field>
-            <Field label="Peso (g)" tag={weightTag ? <Tag value={weightTag} /> : undefined}><Input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} placeholder="0" /></Field>
-            <Field label="Unidades"><Input inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
+            <Field label="Peças na placa"><Input inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
           </div>
-          <p className="text-xs text-muted">Tempo e peso (com suportes) são de <strong>uma</strong> unidade; o lote multiplica pela quantidade.</p>
+          <p className="-mt-2 text-xs text-muted">Informe o tempo e o peso da <strong>placa inteira</strong> e quantas peças ela rende: o PrintUp calcula o custo da placa e o valor de cada peça.</p>
           {advanced && (
             <Field label="Preço do filamento (R$/kg)" hint="Preenchido pelo filamento escolhido; edite se precisar.">
               <Input inputMode="decimal" value={effectivePricePerKg} onChange={(e) => setPricePerKg(e.target.value)} />
@@ -224,25 +243,18 @@ export function Calculator({
           {!advanced && (
             <Field
               label={mode === "margin" ? "Margem de lucro (%)" : "Markup (%)"}
-              hint={mode === "margin" ? "Lucro líquido como % do preço de venda." : "Acréscimo sobre o custo (definido no modo avançado)."}
+              hint={mode === "margin" ? "Quanto do preço de venda sobra de lucro." : "Acréscimo sobre o custo (definido no modo avançado)."}
             >
               <Input inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
             </Field>
           )}
-        </Card>
-
-        {!advanced && (
-          <Card className="space-y-2 bg-paper text-sm" data-testid="padroes-rapido">
-            <p className="font-medium">Seus padrões já estão aplicados</p>
-            <p className="text-muted">
-              Perdas {formatPercent(num(loss) || 0)} · taxas {formatPercent(num(feePct) || 0)} · impostos {formatPercent(num(taxPct) || 0)} · energia {formatBRL(settings.energy_price_per_kwh)}/kWh
-              {printer ? ` · ${printer.name}` : ""}.
+          {!advanced && (
+            <p className="text-sm text-muted" data-testid="padroes-rapido">
+              Seus padrões já estão aplicados: perdas {formatPercent(num(loss) || 0)}, taxas {formatPercent(num(feePct) || 0)}, impostos {formatPercent(num(taxPct) || 0)}, energia {formatBRL(settings.energy_price_per_kwh)}/kWh.{" "}
+              <button type="button" className="font-medium text-accent-strong underline" onClick={() => setUiMode("avancado")}>Ajustar no modo avançado</button>
             </p>
-            <button type="button" className="min-h-11 font-medium text-accent-strong underline" onClick={() => setUiMode("avancado")}>
-              Ajustar custos no modo avançado
-            </button>
-          </Card>
-        )}
+          )}
+        </Card>
 
         {advanced && (
           <>
@@ -283,6 +295,7 @@ export function Calculator({
                 <Field label="Valor da hora (R$)"><Input inputMode="decimal" value={laborRate} onChange={(e) => setLaborRate(e.target.value)} /></Field>
                 <Field label="Perdas (%)"><Input inputMode="decimal" value={loss} onChange={(e) => setLoss(e.target.value)} /></Field>
                 <Field label="Embalagem (R$/unid.)"><Input inputMode="decimal" value={packaging} onChange={(e) => setPackaging(e.target.value)} /></Field>
+                <Field label="Frete (R$/unid.)"><Input inputMode="decimal" value={shipping} onChange={(e) => setShipping(e.target.value)} /></Field>
                 <Field label="Acabamento (R$/unid.)" hint="Lixa, tinta, colagem… soma com a embalagem."><Input inputMode="decimal" value={finishing} onChange={(e) => setFinishing(e.target.value)} /></Field>
               </div>
             </Card>
@@ -321,24 +334,31 @@ export function Calculator({
           </>
         )}
 
-        <p className="text-xs text-muted">
-          Custos fixos, energia e demais padrões vêm das <Link href="/configuracoes" className="underline">configurações</Link> e da impressora escolhida.
-        </p>
+        {advanced && (
+          <p className="text-xs text-muted">
+            Custos fixos, energia e demais padrões vêm das <Link href="/configuracoes" className="underline">configurações</Link> e da impressora escolhida.
+          </p>
+        )}
 
-        <SavePricing
-          products={products}
-          input={input}
-          printerId={printer?.id}
-          filamentId={filament?.id}
-          profileId={profile?.id}
-          defaultName={profile?.modelTitle}
-        />
+        <details className="rounded-2xl border border-line bg-surface" data-testid="salvar-produto" open={Boolean(profile)}>
+          <summary className="min-h-11 cursor-pointer list-none px-5 py-3 font-semibold">Salvar como produto <span className="font-normal text-muted">(opcional)</span></summary>
+          <div className="px-1 pb-1">
+            <SavePricing
+              products={products}
+              input={input}
+              printerId={printer?.id}
+              filamentId={filament?.id}
+              profileId={profile?.id}
+              defaultName={profile?.modelTitle}
+            />
+          </div>
+        </details>
       </div>
 
       {/* Resultado: coluna lateral no desktop, barra fixa no celular */}
       <aside className="lg:sticky lg:top-6 lg:self-start">
         <Card className="hidden space-y-4 lg:block">
-          <ResultBody result={result} errors={errors} qty={qty} discountPct={discountPct} sale={input?.sale ?? null} />
+          <ResultBody result={result} errors={errors} qty={qty} discountPct={discountPct} sale={input?.sale ?? null} simple={!advanced} channelPrices={channelPrices} />
         </Card>
         <div className="fixed inset-x-0 bottom-16 z-10 border-t border-line bg-surface/95 px-5 py-3 backdrop-blur lg:hidden">
           <details>
@@ -349,7 +369,7 @@ export function Calculator({
               </span>
             </summary>
             <div className="mt-3 max-h-[55dvh] space-y-4 overflow-y-auto pb-2">
-              <ResultBody result={result} errors={errors} qty={qty} discountPct={discountPct} sale={input?.sale ?? null} compact />
+              <ResultBody result={result} errors={errors} qty={qty} discountPct={discountPct} sale={input?.sale ?? null} compact simple={!advanced} channelPrices={channelPrices} />
             </div>
           </details>
         </div>
@@ -365,6 +385,8 @@ function ResultBody({
   discountPct,
   sale,
   compact,
+  simple,
+  channelPrices,
 }: {
   result: ReturnType<typeof calculatePricing> | null;
   errors: string[];
@@ -372,6 +394,9 @@ function ResultBody({
   discountPct: number;
   sale: PricingInput["sale"] | null;
   compact?: boolean;
+  /** Modo rápido: preço, custo, lucro e margem; o resto fica em "Ver detalhes". */
+  simple?: boolean;
+  channelPrices: ChannelPrice[];
 }) {
   if (!result) {
     return (
@@ -379,6 +404,10 @@ function ResultBody({
         {errors.length ? errors.map((m, i) => <p key={i}>{m}</p>) : <p>Preencha os dados para calcular.</p>}
       </div>
     );
+  }
+  // Sem peso e sem tempo ainda: convida a preencher em vez de mostrar R$ 0,00 e avisos de erro.
+  if (result.unitCost === 0) {
+    return <p className="rounded-xl bg-paper px-3 py-3 text-sm text-muted" data-testid="preencha-dados">Informe o <strong>peso</strong> e o <strong>tempo</strong> da peça para ver o preço sugerido.</p>;
   }
   const g = costGroups(result.unit, result.unitCost);
   const disc = sale && discountPct > 0 ? applyDiscount(result.unitCost, result.suggestedUnitPrice, sale, discountPct) : null;
@@ -391,6 +420,11 @@ function ResultBody({
           <p className="mt-1 text-xs opacity-75">
             Lucro {formatBRL(result.unitProfit)} · margem {formatPercent(result.marginPercent)}
           </p>
+          <div className="mt-3 grid grid-cols-3 gap-2" data-testid="custo-placa">
+            <div className="rounded-xl bg-white/10 p-2"><p className="text-xs opacity-75">Custo da placa{qty > 1 ? ` (${qty} peças)` : ""}</p><p className="num text-lg font-semibold text-white">{formatBRL(result.batchCost)}</p></div>
+            <div className="rounded-xl bg-white/10 p-2"><p className="text-xs opacity-75">Custo por peça</p><p className="num text-lg font-semibold text-white">{formatBRL(result.unitCost)}</p></div>
+            <div className="rounded-xl bg-white/10 p-2"><p className="text-xs opacity-75">Lucro por peça</p><p className="num text-lg font-semibold text-white">{formatBRL(result.unitProfit)}</p></div>
+          </div>
         </div>
       )}
       {disc && (
@@ -400,6 +434,66 @@ function ResultBody({
           {disc.belowCost && <p className="text-xs">Atenção: neste preço você não cobre custo, taxas e impostos.</p>}
         </div>
       )}
+      <div className="rounded-xl border border-line bg-paper px-3 py-2 text-sm" data-testid="preco-por-canal">
+        <p className="font-medium">Preço por canal de venda</p>
+        {channelPrices.length === 0 ? (
+          <p className="text-xs text-muted">Cadastre Shopee, Mercado Livre e outros canais em <Link href="/configuracoes" className="font-medium text-accent-strong underline">Configurações</Link> para ver o preço de cada um.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {channelPrices.map((c) => (
+              <li key={c.id} className="flex items-baseline justify-between gap-3 py-1.5" data-testid="canal-preco">
+                <span>{c.name}</span>
+                <span className="num text-right">{c.price == null ? "—" : <><strong>{formatBRL(c.price)}</strong> <span className="text-xs text-muted">lucro {formatBRL(c.profit ?? 0)}</span></>}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div data-testid="detalhamento-custo" className="text-sm">
+        <h3 className="mb-1 text-sm font-semibold">Detalhamento do custo</h3>
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 text-xs text-muted"><span /><span className="text-right">placa</span><span className="text-right">por peça</span></div>
+        <ul className="divide-y divide-line">
+          {COST_LABELS.map(([key, label]) => {
+            const value = result.unit[key];
+            return (
+              <li key={key} className={cn("grid grid-cols-[1fr_auto_auto] gap-x-4 py-1.5", value === 0 && "text-muted")}>
+                <span>{label}</span>
+                <span className="num text-right">{formatBRL(value * qty)}</span>
+                <span className="num text-right">{formatBRL(value)}</span>
+              </li>
+            );
+          })}
+          <li className="grid grid-cols-[1fr_auto_auto] gap-x-4 py-1.5 font-semibold">
+            <span>Custo total</span>
+            <span className="num text-right">{formatBRL(result.batchCost)}</span>
+            <span className="num text-right">{formatBRL(result.unitCost)}</span>
+          </li>
+        </ul>
+      </div>
+      {simple ? (
+        <>
+          <dl className="grid grid-cols-3 gap-3 text-sm" data-testid="resumo-simples">
+            <Stat label="Custo" value={formatBRL(result.unitCost)} />
+            <Stat label="Lucro" value={formatBRL(result.unitProfit)} tone="ok" />
+            <Stat label="Margem" value={formatPercent(result.marginPercent)} />
+          </dl>
+          <details className="text-sm" data-testid="detalhes-calculo">
+            <summary className="min-h-11 cursor-pointer py-2 font-medium text-accent-strong">Ver detalhes do cálculo</summary>
+            <div className="space-y-4 pt-2">
+              <CostChart unit={result.unit} unitCost={result.unitCost} />
+              <dl className="grid grid-cols-2 gap-3 text-sm">
+                <Stat label="Custo do filamento" value={formatBRL(g.filament)} />
+                <Stat label="Custo da impressora" value={formatBRL(g.printer)} />
+                <Stat label="Custos adicionais" value={formatBRL(g.additional)} />
+                <Stat label={`Custo da placa (${qty} peça${qty > 1 ? "s" : ""})`} value={formatBRL(result.batchCost)} />
+                <Stat label="Lucro da placa" value={formatBRL(result.batchProfit)} tone="ok" />
+                <Stat label="Taxas / unid." value={formatBRL(result.unitFees)} />
+                <Stat label="Impostos / unid." value={formatBRL(result.unitTaxes)} />
+              </dl>
+            </div>
+          </details>
+        </>
+      ) : (<>
       <div>
         <h3 className="mb-2 text-sm font-semibold">Composição do custo</h3>
         <CostChart unit={result.unit} unitCost={result.unitCost} />
@@ -409,28 +503,16 @@ function ResultBody({
         <Stat label="Custo da impressora" value={formatBRL(g.printer)} />
         <Stat label="Custos adicionais" value={formatBRL(g.additional)} />
         <Stat label="Custo unitário" value={formatBRL(result.unitCost)} />
-        <Stat label={`Custo do lote (${qty})`} value={formatBRL(result.batchCost)} />
+        <Stat label={`Custo da placa (${qty} peça${qty > 1 ? "s" : ""})`} value={formatBRL(result.batchCost)} />
         <Stat label="Lucro / unid." value={formatBRL(result.unitProfit)} tone="ok" />
-        <Stat label="Lucro do lote" value={formatBRL(result.batchProfit)} tone="ok" />
+        <Stat label="Lucro da placa" value={formatBRL(result.batchProfit)} tone="ok" />
         <Stat label="Margem (sobre o preço)" value={formatPercent(result.marginPercent)} />
         <Stat label="Markup (sobre o custo)" value={formatPercent(result.markupPercent)} />
         <Stat label="Taxas / unid." value={formatBRL(result.unitFees)} />
         <Stat label="Impostos / unid." value={formatBRL(result.unitTaxes)} />
       </dl>
-      <details className="text-sm">
-        <summary className="min-h-11 cursor-pointer py-2 font-medium text-accent-strong">Ver custo item a item</summary>
-        <ul className="divide-y divide-line">
-          {COST_LABELS.map(([key, label]) => {
-            const value = result.unit[key];
-            return (
-              <li key={key} className="flex justify-between py-1.5">
-                <span className={value === 0 ? "text-muted" : ""}>{label}</span>
-                <span className="num">{formatBRL(value)}</span>
-              </li>
-            );
-          })}
-        </ul>
-      </details>
+
+      </>)}
       {result.warnings.map((w) => (
         <p key={w.code} className="flex gap-2 rounded-xl bg-accent-soft px-3 py-2 text-xs text-warn">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />

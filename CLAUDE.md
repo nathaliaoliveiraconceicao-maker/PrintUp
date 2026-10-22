@@ -76,3 +76,6 @@ Identidade (Etapa 4): **grafite** (`--ink`), **laranja vibrante** (`--accent`) e
 - O superadmin **não** tem RLS amplo nas tabelas de clientes: consulta só por funções `admin_*` (autorizam com `assert_superadmin()`, paginadas, só contagens/metadados). Nova função administrativa = `assert_superadmin()` + `admin_log()` na escrita + teste em `rls_admin.test.sql`.
 - Páginas `/admin/*` usam `requireAdminPage()` (404 para não admin); Server Actions usam `currentAdmin()`. Nenhuma ação marca pagamento como recebido.
 - Preço de plano não altera assinaturas existentes; limites/recursos valem para todos do plano. `admin_audit_log` é imutável. Logs operacionais: `logEvent()` (só ids/códigos, nunca dados pessoais ou segredos).
+
+## Configurações completas — `docs/CONFIGURACOES.md`
+- Custos e preço são configurados **uma vez** em `/configuracoes` (despesas itemizadas, rateio por faturamento/hora/peça, margem ou multiplicador, arredondamento) e reutilizados pela calculadora, onboarding e `recalculateProducts`. Canais de venda (`sales_channels`) guardam só taxas informadas pelo usuário: nunca embutir tabelas "oficiais" de marketplace. Código que lê `cost_settings` deve usar `settingsOrDefault` (contas anteriores à migration `0011`).

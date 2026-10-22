@@ -20,3 +20,5 @@ bash concurrency_billing.sh "$DB"
 # Etapa 7 (Superadmin): migration 0010 + testes + concorrência de cupons
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0010_superadmin.sql -f rls_admin.test.sql
 bash concurrency_admin.sh "$DB"
+# Configurações completas e canais de venda
+psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0011_configuracoes_completas.sql -f rls_configuracoes.test.sql

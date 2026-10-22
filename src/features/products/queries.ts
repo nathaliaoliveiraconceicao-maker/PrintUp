@@ -2,13 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { pricingInputSchema } from "@/lib/pricing";
 import type { FilamentRow } from "@/features/filaments/schema";
 import type { PrinterRow } from "@/features/printers/schema";
-import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
+import { settingsOrDefault, type SettingsRow } from "@/features/settings/schema";
 import type { CatalogProduct } from "./catalog-schema";
 import { staleness, type Staleness } from "./refresh";
 
 export async function loadSettings(supabase: SupabaseClient): Promise<SettingsRow> {
   const { data } = await supabase.from("cost_settings").select("*").maybeSingle();
-  return (data as SettingsRow | null) ?? DEFAULT_SETTINGS;
+  return settingsOrDefault(data as Partial<SettingsRow> | null);
 }
 
 /**

@@ -3,7 +3,7 @@ import { Card, PageHeader } from "@/components/ui/card";
 import { Calculator } from "@/features/calculator/calculator";
 import type { FilamentRow } from "@/features/filaments/schema";
 import type { PrinterRow } from "@/features/printers/schema";
-import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
+import { settingsOrDefault, type ChannelRow, type SettingsRow } from "@/features/settings/schema";
 import type { CalcProfile } from "@/features/calculator/profile";
 import { signedUrls } from "@/features/imports/storage";
 import { createClient } from "@/lib/supabase/server";
@@ -15,11 +15,12 @@ export const metadata = { title: "Nova precificação" };
 export default async function CalculatorPage({ searchParams }: { searchParams: Promise<{ perfil?: string; impressora?: string; modo?: string }> }) {
   const { perfil, impressora, modo } = await searchParams;
   const supabase = await createClient();
-  const [printers, filaments, settings, products] = await Promise.all([
+  const [printers, filaments, settings, products, channels] = await Promise.all([
     supabase.from("printers").select("*").eq("is_active", true).order("name"),
     supabase.from("filaments").select("*").eq("is_active", true).order("name"),
     supabase.from("cost_settings").select("*").maybeSingle(),
     supabase.from("products").select("id, name").is("archived_at", null).order("name"),
+    supabase.from("sales_channels").select("id, name, fee_percent, fee_fixed, sort_order").order("sort_order").order("created_at"),
   ]);
 
   // Perfil de impressão (importado ou manual) que pré-preenche tempo, peso e material.
@@ -61,7 +62,8 @@ export default async function CalculatorPage({ searchParams }: { searchParams: P
       <Calculator
         printers={(printers.data ?? []) as PrinterRow[]}
         filaments={(filaments.data ?? []) as FilamentRow[]}
-        settings={(settings.data as SettingsRow | null) ?? DEFAULT_SETTINGS}
+        settings={settingsOrDefault(settings.data as Partial<SettingsRow> | null)}
+        channels={(channels.data ?? []) as ChannelRow[]}
         products={(products.data ?? []) as { id: string; name: string }[]}
         profile={profile}
         initialPrinterId={impressora && UUID.test(impressora) ? impressora : undefined}

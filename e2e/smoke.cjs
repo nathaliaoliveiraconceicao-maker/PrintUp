@@ -117,16 +117,17 @@ async function main() {
   ok(true, "assistente: nome vazio é recusado com mensagem");
   await p.getByLabel("Nome do negócio").fill("Oficina Aurora 3D");
   await p.getByRole("button", { name: "Continuar" }).click();
-  await p.getByLabel("Nome da impressora").fill("Bambu A1");
-  await p.getByLabel("Marca (opcional)").fill("Bambu Lab");
+  await p.getByLabel("Marca da impressora").fill("Bambu Lab");
+  await p.getByLabel("Nome ou modelo da impressora").fill("A1");
   await p.getByRole("button", { name: "Continuar" }).click();
-  await p.getByRole("radio", { name: /Calcular para mim/ }).click();
+  await p.getByRole("radio", { name: /Calcular pelo preço e vida útil/ }).click();
   await p.getByRole("button", { name: "Continuar" }).click();
-  await p.waitForFunction(() => document.body.innerText.includes("Informe o preço de compra"));
+  await p.waitForFunction(() => document.body.innerText.includes("Informe o preço de compra da impressora"));
   ok(true, "assistente: custo da hora calculado exige preço e vida útil");
-  await p.getByLabel("Preço de compra (R$)").fill("1500");
-  await p.getByLabel("Vida útil estimada (horas)").fill("1000");
-  await p.getByLabel("Potência média (W)").fill("150");
+  await p.getByLabel("Preço da impressora (R$)").fill("1500");
+  await p.getByLabel("Vida útil da impressora (horas)").fill("1000");
+  await p.getByLabel("Potência da impressora (W)").fill("150");
+  ok((await p.locator('[data-testid="desgaste-por-hora"]').innerText()).includes("1,50"), "assistente: mostra o desgaste da impressora por hora (1500 ÷ 1000 = R$ 1,50)");
   await p.getByRole("button", { name: "Continuar" }).click();
   await p.getByLabel("Cor (opcional)").fill("Preto");
   await p.getByRole("button", { name: "Continuar" }).click();
@@ -146,22 +147,36 @@ async function main() {
   await p.goto(B + "/boas-vindas?refazer=1");
   ok((await p.getByLabel("Nome do negócio").inputValue()) === "Oficina Aurora 3D", "assistente: nome do negócio persistiu e volta preenchido");
   await p.getByRole("button", { name: "Continuar" }).click();
-  ok((await p.getByLabel("Nome da impressora").inputValue()) === "Bambu A1", "assistente: impressora persistiu (atualiza, não duplica)");
+  ok((await p.getByLabel("Nome ou modelo da impressora").inputValue()) === "A1" && (await p.getByLabel("Marca da impressora").inputValue()) === "Bambu Lab", "assistente: impressora persistiu (atualiza, não duplica)");
   await p.goto(B + "/impressoras");
-  ok(((await main$()).match(/Bambu A1/g) ?? []).length === 1, "assistente refeito não duplica a impressora");
+  ok(((await main$()).match(/Bambu Lab A1/g) ?? []).length === 1, "assistente refeito não duplica a impressora");
   await p.goto(B + "/filamentos");
   ok((await main$()).includes("PLA Preto"), "assistente criou o filamento 'PLA Preto'");
 
   // ── Configurações ──
   await p.goto(B + "/configuracoes");
-  const cfg = { monthlyFixedCosts: "480", productiveHoursPerMonth: "160", laborHourlyRate: "30", lossPercent: "5", saleFeePercent: "14", saleFeeFixed: "4", taxPercent: "6", marginPercent: "30", energyPricePerKwh: "0,90" };
+  ok((await p.locator('[data-testid="como-calcula"]').count()) === 1 && (await p.locator('[data-testid="canais-de-venda"]').count()) === 1, "configurações: despesas, preço de venda, explicação do cálculo e canais de venda numa página só");
+  await p.selectOption("select[name=fixedAllocation]", "per_hour");
+  const cfg = { item_aluguel: "300", item_softwares: "100", item_plataformas: "80", productiveHoursPerMonth: "160", laborHourlyRate: "30", lossPercent: "5", saleFeePercent: "14", saleFeeFixed: "4", taxPercent: "6", marginPercent: "30", energyPricePerKwh: "0,90" };
   for (const [k, v] of Object.entries(cfg)) await p.fill(`input[name=${k}]`, v);
-  await p.click("button[type=submit]");
+  ok((await p.locator('[data-testid="total-despesas"]').innerText()).replace(/\s/g, " ").includes("480,00"), "configurações: o total das despesas mensais soma os itens (R$ 480,00)");
+  await p.click("form[data-testid=form-configuracoes-custo] button[type=submit]");
   await p.waitForSelector("form [role=status]");
   ok(true, "configurações salvas");
 
+  // Canal de venda: configurado uma vez, usado em todos os cálculos
+  await p.getByRole("button", { name: "Shopee", exact: true }).click();
+  const novoCanal = p.locator('[data-testid="novo-canal"]');
+  await novoCanal.locator("input[name=feePercent]").fill("20");
+  await novoCanal.locator("input[name=feeFixed]").fill("4");
+  await novoCanal.getByRole("button", { name: "Adicionar canal" }).click();
+  await p.waitForFunction(() => document.querySelectorAll('[data-testid="canal"]').length === 1);
+  ok(true, "canal de venda (Shopee) cadastrado nas configurações");
+
   await p.goto(B + "/impressoras/nova");
-  await p.fill("input[name=name]", "Segunda");
+  await p.fill("input[name=brand]", "Creality");
+  await p.fill("input[name=model]", "Ender-3 V3 KE");
+  ok((await main$()).includes("Vai aparecer como: Creality Ender-3 V3 KE"), "impressora: mostra como o nome vai aparecer (marca + modelo)");
   await p.click("button[type=submit]");
   await p.waitForSelector("form [role=alert]");
   ok((await p.textContent("form [role=alert]")).toLowerCase().includes("limite do seu plano"), "limite do plano exibe mensagem amigável");
@@ -175,12 +190,20 @@ async function main() {
   const res = async () => (await p.locator("main aside").first().innerText()).replace(/\s+/g, " ");
   ok((await p.getByRole("radio", { name: /Modo rápido/ }).getAttribute("aria-checked")) === "true", "calculadora abre no modo rápido");
   ok((await p.getByLabel("Mão de obra (min)").count()) === 0 && (await p.getByLabel("Perdas (%)").count()) === 0 && (await p.getByLabel("Impostos (%)").count()) === 0, "modo rápido esconde mão de obra, perdas e impostos");
-  ok((await p.getByLabel("Margem de lucro (%)").count()) === 1 && (await p.getByLabel("Unidades", { exact: true }).count()) === 1, "modo rápido mostra margem e unidades");
+  ok((await p.getByLabel("Margem de lucro (%)").count()) === 1 && (await p.getByLabel(/^Peças na placa/).count()) === 1, "modo rápido mostra margem e unidades");
   ok((await p.locator('[data-testid="padroes-rapido"]').innerText()).includes("padrões já estão aplicados"), "modo rápido avisa que os padrões configurados foram carregados");
+  ok((await p.locator('[data-testid="preencha-dados"]').count()) >= 1 && !/zerado/.test(await res()), "calculadora vazia: convida a informar peso e tempo (sem R$ 0,00 nem avisos de erro)");
   await fill("Horas", "2"); await fill("Minutos", "30"); await fill("Peso (g)", "80");
   t = await res();
   ok(/Perdas|5%/.test(await p.locator('[data-testid="padroes-rapido"]').innerText()) && /R\$\s?\d+,\d\d/.test(t), "modo rápido calcula com os padrões já carregados (perdas 5%)");
   const quickPrice = (await p.locator('[data-testid="preco-sugerido"]').first().innerText()).replace(/\s+/g, " ");
+  if (process.env.E2E_SHOTS) {
+    await p.screenshot({ path: `${process.env.E2E_SHOTS}/calculadora-rapido-desktop.png`, fullPage: true });
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.screenshot({ path: `${process.env.E2E_SHOTS}/calculadora-rapido-celular.png` });
+    await p.setViewportSize({ width: 1200, height: 900 });
+  }
+  ok(/Preço por canal de venda\s*Shopee/.test((await p.locator('[data-testid="preco-por-canal"]').first().innerText()).replace(/\s+/g, " ")), "calculadora mostra o preço do canal cadastrado (Shopee)");
   await p.getByRole("radio", { name: /Modo avançado/ }).click();
   await fill("Mão de obra (min)", "10"); await fill("Embalagem (R$/unid.)", "2");
   t = await res();
@@ -204,13 +227,15 @@ async function main() {
   await p.getByRole("button", { name: "Voltar aos padrões" }).click();
   ok(/Custo unitário R\$\s?28,87/.test(await res()), "voltar aos padrões restaura o custo da impressora");
   await p.getByRole("radio", { name: /Modo rápido/ }).click();
-  ok(/Custo unitário R\$\s?28,87/.test(await res()) && /R\$\s?65,74/.test(await p.locator('[data-testid="preco-sugerido"]').first().innerText()), "mesmo motor: voltar ao modo rápido mantém exatamente o mesmo resultado");
+  ok(/Custo R\$\s?28,87/.test(await res()) && /R\$\s?65,74/.test(await p.locator('[data-testid="preco-sugerido"]').first().innerText()), "mesmo motor: voltar ao modo rápido mantém exatamente o mesmo resultado (modo rápido mostra preço, custo, lucro e margem)");
+  ok((await p.locator('[data-testid="resumo-simples"]').count()) >= 1 && (await p.locator('[data-testid="detalhes-calculo"]').count()) >= 1, "modo rápido: resumo simples e detalhes recolhidos");
   ok(quickPrice.length > 0, "modo rápido sem ajustes avançados mostrou um preço");
   await p.getByRole("radio", { name: /Modo avançado/ }).click();
-  await fill("Unidades", "10"); t = await res();
-  ok(/Custo do lote \(10\) R\$\s?288,72/.test(t), "lote de 10: custo = R$ 288,72");
-  await fill("Unidades", "1");
+  await fill("Peças na placa", "10"); t = await res();
+  ok(/Custo da placa \(10 peças\)/.test(t) && /Custo unitário R\$\s?\d+,\d\d/.test(t), "placa de 10 peças: custo da placa e custo por peça");
+  await fill("Peças na placa", "1");
 
+  await p.locator('[data-testid="salvar-produto"] summary').click();
   const saveBtn = p.getByRole("button", { name: /Salvar como produto|Atualizar produto/ });
   const productSelect = p.locator("select").last();
   ok(await saveBtn.isDisabled(), "salvar fica desabilitado até dar nome ao produto novo");
@@ -248,7 +273,7 @@ async function main() {
   await p.waitForURL(/produtos\/[0-9a-f-]{36}/);
   t = await main$();
   ok(t.includes("Histórico de preços (2)") && t.includes("R$ 70,78") && t.includes("R$ 65,74"), "histórico do produto tem as 2 precificações");
-  ok(t.includes("Impressora: Bambu A1") && t.includes("Filamento: PLA Preto"), "nomes de impressora e filamento gravados no histórico");
+  ok(t.includes("Impressora: Bambu Lab A1") && t.includes("Filamento: PLA Preto"), "nomes de impressora e filamento gravados no histórico");
   await p.locator("summary", { hasText: "Composição do custo" }).first().click();
   ok((await main$()).includes("R$ 12,00"), "composição do custo expandida (filamento R$ 12,00)");
   p.once("dialog", (d) => d.accept());
@@ -523,7 +548,7 @@ async function main() {
   // Celular
   const mq = await browser.newPage({ viewport: { width: 390, height: 800 } });
   await mq.context().addCookies(await p.context().cookies());
-  for (const route of ["/", "/calculadora", "/calculadora?modo=avancado", "/boas-vindas?refazer=1", "/orcamentos/novo", "/orcamentos", "/produtos", "/negocio", "/mais", "/pedidos", "/pedidos/novo", "/producao", "/estoque"]) {
+  for (const route of ["/", "/calculadora", "/calculadora?modo=avancado", "/boas-vindas?refazer=1", "/orcamentos/novo", "/orcamentos", "/produtos", "/negocio", "/mais", "/pedidos", "/pedidos/novo", "/producao", "/estoque", "/filamentos/estoque"]) {
     await mq.goto(B + route);
     await shot(mq, "mobile" + route.replace(/[/?=]/g, "-"));
     ok(await mq.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `celular: ${route} sem rolagem horizontal`);
@@ -538,7 +563,7 @@ async function main() {
   const bodyTxt = async () => (await p.locator("main").innerText()).replace(/\s+/g, " ").replace(/ /g, " ");
 
   // Estoque: duas bobinas do mesmo material e cor
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   ok((await bodyTxt()).includes("sem bobinas"), "estoque: filamento sem bobinas aparece como 'sem bobinas' (sem alarme)");
   for (const [maker, g, price, loc] of [["Marca X", "300", "36", "Prateleira 1"], ["Marca Y", "200", "24", "Prateleira 2"]]) {
     await p.getByRole("button", { name: "Nova bobina" }).click();
@@ -594,7 +619,7 @@ async function main() {
   t = await bodyTxt();
   ok((await p.locator('[data-testid="tarefa"]').count()) === 3 && (await itensP.nth(0).locator('[data-testid="criar-lote"]').count()) === 0, `pedido dividido em 2 lotes do Vaso + 1 do Suporte; item totalmente distribuído [tarefas=${await p.locator('[data-testid="tarefa"]').count()} botoes=${await itensP.nth(0).locator('[data-testid="criar-lote"]').count()}]`);
   ok(/Personalização\/serviço: não vai para a fila/.test(t), "personalização não vai para a produção");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   t = await bodyTxt();
   ok(/Reservado 260 g/.test(t) && /No saldo 500 g/.test(t) && /Disponível 240 g/.test(t), "reservar não baixa o saldo físico: 500 g no saldo, 260 g reservados, 240 g disponíveis");
   ok((await p.locator('[data-testid="alertas-estoque"]').innerText()).includes("estoque baixo"), "alerta de estoque baixo (240 g disponíveis < mínimo de 250 g)");
@@ -620,7 +645,7 @@ async function main() {
   await p.getByRole("button", { name: "Criar mesmo assim, sem reservar" }).click();
   await p.waitForSelector('[data-testid="tarefa"]');
   ok((await bodyTxt()).includes("Sem material reservado"), "criada sem reserva: a tarefa avisa 'Sem material reservado'");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   ok(/Reservado 260 g/.test(await bodyTxt()), "o lote sem reserva não comprometeu o estoque dos outros pedidos");
 
   // Pedido atrasado (simula a passagem do tempo no dublê)
@@ -655,7 +680,7 @@ async function main() {
   await p.waitForFunction(() => document.body.innerText.includes("Falha registrada"));
   await p.waitForFunction(() => /1 falha/.test(document.body.innerText));
   { const tt = await p.locator('[data-testid="tarefa"]', { hasText: "Suporte de celular" }).first().innerText(); ok(tt.includes("1 falha"), `falha de impressão registrada na tarefa [${tt.replace(/\s+/g, " ")}]`); }
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   t = await bodyTxt();
   ok(/No saldo 480 g/.test(t) && /Reservado 260 g/.test(t), "falha baixou 20 g do estoque (480 g) e manteve a reserva da reimpressão");
 
@@ -669,7 +694,7 @@ async function main() {
     await p.waitForFunction(() => document.body.innerText.includes("Tarefa concluída e consumo registrado."));
   };
   await concluir(p.locator('[data-testid="coluna-imprimindo"] [data-testid="tarefa"]', { hasText: "Vaso espiral" }), "90");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   t = await bodyTxt();
   ok(/No saldo 390 g/.test(t) && /Reservado 180 g/.test(t), "consumo real (90 g) diferente do previsto (80 g): saldo 390 g; reserva do lote liberada");
   await p.goto(B + "/producao");
@@ -678,10 +703,10 @@ async function main() {
   await concluir(card("Suporte de celular"), "100");
   await p.goto(`${B}/pedidos/${o1}`);
   ok((await p.locator("h1").innerText()).includes("#0001") && (await bodyTxt()).includes("Pronto"), "todas as unidades concluídas: pedido fica 'Pronto'");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   t = await bodyTxt();
   ok(/No saldo 210 g/.test(t) && /Reservado 0 g/.test(t), "estoque final: 500 − 90 − 80 − 100 − 20 (falha) = 210 g, nada reservado");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   const spoolHref = await p.locator('[data-testid="lista-bobinas"] a', { hasText: "Marca X" }).first().getAttribute("href");
   await p.goto(B + spoolHref);
   t = await bodyTxt();
@@ -774,7 +799,7 @@ async function main() {
   await shot(p, "pedido-detalhe-desktop");
   await p.goto(B + "/producao");
   await shot(p, "producao-desktop");
-  await p.goto(B + "/estoque");
+  await p.goto(B + "/filamentos/estoque");
   await shot(p, "estoque-desktop");
 
   // ── Exclusão de produto e logout ──
@@ -833,9 +858,9 @@ async function main() {
   await p.waitForURL(B + "/");
   await p.goto(B + "/importar");
   t = await main$();
-  ok(t.includes("Arquivo 3MF") && t.includes("Arquivo G-code") && t.includes("Informar manualmente") && t.includes("Link do MakerWorld"), "importar: quatro opções (3MF, G-code, manual e link)");
-  ok(t.includes("em breve"), "importar: link do MakerWorld aparece como 'em breve'");
-  ok((await p.locator('[aria-disabled="true"]').count()) === 1, "importar: opção do link está desabilitada");
+  ok(t.includes("Arquivo 3MF") && t.includes("Arquivo G-code") && t.includes("Informar manualmente") && t.includes("Guardar o link de um modelo"), "importar: quatro opções (3MF, G-code, manual e link de qualquer site)");
+  ok(!t.includes("em breve") && t.includes("qualquer site"), "importar: o link vale para qualquer site (nada marcado como 'em breve')");
+  ok((await p.locator('[aria-disabled="true"]').count()) === 0 && (await p.getByRole("link", { name: /Guardar o link de um modelo/ }).count()) === 1, "importar: a opção do link está ativa (qualquer site)");
 
   // arquivos recusados, sempre com mensagem clara e sem enviar nada
   const rejectCase = async (file, expected, label) => {
@@ -860,7 +885,7 @@ async function main() {
   ok((await p.locator('input[value="25,5"]').count()) === 1 && (await p.locator('input[value="150"]').count() + (await p.locator('input[value="2"]').count())) >= 1, "ficha: peso 25,5 g e tempo 2h30 lidos da placa 1");
   ok((await p.locator("text=do arquivo").count()) >= 4, "ficha: dados lidos marcados como 'do arquivo'");
   const alertText = (await p.locator('[role=alert]:has-text("estimado para")').first().innerText()).replace(/\s+/g, " ");
-  ok(alertText.includes("Bambu Lab A1 mini") && alertText.includes("Bambu A1"), "ficha: avisa que o tempo foi estimado para OUTRA impressora (A1 mini × A1)");
+  ok(alertText.includes("Bambu Lab A1 mini") && alertText.includes("Bambu Lab A1"), "ficha: avisa que o tempo foi estimado para OUTRA impressora (A1 mini × A1)");
   await p.locator('input[value="25,5"]').fill("30");
   ok((await p.locator("text=editado").count()) >= 1, "ficha: peso corrigido passa a 'editado'");
   await p.getByRole("button", { name: "Calcular preço" }).first().click();
@@ -989,6 +1014,35 @@ async function main() {
   await p.waitForFunction(() => document.body.innerText.includes("não é um 3MF válido"));
   ok(true, "exemplo inválido (texto .3mf): recusado");
 
+
+  // ── Importar por link de qualquer site ──
+  await p.goto(B + "/importar/link");
+  await p.getByLabel("Link do modelo").fill("javascript:alert(1)");
+  await p.getByLabel("Nome do produto").fill("Vaso por link");
+  await p.getByRole("button", { name: "Salvar sem calcular" }).click();
+  await p.waitForFunction(() => document.body.innerText.includes("começando com http"));
+  ok(true, "link: endereço que não é http(s) é recusado com mensagem");
+  await p.getByLabel("Link do modelo").fill("https://www.printables.com/model/123-vaso");
+  await p.getByRole("button", { name: "Salvar sem calcular" }).click();
+  await p.waitForURL(/\/importar\/[0-9a-f-]{36}$/);
+  const modelTxt = await main$();
+  ok(modelTxt.includes("modelo de um link") && (await p.locator('a[href="https://www.printables.com/model/123-vaso"][rel~="noopener"]').count()) === 1, "link: modelo salvo de qualquer site, com o link como referência (abre em nova aba com rel=noopener)");
+
+  // ── Estoque de produtos (unidades prontas) e estoque de filamento dentro de Filamentos ──
+  await p.goto(B + "/estoque");
+  ok((await main$()).includes("Estoque de produtos") && (await p.locator('[data-testid="resumo-estoque-produtos"]').count()) === 1, "estoque: a tela principal agora é de PRODUTOS (unidades prontas)");
+  ok((await p.locator('[data-testid="lista-estoque-produtos"] li').count()) >= 1, "estoque de produtos: lista os produtos cadastrados");
+  const firstStock = p.locator('[data-testid="lista-estoque-produtos"] li').first();
+  await firstStock.locator("input").fill("7");
+  await firstStock.getByRole("button", { name: "Atualizar" }).click();
+  await firstStock.getByText("Estoque atualizado").waitFor();
+  await p.goto(B + "/estoque");
+  ok((await p.locator('[data-testid="lista-estoque-produtos"] li').first().locator("input").inputValue()) === "7", "estoque de produtos: a quantidade é salva e continua depois de recarregar");
+  await p.goto(B + "/filamentos");
+  ok((await p.getByRole("link", { name: "Estoque de bobinas" }).count()) === 1, "filamentos: aba 'Estoque de bobinas' (o estoque de filamento fica dentro de Filamentos)");
+  await p.getByRole("link", { name: "Estoque de bobinas" }).click();
+  await p.waitForURL(/\/filamentos\/estoque$/);
+  ok((await main$()).includes("Bobinas") || (await main$()).includes("bobinas"), "filamentos → estoque de bobinas abre");
 
   // ── Etapa 6: planos, assinatura e webhooks (simulador; nenhuma cobrança real) ──
   p.on("dialog", (d) => d.accept());

@@ -15,7 +15,7 @@ import { GettingStarted } from "@/features/onboarding/getting-started";
 import { loadStaleness } from "@/features/products/queries";
 import type { CatalogProduct } from "@/features/products/catalog-schema";
 import type { PricingRow } from "@/features/products/schema";
-import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
+import { settingsOrDefault, type SettingsRow } from "@/features/settings/schema";
 import { createClient } from "@/lib/supabase/server";
 import { daysUntil, formatBRL, formatDateTime, formatPercent } from "@/lib/utils";
 
@@ -44,7 +44,7 @@ export default async function DashboardPage() {
   // Primeiro acesso: leva ao assistente de configuração (ele pode ser pulado e não volta a aparecer).
   if (profile.data && !profile.data.onboarding_done_at) redirect("/boas-vindas");
 
-  const s = (settingsRes.data as SettingsRow | null) ?? DEFAULT_SETTINGS;
+  const s = settingsOrDefault(settingsRes.data as Partial<SettingsRow> | null);
   const latest = (latestRes.data ?? []) as Latest[];
   const recent = (recentRes.data ?? []) as Recent[];
   const productRows = (products.data ?? []) as (Pick<CatalogProduct, "id" | "name" | "pricing_id" | "production_cost" | "sale_price" | "printer_id" | "filament_id" | "archived_at">)[];
@@ -171,14 +171,14 @@ export default async function DashboardPage() {
             <Kpi label="Valor de vendas (pedidos)" value={formatBRL(om.salesValue)} detail="Sem cancelados" />
             <Kpi label="A receber" value={formatBRL(om.toReceive)} href="/pedidos" />
             <Kpi label="Receita recebida" value={formatBRL(om.received)} tone="ok" />
-            <Kpi label="Consumo de filamento" value={`${(Math.round(consumedG * 10) / 10).toLocaleString("pt-BR")} g`} href="/estoque" detail="Consumo real + falhas" />
+            <Kpi label="Consumo de filamento" value={`${(Math.round(consumedG * 10) / 10).toLocaleString("pt-BR")} g`} href="/filamentos/estoque" detail="Consumo real + falhas" />
             <Kpi label="Lucro estimado" value={om.estimatedProfit === null ? "—" : formatBRL(om.estimatedProfit)} detail="Total − custo estimado" />
             <Kpi label="Lucro realizado" value={om.realizedProfit === null ? "—" : formatBRL(om.realizedProfit)} tone={om.realizedProfit !== null ? "ok" : undefined} detail={om.pendingRealized > 0 ? `${om.pendingRealized} pedido${om.pendingRealized > 1 ? "s" : ""} aguardando a produção terminar` : "Recebido − custo real"} />
           </div>
         )}
         {lowStock.length > 0 && (
           <p className="mt-3 rounded-xl bg-accent-soft px-3 py-2 text-sm text-warn" role="alert">
-            Estoque baixo: {lowStock.map((l) => l.filament.name).join(", ")}. <Link href="/estoque" className="font-medium underline">Ver estoque</Link>
+            Estoque baixo: {lowStock.map((l) => l.filament.name).join(", ")}. <Link href="/filamentos/estoque" className="font-medium underline">Ver estoque de filamento</Link>
           </p>
         )}
       </section>

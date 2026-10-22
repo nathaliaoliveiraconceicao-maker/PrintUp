@@ -32,7 +32,7 @@ export default async function PrintersPage() {
                 <Link href={`/impressoras/${p.id}`} className="min-w-0 flex-1">
                   <p className="truncate font-medium">{p.name}</p>
                   <p className="num text-sm text-muted">
-                    {[p.brand, p.model].filter(Boolean).join(" ") || "Sem marca"} · {p.power_watts} W
+                    {p.power_watts} W
                     {p.hourly_cost > 0 && ` · ${formatBRL(p.hourly_cost)}/h`}
                   </p>
                 </Link>
