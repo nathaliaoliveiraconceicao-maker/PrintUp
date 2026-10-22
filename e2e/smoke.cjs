@@ -113,16 +113,17 @@ async function main() {
   ok(true, "assistente: nome vazio é recusado com mensagem");
   await p.getByLabel("Nome do negócio").fill("Oficina Aurora 3D");
   await p.getByRole("button", { name: "Continuar" }).click();
-  await p.getByLabel("Nome da impressora").fill("Bambu A1");
-  await p.getByLabel("Marca (opcional)").fill("Bambu Lab");
+  await p.getByLabel("Marca da impressora").fill("Bambu Lab");
+  await p.getByLabel("Nome ou modelo da impressora").fill("A1");
   await p.getByRole("button", { name: "Continuar" }).click();
-  await p.getByRole("radio", { name: /Calcular para mim/ }).click();
+  await p.getByRole("radio", { name: /Calcular pelo preço e vida útil/ }).click();
   await p.getByRole("button", { name: "Continuar" }).click();
-  await p.waitForFunction(() => document.body.innerText.includes("Informe o preço de compra"));
+  await p.waitForFunction(() => document.body.innerText.includes("Informe o preço de compra da impressora"));
   ok(true, "assistente: custo da hora calculado exige preço e vida útil");
-  await p.getByLabel("Preço de compra (R$)").fill("1500");
-  await p.getByLabel("Vida útil estimada (horas)").fill("1000");
-  await p.getByLabel("Potência média (W)").fill("150");
+  await p.getByLabel("Preço da impressora (R$)").fill("1500");
+  await p.getByLabel("Vida útil da impressora (horas)").fill("1000");
+  await p.getByLabel("Potência da impressora (W)").fill("150");
+  ok((await p.locator('[data-testid="desgaste-por-hora"]').innerText()).includes("1,50"), "assistente: mostra o desgaste da impressora por hora (1500 ÷ 1000 = R$ 1,50)");
   await p.getByRole("button", { name: "Continuar" }).click();
   await p.getByLabel("Cor (opcional)").fill("Preto");
   await p.getByRole("button", { name: "Continuar" }).click();
@@ -142,9 +143,9 @@ async function main() {
   await p.goto(B + "/boas-vindas?refazer=1");
   ok((await p.getByLabel("Nome do negócio").inputValue()) === "Oficina Aurora 3D", "assistente: nome do negócio persistiu e volta preenchido");
   await p.getByRole("button", { name: "Continuar" }).click();
-  ok((await p.getByLabel("Nome da impressora").inputValue()) === "Bambu A1", "assistente: impressora persistiu (atualiza, não duplica)");
+  ok((await p.getByLabel("Nome ou modelo da impressora").inputValue()) === "A1" && (await p.getByLabel("Marca da impressora").inputValue()) === "Bambu Lab", "assistente: impressora persistiu (atualiza, não duplica)");
   await p.goto(B + "/impressoras");
-  ok(((await main$()).match(/Bambu A1/g) ?? []).length === 1, "assistente refeito não duplica a impressora");
+  ok(((await main$()).match(/Bambu Lab A1/g) ?? []).length === 1, "assistente refeito não duplica a impressora");
   await p.goto(B + "/filamentos");
   ok((await main$()).includes("PLA Preto"), "assistente criou o filamento 'PLA Preto'");
 
@@ -157,7 +158,9 @@ async function main() {
   ok(true, "configurações salvas");
 
   await p.goto(B + "/impressoras/nova");
-  await p.fill("input[name=name]", "Segunda");
+  await p.fill("input[name=brand]", "Creality");
+  await p.fill("input[name=model]", "Ender-3 V3 KE");
+  ok((await main$()).includes("Vai aparecer como: Creality Ender-3 V3 KE"), "impressora: mostra como o nome vai aparecer (marca + modelo)");
   await p.click("button[type=submit]");
   await p.waitForSelector("form [role=alert]");
   ok((await p.textContent("form [role=alert]")).toLowerCase().includes("limite do seu plano"), "limite do plano exibe mensagem amigável");
@@ -244,7 +247,7 @@ async function main() {
   await p.waitForURL(/produtos\/[0-9a-f-]{36}/);
   t = await main$();
   ok(t.includes("Histórico de preços (2)") && t.includes("R$ 70,78") && t.includes("R$ 65,74"), "histórico do produto tem as 2 precificações");
-  ok(t.includes("Impressora: Bambu A1") && t.includes("Filamento: PLA Preto"), "nomes de impressora e filamento gravados no histórico");
+  ok(t.includes("Impressora: Bambu Lab A1") && t.includes("Filamento: PLA Preto"), "nomes de impressora e filamento gravados no histórico");
   await p.locator("summary", { hasText: "Composição do custo" }).first().click();
   ok((await main$()).includes("R$ 12,00"), "composição do custo expandida (filamento R$ 12,00)");
   p.once("dialog", (d) => d.accept());
@@ -856,7 +859,7 @@ async function main() {
   ok((await p.locator('input[value="25,5"]').count()) === 1 && (await p.locator('input[value="150"]').count() + (await p.locator('input[value="2"]').count())) >= 1, "ficha: peso 25,5 g e tempo 2h30 lidos da placa 1");
   ok((await p.locator("text=do arquivo").count()) >= 4, "ficha: dados lidos marcados como 'do arquivo'");
   const alertText = (await p.locator('[role=alert]:has-text("estimado para")').first().innerText()).replace(/\s+/g, " ");
-  ok(alertText.includes("Bambu Lab A1 mini") && alertText.includes("Bambu A1"), "ficha: avisa que o tempo foi estimado para OUTRA impressora (A1 mini × A1)");
+  ok(alertText.includes("Bambu Lab A1 mini") && alertText.includes("Bambu Lab A1"), "ficha: avisa que o tempo foi estimado para OUTRA impressora (A1 mini × A1)");
   await p.locator('input[value="25,5"]').fill("30");
   ok((await p.locator("text=editado").count()) >= 1, "ficha: peso corrigido passa a 'editado'");
   await p.getByRole("button", { name: "Calcular preço" }).first().click();

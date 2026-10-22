@@ -20,7 +20,7 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
   const s = (settings.data as SettingsRow | null) ?? DEFAULT_SETTINGS;
   const initial: WizardInitial = {
     businessName: (profile.data?.business_name as string | null) ?? "",
-    printer: p ? { id: p.id, name: p.name, brand: p.brand ?? "", power: p.power_watts, hourlyCost: p.hourly_cost, purchasePrice: p.purchase_price, lifespanHours: p.lifespan_hours ?? 0 } : null,
+    printer: p ? { id: p.id, name: p.name, brand: p.brand ?? "", model: p.model ?? (p.brand ? "" : p.name), power: p.power_watts, hourlyCost: p.hourly_cost, purchasePrice: p.purchase_price, lifespanHours: p.lifespan_hours ?? 0 } : null,
     filament: f ? { id: f.id, material: f.material, color: f.color ?? "", pricePerKg: f.price_per_kg } : null,
     margin: s.margin_percent,
   };

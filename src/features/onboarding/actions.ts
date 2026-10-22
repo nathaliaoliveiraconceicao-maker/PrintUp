@@ -5,6 +5,7 @@ import { dbErrorMessage } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_SETTINGS, type SettingsRow } from "@/features/settings/schema";
 import { wearPerHour } from "./hourly";
+import { printerDisplayName } from "@/features/printers/schema";
 import { businessStepSchema, costStepSchema, filamentStepSchema, marginStepSchema, printerStepSchema, type OnboardingState } from "./schema";
 
 async function session() {
@@ -38,10 +39,10 @@ export async function saveBusinessStep(payload: unknown): Promise<OnboardingStat
 export async function savePrinterStep(payload: unknown): Promise<OnboardingState> {
   const parsed = printerStepSchema.safeParse(payload);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
-  const { name, brand, printerId } = parsed.data;
+  const { brand, model, printerId } = parsed.data;
   const { supabase, user } = await session();
   if (!user) return { error: "Sessão expirada. Entre novamente." };
-  const row = { name, brand: brand || null };
+  const row = { name: printerDisplayName(brand, model), brand, model };
   if (printerId) {
     const { error } = await supabase.from("printers").update(row).eq("id", printerId);
     if (error) return { error: dbErrorMessage(error) };
