@@ -8,6 +8,7 @@ import { resolveGateway, type BillingCycle, type BillingGateway, type CanonicalE
 import { SimulatedGateway } from "@/lib/billing/simulated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { logEvent } from "@/features/admin/log";
 import { couponCodeSchema } from "@/features/admin/schema";
 import { PLAN_COLUMNS, type PlanRow } from "./server";
 
@@ -84,7 +85,8 @@ export async function startCheckout(planCode: string, cycle: BillingCycle): Prom
     });
     await admin.from("billing_checkouts").update({ gateway_ref: r.gatewayRef, checkout_url: r.url }).eq("id", co.id);
     return { ok: true, url: r.url };
-  } catch {
+  } catch (e) {
+    await logEvent("pagamento", "erro", "Falha ao criar o checkout no gateway", { gateway: gateway.id, motivo: e instanceof Error ? e.message : "desconhecido" }, user.id);
     await admin.from("billing_checkouts").update({ status: "cancelado" }).eq("id", co.id);
     return { error: "O serviço de pagamento não respondeu. Tente novamente em instantes." };
   }

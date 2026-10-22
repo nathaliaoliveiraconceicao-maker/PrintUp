@@ -102,13 +102,26 @@ export class MercadoPagoGateway implements BillingGateway {
       throw new GatewayUnavailableError("mercadopago_rede");
     }
     if (res.status === 404) return null;
-    if (!res.ok) throw new GatewayUnavailableError(`mercadopago_http_${res.status}`);
+    if (!res.ok) {
+      // Só o código curto do erro (nunca o texto livre): ajuda a diagnosticar sem registrar dados pessoais.
+      let code = "";
+      try {
+        const e = (await res.json()) as { error?: unknown; cause?: { code?: unknown }[] };
+        const raw = String(e.cause?.[0]?.code ?? e.error ?? "");
+        if (/^[A-Za-z0-9_]{1,40}$/.test(raw)) code = `_${raw}`;
+      } catch {
+        // resposta sem JSON
+      }
+      throw new GatewayUnavailableError(`mercadopago_http_${res.status}${code}`);
+    }
     return (await res.json()) as T;
   }
 
   async createCheckout(req: CheckoutRequest): Promise<CheckoutResult> {
-    const isTest = mercadoPagoIsTest(this.cfg.accessToken);
-    const payerEmail = (isTest && this.cfg.testPayerEmail) || req.customer.email;
+    // Vendedor de teste só cobra comprador de teste: se há e-mail @testuser.com configurado, ele é usado.
+    // (Em produção de verdade essa variável não existe, e o e-mail é o de quem contrata.)
+    const testPayer = this.cfg.testPayerEmail && /^[^@\s]+@testuser\.com$/i.test(this.cfg.testPayerEmail) ? this.cfg.testPayerEmail : null;
+    const payerEmail = testPayer ?? req.customer.email;
     if (!payerEmail) throw new Error("sem_email");
     const months = req.cycle === "anual" ? 12 : 1;
     const r = await this.call<Preapproval>("/preapproval", {

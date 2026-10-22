@@ -52,6 +52,21 @@ describe("Mercado Pago", () => {
     expect(b.auto_recurring).toMatchObject({ frequency: 1, frequency_type: "months", transaction_amount: 49.9, currency_id: "BRL" });
   });
 
+  it("conta de teste com APP_USR-: usa o e-mail @testuser.com; e-mail comum nunca substitui o do cliente", async () => {
+    const calls: Call[] = [];
+    const mk = (testPayerEmail?: string) => new MercadoPagoGateway({ accessToken: "APP_USR-conta-teste", webhookSecret: SECRET, siteUrl: "https://app.exemplo.com.br", testPayerEmail, fetchImpl: (async (url: string, init?: RequestInit) => { calls.push({ url, method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : undefined }); return new Response(JSON.stringify({ id: "p", init_point: "https://mp/x" }), { status: 200 }); }) as unknown as typeof fetch });
+    const req = { checkoutId: "co", planCode: "pro", planName: "Pro", amountCents: 2990, cycle: "mensal" as const, customer: { userId: "u", email: "real@x.com", name: null } };
+    await mk("TESTUSER1@testuser.com").createCheckout(req);
+    await mk("pessoa@gmail.com").createCheckout(req);
+    expect((calls[0].body as { payer_email: string }).payer_email).toBe("TESTUSER1@testuser.com");
+    expect((calls[1].body as { payer_email: string }).payer_email).toBe("real@x.com");
+  });
+
+  it("erro do Mercado Pago vira motivo curto (status + código), sem texto livre", async () => {
+    const gw = make({ "/preapproval": new Response(JSON.stringify({ error: "bad_request", message: "Cannot operate between different countries com dados@pessoais.com", cause: [{ code: 2000 }] }), { status: 400 }) });
+    await expect(gw.createCheckout({ checkoutId: "co", planCode: "pro", planName: "Pro", amountCents: 2990, cycle: "mensal", customer: { userId: "u", email: "r@x.com", name: null } })).rejects.toThrow("mercadopago_http_400_2000");
+  });
+
   it("pagamento aprovado vira charge.confirmed com o checkout vindo da API (não do corpo)", async () => {
     const gw = make({
       "/authorized_payments/77": { id: 77, preapproval_id: "pre1", status: "processed", transaction_amount: 49.9, last_modified: "2026-10-21T10:00:00.000Z", payment: { status: "approved" } },

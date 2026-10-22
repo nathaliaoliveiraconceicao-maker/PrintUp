@@ -23,8 +23,8 @@ export default async function MonitoringPage() {
       </div>
 
       <h2 className="mb-2 font-semibold">Eventos recentes</h2>
-      <Table head={["Quando", "Tipo", "Gravidade", "Mensagem"]} empty={m.eventos_recentes.length === 0 ? "Nenhum evento registrado." : undefined}>
-        {m.eventos_recentes.map((e, i) => <tr key={i}><td className="px-4 py-3">{fmtDate(e.created_at)}</td><td className="px-4 py-3">{KIND[e.kind as keyof typeof KIND] ?? e.kind}</td><td className="px-4 py-3"><Badge tone={e.severity === "erro" ? "danger" : "warn"}>{e.severity}</Badge></td><td className="px-4 py-3">{e.message}</td></tr>)}
+      <Table head={["Quando", "Tipo", "Gravidade", "Mensagem", "Detalhes"]} empty={m.eventos_recentes.length === 0 ? "Nenhum evento registrado." : undefined}>
+        {m.eventos_recentes.map((e, i) => <tr key={i}><td className="px-4 py-3">{fmtDate(e.created_at)}</td><td className="px-4 py-3">{KIND[e.kind as keyof typeof KIND] ?? e.kind}</td><td className="px-4 py-3"><Badge tone={e.severity === "erro" ? "danger" : "warn"}>{e.severity}</Badge></td><td className="px-4 py-3">{e.message}</td><td className="px-4 py-3 text-xs text-muted">{Object.entries(e.meta ?? {}).map(([k, v]) => `${k}: ${String(v)}`).join(" · ") || "—"}</td></tr>)}
       </Table>
       <h2 className="mb-2 mt-8 font-semibold">Webhooks com falha</h2>
       <Table head={["Recebido", "Gateway", "Tipo", "Erro"]} empty={m.webhooks_recentes.length === 0 ? "Nenhum webhook com falha." : undefined}>
