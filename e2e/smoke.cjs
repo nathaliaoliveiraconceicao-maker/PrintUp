@@ -1090,6 +1090,8 @@ async function main() {
   await p.getByLabel("E-mail de suporte").fill("suporte@printup.test");
   await p.getByRole("button", { name: "Salvar configurações" }).click();
   await p.getByText("Configurações salvas").waitFor();
+  const diagTxt = await p.locator('[data-testid="diagnostico-pagamentos"]').innerText();
+  ok(/BILLING_GATEWAY/.test(diagTxt) && /simulado/.test(diagTxt) && !/segredo-de-teste-local|chave-servidor-FALSA/.test(diagTxt), "diagnóstico de pagamentos aponta o que está errado e não vaza valores secretos");
   await p.goto(B + "/planos");
   ok((await p.locator("footer").innerText()).includes("suporte@printup.test"), "e-mail de suporte aparece no rodapé público");
 
