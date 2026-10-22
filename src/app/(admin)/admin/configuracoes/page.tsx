@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/ui/card";
-import { SettingsForm } from "@/features/admin/forms";
+import { ProbeButton, SettingsForm } from "@/features/admin/forms";
 import { Card } from "@/components/ui/card";
 import { diagnoseBilling } from "@/features/admin/diagnostics";
 import { mercadoPagoIsTestAccount } from "@/lib/billing/mercadopago";
@@ -33,6 +33,7 @@ export default async function PlatformSettingsPage() {
             </li>
           ))}
         </ul>
+        <ProbeButton />
         <p className="text-xs text-muted">Só mostra se cada variável existe e se o formato está certo. Nenhum valor secreto é exibido. Depois de mudar variáveis na Vercel, é preciso refazer o deploy.</p>
       </Card>
     </>

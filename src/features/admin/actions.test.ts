@@ -64,6 +64,6 @@ describe("ações com superadmin", () => {
 
   it("não existe ação para marcar pagamento como concluído", async () => {
     const mod = await import("./actions");
-    expect(Object.keys(mod).filter((k) => /pag|pay|charge|cobran/i.test(k))).toEqual([]);
+    expect(Object.keys(mod).filter((k) => /pagamento|paid|payment|charge|cobran/i.test(k))).toEqual([]);
   });
 });

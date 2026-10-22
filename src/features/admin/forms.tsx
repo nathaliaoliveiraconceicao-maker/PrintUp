@@ -10,7 +10,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { LIMIT_LABEL, FEATURES } from "@/lib/billing/state";
 import { useActionForm } from "@/lib/use-action-form";
 import type { FormState } from "@/lib/forms";
-import { createCoupon, endCourtesy, grantCourtesy, saveSettings, scheduleCancel, setCouponActive, updatePlan } from "./actions";
+import { createCoupon, endCourtesy, grantCourtesy, runMercadoPagoProbe, saveSettings, scheduleCancel, setCouponActive, updatePlan, type ProbeState } from "./actions";
 import { LIMIT_KEYS } from "./schema";
 import type { PlanRowAdmin } from "./server";
 
@@ -168,5 +168,29 @@ export function SettingsForm({ values }: { values: { billing_grace_days: number;
         <SubmitButton pending={pending}>Salvar configurações</SubmitButton>
       </form>
     </Card>
+  );
+}
+
+/** Botão "Testar conexão com o Mercado Pago": mostra o que ele aceita ou recusa (só conta de teste, sem segredos). */
+export function ProbeButton() {
+  const [state, setState] = useState<ProbeState>({});
+  const [pending, start] = useTransition();
+  return (
+    <div className="space-y-3" data-testid="teste-conexao-mp">
+      <Button variant="secondary" disabled={pending} onClick={() => start(async () => setState(await runMercadoPagoProbe()))}>
+        {pending ? "Testando…" : "Testar conexão com o Mercado Pago"}
+      </Button>
+      {state.error && <p role="alert" className="text-sm text-danger">{state.error}</p>}
+      {state.lines && (
+        <ul className="divide-y divide-line rounded-xl border border-line text-sm">
+          {state.lines.map((l) => (
+            <li key={l.label} className="flex flex-wrap justify-between gap-2 px-3 py-2">
+              <span className="font-medium">{l.label}</span>
+              <span className={l.ok ? "text-ok" : "text-danger"}>{l.ok ? "✓" : "✗"} {l.detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
