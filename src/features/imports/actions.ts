@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MAX_FILE_BYTES } from "./limits";
 import { BUCKET, isValidFilePath, isValidThumbPath } from "./paths";
 import { applyProfileEdit, type StoredProfile } from "./provenance";
-import { profileEditSchema, saveImportSchema, type ProfileInput, type SaveImportState } from "./schema";
+import { friendlyImportIssue, issuePath, normalizeImportPayload, profileEditSchema, saveImportSchema, type ProfileInput, type SaveImportState } from "./schema";
 
 const MAX_THUMB_BYTES = 2 * 1024 * 1024;
 
@@ -50,8 +50,13 @@ const profileRow = (modelId: string, p: ProfileInput) => ({
  * direto ao Storage; aqui conferimos que existem, que são do usuário e que respeitam os limites. Falhou => limpa tudo.
  */
 export async function saveImport(payload: unknown): Promise<SaveImportState> {
-  const parsed = saveImportSchema.safeParse(payload);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  const parsed = saveImportSchema.safeParse(normalizeImportPayload(payload));
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    // Só o caminho do campo (nunca valores): ajuda a achar arquivos que o leitor não trata bem.
+    await logEvent("importacao", "aviso", "Importação recusada por dado inválido", { campo: issue ? issuePath(issue) : "desconhecido", tipo: issue?.code ?? "desconhecido" });
+    return { error: issue ? friendlyImportIssue(issue) : "Dados inválidos." };
+  }
   const v = parsed.data;
 
   const supabase = await createClient();

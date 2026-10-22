@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { profileInputSchema, saveImportSchema } from "./schema";
+import { friendlyImportIssue, normalizeImportPayload, profileInputSchema, saveImportSchema } from "./schema";
 
 const profile = {
   name: "Placa 1", plateIndex: 1, pieceCount: 2, slicerPrinterName: "Bambu Lab A1 mini", printerModelCode: null, nozzleMm: 0.4, layerHeightMm: 0.2,
@@ -38,5 +38,33 @@ describe("saveImportSchema (o servidor não confia no navegador)", () => {
   });
   it("tipo de arquivo fora da lista (ex.: stl) é recusado", () => {
     expect(saveImportSchema.safeParse({ ...model, fileKind: "stl", filePath: "x" }).success).toBe(false);
+  });
+});
+
+describe("normalização e mensagens da importação", () => {
+  it("bico, camada ou gramas zerados viram vazio (desconhecido) e o modelo passa", () => {
+    const sujo = { ...model, profiles: [{ ...profile, nozzleMm: 0, layerHeightMm: -1, materials: [{ type: "PCTG", color: "#FFFFFF", grams: 0 }, { type: "PCTG", color: null, grams: 97.72 }] }] };
+    expect(saveImportSchema.safeParse(sujo).success).toBe(false);
+    const limpo = normalizeImportPayload(sujo) as typeof sujo;
+    expect(saveImportSchema.safeParse(limpo).success).toBe(true);
+    expect(limpo.profiles[0].nozzleMm).toBeNull();
+    expect(limpo.profiles[0].materials[0].grams).toBeNull();
+    expect(limpo.profiles[0].materials[1].grams).toBe(97.72);
+  });
+  it("não mexe em peso nem tempo (esses continuam recusados se forem zero)", () => {
+    const r = saveImportSchema.safeParse(normalizeImportPayload({ ...model, profiles: [{ ...profile, weightG: 0 }] }));
+    expect(r.success).toBe(false);
+  });
+  it("mensagem em português com o nome do campo, sem o texto técnico em inglês", () => {
+    const r = saveImportSchema.safeParse({ ...model, profiles: [{ ...profile, weightG: 0 }] });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      const msg = friendlyImportIssue(r.error.issues[0]);
+      expect(msg).toContain('"peso"');
+      expect(msg).not.toMatch(/expected|Too small/);
+    }
+  });
+  it("mensagens próprias já em português são mantidas", () => {
+    expect(friendlyImportIssue({ code: "custom", path: ["profiles", 0, "weightG"], message: "Peso e origem do peso precisam andar juntos." })).toBe("Peso e origem do peso precisam andar juntos.");
   });
 });
