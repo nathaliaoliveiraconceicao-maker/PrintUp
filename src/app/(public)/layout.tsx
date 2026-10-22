@@ -19,7 +19,7 @@ export default async function PublicLayout({ children }: { children: React.React
     <div className="min-h-dvh">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
-          <Link href={user ? "/" : "/login"} aria-label="PrintUp"><Logo /></Link>
+          <Link href="/" aria-label="PrintUp"><Logo /></Link>
           <nav aria-label="Conta" className="flex items-center gap-2 text-sm">
             {user ? (
               <>
