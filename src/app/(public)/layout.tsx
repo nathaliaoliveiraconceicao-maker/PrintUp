@@ -38,13 +38,11 @@ export default async function PublicLayout({ children }: { children: React.React
       <main className="mx-auto max-w-6xl px-5 py-10">{children}</main>
       <footer className="space-y-1 border-t border-line py-6 text-center text-xs text-muted">
         <p>PrintUp · precificação e gestão para impressão 3D</p>
-        {(support || terms || privacy) && (
-          <p className="flex flex-wrap justify-center gap-x-4">
-            {support && <a className="underline" href={`mailto:${support}`}>Suporte: {support}</a>}
-            {terms && <a className="underline" href={terms} rel="noopener noreferrer">Termos de uso</a>}
-            {privacy && <a className="underline" href={privacy} rel="noopener noreferrer">Privacidade</a>}
-          </p>
-        )}
+        <p className="flex flex-wrap justify-center gap-x-4">
+          {support && <a className="underline" href={`mailto:${support}`}>Suporte: {support}</a>}
+          {terms ? <a className="underline" href={terms} rel="noopener noreferrer">Termos de uso</a> : <Link className="underline" href="/termos">Termos de uso</Link>}
+          {privacy ? <a className="underline" href={privacy} rel="noopener noreferrer">Privacidade</a> : <Link className="underline" href="/privacidade">Privacidade</Link>}
+        </p>
       </footer>
     </div>
   );

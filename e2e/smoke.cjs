@@ -153,6 +153,12 @@ async function main() {
   await p.goto(B + "/filamentos");
   ok((await main$()).includes("PLA Preto"), "assistente criou o filamento 'PLA Preto'");
 
+  // ── Termos de uso e privacidade (públicos) ──
+  await p.goto(B + "/termos");
+  ok((await main$()).includes("Termos de uso") && (await main$()).includes("Itaboraí/RJ") && (await main$()).includes("sugestão"), "termos de uso: página pública com foro e aviso de que o preço é sugestão");
+  await p.goto(B + "/privacidade");
+  ok((await main$()).includes("LGPD") && (await main$()).includes("Mercado Pago") && (await main$()).includes("direitos"), "política de privacidade: LGPD, provedores e direitos do titular");
+
   // ── Configurações ──
   await p.goto(B + "/configuracoes");
   ok((await p.locator('[data-testid="como-calcula"]').count()) === 1 && (await p.locator('[data-testid="canais-de-venda"]').count()) === 1, "configurações: despesas, preço de venda, explicação do cálculo e canais de venda numa página só");

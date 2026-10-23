@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/env";
 
 // /planos é a página comercial (pública); /api/webhooks recebe o gateway (autenticado pela ASSINATURA do corpo, não por login).
-const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/auth", "/planos", "/inicio", "/api/webhooks"];
+const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/auth", "/planos", "/inicio", "/termos", "/privacidade", "/api/webhooks"];
 
 /** Renova a sessão e redireciona visitantes anônimos para /login. A autorização real continua no RLS. */
 export async function updateSession(request: NextRequest) {
