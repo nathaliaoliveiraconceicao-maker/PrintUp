@@ -583,6 +583,7 @@ async function main() {
   }
   t = await bodyTxt();
   ok(t.includes("2 bobinas") && /No saldo 500 g/.test(t) && t.includes("Reservado 0 g") && /Disponível 500 g/.test(t), "estoque: duas bobinas do mesmo filamento somam 500 g disponíveis");
+  ok((await p.locator('[data-testid="bobinas-do-filamento"]').first().innerText()).includes("Marca X") && (await p.locator('[data-testid="adicionar-bobina"]').count()) >= 1, "estoque: cada filamento mostra as próprias bobinas e o botão 'Adicionar bobina'");
 
   // Converter orçamento aprovado em pedido — sem duplicar, nem com duas abas
   await p.goto(`${B}/orcamentos/${q1}`);

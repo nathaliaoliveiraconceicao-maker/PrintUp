@@ -58,10 +58,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
         </div>
       )}
 
-      <div className="mb-6"><SpoolForm filaments={filaments.map((f) => ({ id: f.id, name: f.name, material: f.material, color: f.color }))} /></div>
-
       <section aria-labelledby="h-fil" className="mb-8">
-        <h2 id="h-fil" className="mb-3 text-lg font-semibold">Por filamento</h2>
+        <h2 id="h-fil" className="mb-1 text-lg font-semibold">Estoque de cada filamento</h2>
+        <p className="mb-3 text-sm text-muted">O saldo é separado por filamento (cor e material), não somado.</p>
         {filaments.length === 0 ? (
           <Card className="text-sm text-muted">Cadastre um <Link href="/filamentos/novo" className="font-medium text-accent-strong underline">filamento</Link> para controlar o estoque dele.</Card>
         ) : (
@@ -77,6 +76,17 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                   <div><dt className="text-xs text-muted">Reservado</dt><dd className="num font-medium">{g(s.reserved)}</dd></div>
                   <div><dt className="text-xs text-muted">Disponível</dt><dd className={cn("num font-semibold", s.available < 0 && "text-danger")}>{g(s.available)}</dd></div>
                 </dl>
+                {(() => {
+                  const mine = spools.filter((x) => x.filament_id === s.filament.id && (x.status === "nova" || x.status === "em_uso"));
+                  return mine.length > 0 ? (
+                    <ul className="divide-y divide-line text-sm" data-testid="bobinas-do-filamento">
+                      {mine.map((x) => (
+                        <li key={x.id}><Link href={`/filamentos/estoque/${x.id}`} className="flex items-center justify-between gap-3 py-2 hover:text-accent-strong"><span className="truncate">{x.manufacturer ?? "Bobina"}{x.location ? ` · ${x.location}` : ""}</span><span className="num shrink-0">{g(x.remaining_g)} <span className="text-xs text-muted">de {g(x.initial_g)}</span></span></Link></li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
+                <SpoolForm filaments={filaments.map((f) => ({ id: f.id, name: f.name, material: f.material, color: f.color }))} fixedFilamentId={s.filament.id} label="Adicionar bobina" />
                 <MinStockEditor filamentId={s.filament.id} value={s.filament.min_stock_g} />
               </Card>
             ))}
@@ -85,7 +95,8 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
       </section>
 
       <section aria-labelledby="h-bob" className="mb-8">
-        <h2 id="h-bob" className="mb-3 text-lg font-semibold">Bobinas</h2>
+        <h2 id="h-bob" className="mb-3 text-lg font-semibold">Todas as bobinas</h2>
+        <div className="mb-3"><SpoolForm filaments={filaments.map((f) => ({ id: f.id, name: f.name, material: f.material, color: f.color }))} /></div>
         <form className="mb-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]" role="search" aria-label="Filtrar bobinas">
           <Select name="filamento" defaultValue={sp.filamento ?? ""} aria-label="Filamento"><option value="">Todos os filamentos</option>{filaments.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</Select>
           <Select name="status" defaultValue={sp.status ?? ""} aria-label="Status"><option value="">Todos os status</option>{(Object.keys(SPOOL_STATUS_LABEL) as SpoolRow["status"][]).map((s) => <option key={s} value={s}>{SPOOL_STATUS_LABEL[s]}</option>)}</Select>

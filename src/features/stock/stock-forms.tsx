@@ -18,10 +18,10 @@ const num = (s: string) => {
   return Number.isNaN(n) ? (s.trim() === "" ? 0 : NaN) : n;
 };
 
-export function SpoolForm({ filaments }: { filaments: { id: string; name: string; material: string; color: string | null }[] }) {
+export function SpoolForm({ filaments, fixedFilamentId, label = "Nova bobina" }: { filaments: { id: string; name: string; material: string; color: string | null }[]; fixedFilamentId?: string; label?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [filamentId, setFilamentId] = useState(filaments[0]?.id ?? "");
+  const [filamentId, setFilamentId] = useState(fixedFilamentId ?? filaments[0]?.id ?? "");
   const [maker, setMaker] = useState("");
   const [material, setMaterial] = useState("PLA");
   const [color, setColor] = useState("");
@@ -43,18 +43,22 @@ export function SpoolForm({ filaments }: { filaments: { id: string; name: string
   return (
     <div className="space-y-3">
       {!open ? (
-        <Button onClick={() => { setOpen(true); setState({}); }} data-testid="nova-bobina"><Plus size={18} />Nova bobina</Button>
+        <Button onClick={() => { setOpen(true); setState({}); }} data-testid={fixedFilamentId ? "adicionar-bobina" : "nova-bobina"} variant={fixedFilamentId ? "secondary" : undefined} size={fixedFilamentId ? "sm" : undefined}><Plus size={18} />{label}</Button>
       ) : (
         <Card className="space-y-4" data-testid="form-bobina">
           <h2 className="font-semibold">Cadastrar bobina</h2>
           <p className="text-xs text-muted">Pode cadastrar várias bobinas do mesmo material e cor: o estoque soma todas.</p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Filamento cadastrado">
-              <Select value={filamentId} onChange={(e) => setFilamentId(e.target.value)}>
-                {filaments.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                <option value="">Outro (informar material)</option>
-              </Select>
-            </Field>
+            {fixedFilamentId ? (
+              <p className="self-end pb-3 text-sm font-medium">{filaments.find((f) => f.id === fixedFilamentId)?.name}</p>
+            ) : (
+              <Field label="Filamento cadastrado">
+                <Select value={filamentId} onChange={(e) => setFilamentId(e.target.value)}>
+                  {filaments.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  <option value="">Outro (informar material)</option>
+                </Select>
+              </Field>
+            )}
             {!filamentId && <Field label="Tipo de material"><Select value={material} onChange={(e) => setMaterial(e.target.value)}>{MATERIALS.map((m) => <option key={m}>{m}</option>)}</Select></Field>}
             <Field label="Fabricante"><Input value={maker} onChange={(e) => setMaker(e.target.value)} maxLength={80} /></Field>
             <Field label="Cor" hint={filamentId ? "Em branco usa a cor do filamento." : undefined}><Input value={color} onChange={(e) => setColor(e.target.value)} maxLength={40} /></Field>
