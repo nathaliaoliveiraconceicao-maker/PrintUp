@@ -7,7 +7,7 @@ import { Field, Input } from "@/components/ui/field";
 import { useActionForm } from "@/lib/use-action-form";
 import { cancelSubscription, reconcileMine, redeemCoupon, simulate, type BillingActionState, type SimKind } from "./actions";
 
-export function SubscriptionActions({ canCancel, hasGatewaySub }: { canCancel: boolean; hasGatewaySub: boolean }) {
+export function SubscriptionActions({ canCancel, hasGatewaySub, canConfirmPayment = false }: { canCancel: boolean; hasGatewaySub: boolean; canConfirmPayment?: boolean }) {
   const router = useRouter();
   const [state, setState] = useState<BillingActionState>({});
   const [pending, start] = useTransition();
@@ -16,6 +16,7 @@ export function SubscriptionActions({ canCancel, hasGatewaySub }: { canCancel: b
     <div className="space-y-3" data-testid="acoes-assinatura">
       <div className="flex flex-wrap gap-2">
         {hasGatewaySub && <Button variant="secondary" size="sm" disabled={pending} onClick={() => run(reconcileMine)}>Atualizar situação</Button>}
+        {!hasGatewaySub && canConfirmPayment && <Button variant="secondary" size="sm" disabled={pending} onClick={() => run(reconcileMine)} data-testid="conferir-pagamento">Já paguei: conferir meu pagamento</Button>}
         {canCancel && (
           <Button variant="ghost" size="sm" disabled={pending} onClick={() => { if (confirm("Cancelar a assinatura? Você continua com o plano até o fim do período já pago e seus dados ficam salvos.")) run(cancelSubscription); }}>
             Cancelar assinatura

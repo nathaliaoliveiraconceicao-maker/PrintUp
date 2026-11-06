@@ -151,11 +151,21 @@ export async function reconcileMine(): Promise<BillingActionState> {
   if ("error" in c) return { error: c.error };
   const { user, admin, gateway } = c.ctx;
   const sub = await liveGatewaySub(admin, user.id);
-  if (!sub) return { ok: true, message: "Nada a conferir: você não tem assinatura paga." };
-  const snap = await gateway.fetchSnapshot(sub.gateway_subscription_id).catch(() => null);
+  // Sem assinatura ainda (o aviso do gateway pode ter se perdido): confere o checkout mais recente DESTE usuário no gateway.
+  let ref = sub?.gateway_subscription_id ?? null;
+  let checkoutId: string | null = null;
+  if (!ref) {
+    const { data: co } = await admin.from("billing_checkouts").select("id, gateway_ref").eq("user_id", user.id).eq("gateway", gateway.id).not("gateway_ref", "is", null).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!co) return { ok: true, message: "Nada a conferir: você não tem assinatura paga." };
+    ref = co.gateway_ref as string;
+    checkoutId = co.id as string;
+  }
+  const snap = await gateway.fetchSnapshot(ref).catch(() => null);
   if (!snap) return { ok: true, message: "Situação conferida: nenhuma diferença encontrada." };
   let applied = 0;
-  for (const e of eventsFromSnapshot(gateway.id, sub.gateway_subscription_id, snap)) {
+  for (const base of eventsFromSnapshot(gateway.id, ref, snap)) {
+    // O usuário e o plano vêm do NOSSO checkout (id do usuário logado), nunca do gateway.
+    const e = checkoutId ? { ...base, external_reference: checkoutId } : base;
     const { data } = await admin.rpc("apply_billing_event", { p_event: e });
     if ((data as { result?: string } | null)?.result === "processado") applied++;
   }

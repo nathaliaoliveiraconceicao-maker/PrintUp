@@ -1157,6 +1157,10 @@ async function main() {
   await p.waitForURL(/assinatura\/simulador\//);
   await p.goto(B + "/assinatura");
   ok(!(await p.locator('[data-testid="estado-assinatura"]').innerText()).includes("Ativa"), "abrir o checkout não ativa o plano");
+  ok((await p.locator('[data-testid="conferir-pagamento"]').count()) === 1, "após abrir o checkout, aparece 'Já paguei: conferir meu pagamento' (caso o aviso do gateway se perca)");
+  await p.locator('[data-testid="conferir-pagamento"]').click();
+  await p.getByText("Situação conferida").waitFor();
+  ok(!(await p.locator('[data-testid="estado-assinatura"]').innerText()).includes("Ativa"), "conferir sem pagamento confirmado não ativa o plano");
   await p.goBack();
   await p.getByRole("button", { name: "Simular pagamento aprovado" }).click();
   await p.waitForFunction(() => document.body.innerText.includes("Situação do checkout: pago"));

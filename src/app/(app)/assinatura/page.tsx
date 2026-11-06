@@ -19,6 +19,7 @@ export default async function SubscriptionPage() {
   const supabase = await createClient();
   const [ent, usage, charges, plans, gw] = await Promise.all([loadEntitlements(supabase), loadUsage(supabase), loadCharges(supabase), loadPublicPlans(supabase), resolveGateway()]);
   const { data: sub } = await supabase.from("subscriptions").select("gateway_subscription_id, status").in("status", ["active", "past_due"]).not("gateway_subscription_id", "is", null).maybeSingle();
+  const { count: checkoutsCount } = await supabase.from("billing_checkouts").select("id", { count: "exact", head: true }).not("gateway_ref", "is", null);
   const current = plans.find((p) => p.code === ent?.plan_code);
   const planName = ent?.plan_code === "trial" ? "Teste grátis" : (current?.name ?? ent?.plan_code ?? "Gratuito");
   const state = ent?.state ?? "gratuito";
@@ -63,7 +64,7 @@ export default async function SubscriptionPage() {
         <div className="flex flex-wrap gap-2 pt-1">
           <Link href="/planos" className="inline-flex h-11 items-center rounded-xl bg-accent px-5 text-sm font-semibold text-on-accent hover:brightness-95">{paying ? "Alterar plano" : "Ver planos"}</Link>
         </div>
-        <SubscriptionActions canCancel={paying && !ent?.cancel_at_period_end} hasGatewaySub={paying} />
+        <SubscriptionActions canCancel={paying && !ent?.cancel_at_period_end} hasGatewaySub={paying} canConfirmPayment={(checkoutsCount ?? 0) > 0} />
         {!paying && <div className="border-t border-line pt-4"><RedeemCoupon /></div>}
       </Card>
 
