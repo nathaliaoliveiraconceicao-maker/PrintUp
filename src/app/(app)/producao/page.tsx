@@ -14,6 +14,15 @@ import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Produção" };
 
+const STAGE_TOP: Record<JobStage, string> = {
+  aguardando: "border-t-line",
+  preparando: "border-t-warn",
+  imprimindo: "border-t-import",
+  acabamento: "border-t-accent",
+  concluido: "border-t-ok",
+  cancelado: "border-t-danger",
+};
+
 const RECENT_DONE = 20;
 
 export default async function ProductionPage({ searchParams }: { searchParams: Promise<{ impressora?: string; atrasados?: string; q?: string }> }) {
@@ -88,13 +97,13 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
             let col = filtered.filter((x) => x.j.stage === stage);
             if (stage === "concluido") col = col.slice(-RECENT_DONE).reverse();
             return (
-              <section key={stage} aria-labelledby={`col-${stage}`} data-testid={`coluna-${stage}`} className={cn("w-[85vw] shrink-0 snap-center space-y-3 self-start rounded-2xl bg-paper p-3 sm:w-80", stage === "concluido" && "opacity-95")}>
+              <section key={stage} aria-labelledby={`col-${stage}`} data-testid={`coluna-${stage}`} className={cn("w-[85vw] shrink-0 snap-center space-y-3 self-start rounded-2xl border border-t-4 border-line bg-paper p-3 sm:w-80", STAGE_TOP[stage as JobStage], stage === "concluido" && "opacity-95")}>
                 <h2 id={`col-${stage}`} className="flex items-center justify-between px-1 text-sm font-semibold">
                   {JOB_STAGE_LABEL[stage as JobStage]}
                   <span className="num rounded-full bg-surface px-2 py-0.5 text-xs text-muted">{col.length}</span>
                 </h2>
                 {col.length === 0 ? (
-                  <p className="px-1 py-4 text-center text-xs text-muted">Nada aqui.</p>
+                  <p className="rounded-xl border border-dashed border-line px-1 py-6 text-center text-xs text-muted">Nada aqui.</p>
                 ) : (
                   col.map(({ j, o, overdue }) => (
                     <JobCard key={j.id} job={j} order={{ id: j.order_id, number: o?.number ?? 0, customer: o?.customer_name ?? "—", due: o?.due_date ?? null }} reservedG={reserved.get(j.id) ?? 0} overdue={overdue} />

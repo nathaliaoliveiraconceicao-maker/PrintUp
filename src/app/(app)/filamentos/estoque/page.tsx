@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
+import { Meter } from "@/components/ui/meter";
 import { Select } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import type { FilamentRow } from "@/features/filaments/schema";
@@ -71,10 +72,11 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                   <div className="min-w-0"><p className="truncate font-medium">{s.filament.name}</p><p className="text-xs text-muted">{s.spools} bobina{s.spools === 1 ? "" : "s"} em uso ou nova{s.spools === 1 ? "" : "s"}</p></div>
                   {s.spools === 0 ? <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">sem bobinas</span> : s.low ? <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-warn">Estoque baixo</span> : <span className="rounded-full bg-ok/10 px-2 py-0.5 text-xs text-ok">Ok</span>}
                 </div>
+                {s.spools > 0 && <Meter value={Math.max(0, s.available)} max={Math.max(s.filament.min_stock_g * 4, s.remaining, 1)} tone={s.available < 0 ? "danger" : s.low ? "warn" : "ok"} label={`Disponível de ${s.filament.name}`} />}
                 <dl className="grid grid-cols-3 gap-2 text-sm">
                   <div><dt className="text-xs text-muted">No saldo</dt><dd className="num font-medium">{g(s.remaining)}</dd></div>
                   <div><dt className="text-xs text-muted">Reservado</dt><dd className="num font-medium">{g(s.reserved)}</dd></div>
-                  <div><dt className="text-xs text-muted">Disponível</dt><dd className={cn("num font-semibold", s.available < 0 && "text-danger")}>{g(s.available)}</dd></div>
+                  <div><dt className="text-xs text-muted">Disponível</dt><dd className={cn("num text-lg font-semibold", s.available < 0 && "text-danger")}>{g(s.available)}</dd></div>
                 </dl>
                 {(() => {
                   const mine = spools.filter((x) => x.filament_id === s.filament.id && (x.status === "nova" || x.status === "em_uso"));
@@ -115,7 +117,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                       <p className="text-xs text-muted">{[s.color, s.location, s.purchased_at ? `compra em ${formatDateBR(s.purchased_at)}` : null, `pago ${formatBRL(s.price_paid)}`].filter(Boolean).join(" · ")}</p>
                     </div>
                     <div className="text-right">
-                      <p className="num font-semibold">{g(s.remaining_g)}</p>
+                      <p className="num text-lg font-semibold">{g(s.remaining_g)}</p>
                       <p className="text-xs text-muted">de {g(s.initial_g)}{s.reserved_g > 0 ? ` · ${g(s.reserved_g)} reservados` : ""}</p>
                       <div className="mt-1 flex justify-end gap-1">
                         <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{SPOOL_STATUS_LABEL[s.status]}</span>

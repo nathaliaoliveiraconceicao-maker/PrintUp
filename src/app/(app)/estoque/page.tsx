@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, PageHeader } from "@/components/ui/card";
+import { StatTile } from "@/components/ui/stat-tile";
 import { CATALOG_COLUMNS, type CatalogProduct } from "@/features/products/catalog-schema";
 import { StockEditor } from "@/features/products/product-buttons";
 import type { FilamentRow } from "@/features/filaments/schema";
@@ -34,9 +35,9 @@ export default async function ProductStockPage({ searchParams }: { searchParams:
       <PageHeader title="Estoque de produtos" description="Quantas unidades prontas você tem de cada produto cadastrado. Ao registrar uma produção, o filamento usado é baixado das bobinas sozinho." />
       <div className="mb-4"><ProductionForm products={products.map((p) => ({ id: p.id, name: p.name, weight_g: p.weight_g, filament_id: p.filament_id }))} filaments={stock.map((s) => ({ id: s.filament.id, name: s.filament.name, available: Math.max(0, s.available) }))} /></div>
       <div className="mb-4 grid gap-3 sm:grid-cols-3" data-testid="resumo-estoque-produtos">
-        <Card><p className="text-sm text-muted">Produtos cadastrados</p><p className="num text-2xl font-semibold">{products.length}</p></Card>
-        <Card><p className="text-sm text-muted">Com estoque</p><p className="num text-2xl font-semibold">{withStock}</p></Card>
-        <Card><p className="text-sm text-muted">Unidades prontas</p><p className="num text-2xl font-semibold">{units.toLocaleString("pt-BR")}</p></Card>
+        <StatTile label="Produtos cadastrados" value={String(products.length)} />
+        <StatTile label="Com estoque" value={String(withStock)} tone={withStock > 0 ? "ok" : "neutral"} />
+        <StatTile label="Unidades prontas" value={units.toLocaleString("pt-BR")} tone={units > 0 ? "ok" : "neutral"} />
       </div>
       {low.length > 0 && <p role="alert" className="mb-4 rounded-xl bg-accent-soft px-3 py-2 text-sm text-warn">Estoque baixo: {low.map((p) => `${p.name} (${p.stock_qty})`).join(", ")}.</p>}
       <nav aria-label="Filtro" className="mb-4 flex gap-2 overflow-x-auto">

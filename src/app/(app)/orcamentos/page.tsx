@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, PageHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/field";
 import { QUOTE_COLUMNS, type QuoteRow } from "@/features/quotes/schema";
-import { StatusBadge } from "@/features/quotes/status-badge";
+import { StatusBadge, QUOTE_STRIPE } from "@/features/quotes/status-badge";
 import { effectiveStatus, formatDateBR, formatQuoteNumber, QUOTE_STATUSES, STATUS_LABEL, todayBR, type QuoteStatus } from "@/features/quotes/status";
 import { PlanNotice } from "@/components/plan-notice";
 import { loadEntitlements } from "@/features/billing/server";
@@ -63,7 +63,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
           {rows.map((r) => (
             <li key={r.id}>
               <Link href={`/orcamentos/${r.id}`} className="block">
-                <Card className="flex items-center gap-3 p-4 hover:border-accent">
+                <Card className={cn("flex items-center gap-3 border-l-4 p-4 transition hover:-translate-y-0.5 hover:border-accent hover:shadow-md", QUOTE_STRIPE[r.shown])}>
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-2">
                       <span className="num text-sm text-muted">{formatQuoteNumber(r.number)}</span>
@@ -72,7 +72,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
                     <p className="text-xs text-muted">Emitido em {formatDateBR(r.issue_date)} · válido até {formatDateBR(r.valid_until)}</p>
                   </div>
                   <div className="space-y-1 text-right">
-                    <p className="num font-semibold">{formatBRL(r.total)}</p>
+                    <p className="num text-lg font-semibold">{formatBRL(r.total)}</p>
                     <StatusBadge status={r.shown} />
                   </div>
                 </Card>

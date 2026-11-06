@@ -12,3 +12,12 @@ const TONE: Record<QuoteStatus, string> = {
 export function StatusBadge({ status }: { status: QuoteStatus }) {
   return <span className={cn("inline-flex h-6 items-center rounded-full border px-2.5 text-xs font-medium", TONE[status])}>{STATUS_LABEL[status]}</span>;
 }
+
+/** Faixa lateral do cartão do orçamento, na cor do status. */
+export const QUOTE_STRIPE: Record<QuoteStatus, string> = {
+  rascunho: "border-l-line",
+  enviado: "border-l-import",
+  aprovado: "border-l-ok",
+  recusado: "border-l-danger",
+  expirado: "border-l-warn",
+};

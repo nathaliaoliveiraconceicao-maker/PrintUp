@@ -2,8 +2,9 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, PageHeader } from "@/components/ui/card";
+import { StatTile } from "@/components/ui/stat-tile";
 import { Input, Select } from "@/components/ui/field";
-import { OrderStatusBadge, OverdueBadge, PaymentBadge } from "@/features/orders/badges";
+import { ORDER_STRIPE, OrderStatusBadge, OverdueBadge, PaymentBadge } from "@/features/orders/badges";
 import { loadOrders } from "@/features/orders/server";
 import { isOrderOverdue, ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_STATUSES, PAYMENT_STATUS_LABEL } from "@/features/orders/status";
 import { formatDateBR, formatQuoteNumber, todayBR } from "@/features/quotes/status";
@@ -46,9 +47,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       <PageHeader title="Pedidos" description="Do orçamento aprovado até a entrega, com produção e pagamento acompanhados separadamente." action={<Button asChild><Link href="/pedidos/novo"><Plus size={18} />Novo pedido</Link></Button>} />
 
       <div className="mb-4 grid grid-cols-3 gap-3" data-testid="resumo-pedidos">
-        <Card className="p-3"><p className="text-xs text-muted">Em aberto</p><p className="num text-xl font-semibold">{open}</p></Card>
-        <Card className="p-3"><p className="text-xs text-muted">Em produção</p><p className="num text-xl font-semibold">{inProd}</p></Card>
-        <Link href="/pedidos?atrasados=1" className="block"><Card className={cn("p-3", late > 0 && "border-danger/40")}><p className="text-xs text-muted">Atrasados</p><p className={cn("num text-xl font-semibold", late > 0 && "text-danger")}>{late}</p></Card></Link>
+        <StatTile label="Em aberto" value={String(open)} />
+        <StatTile label="Em produção" value={String(inProd)} tone={inProd > 0 ? "warn" : "neutral"} />
+        <StatTile label="Atrasados" value={String(late)} tone={late > 0 ? "danger" : "neutral"} href="/pedidos?atrasados=1" />
       </div>
 
       <form className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" role="search" aria-label="Filtrar pedidos">
@@ -87,14 +88,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             return (
               <li key={o.id}>
                 <Link href={`/pedidos/${o.id}`} className="block">
-                  <Card className="space-y-2 p-4 hover:border-accent">
+                  <Card className={cn("space-y-2 border-l-4 p-4 transition hover:-translate-y-0.5 hover:border-accent hover:shadow-md", ORDER_STRIPE[o.status])}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="flex items-center gap-2"><span className="num text-sm text-muted">{formatQuoteNumber(o.number)}</span><span className="truncate font-medium">{o.customer_name}</span></p>
                         <p className="text-xs text-muted">Pedido em {formatDateBR(o.order_date)}{o.due_date ? ` · entrega até ${formatDateBR(o.due_date)}` : " · sem prazo"}</p>
                       </div>
                       <div className="text-right">
-                        <p className="num font-semibold">{formatBRL(o.total)}</p>
+                        <p className="num text-lg font-semibold">{formatBRL(o.total)}</p>
                         {f && f.toReceive > 0 && <p className="num text-xs text-muted">a receber {formatBRL(f.toReceive)}</p>}
                       </div>
                     </div>

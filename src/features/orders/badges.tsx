@@ -11,6 +11,15 @@ const ORDER_TONE: Record<OrderStatus, string> = {
   entregue: "border-ink/20 bg-ink text-paper",
   cancelado: "border-danger/30 bg-danger/10 text-danger",
 };
+/** Faixa lateral do cartão do pedido, na cor do status. */
+export const ORDER_STRIPE: Record<OrderStatus, string> = {
+  novo: "border-l-line",
+  aguardando_pagamento: "border-l-warn",
+  em_producao: "border-l-import",
+  pronto: "border-l-ok",
+  entregue: "border-l-ink",
+  cancelado: "border-l-danger",
+};
 export const OrderStatusBadge = ({ status }: { status: OrderStatus }) => <span className={cn(base, ORDER_TONE[status])}>{ORDER_STATUS_LABEL[status]}</span>;
 
 const PAY_TONE: Record<PaymentStatus, string> = {
