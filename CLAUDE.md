@@ -23,6 +23,7 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 
 ## Pedidos, produção e estoque (Etapa 5) — `docs/PEDIDOS-PRODUCAO-ESTOQUE.md`
 - Estoque por bobina com **dois saldos**: `remaining_g` (físico) e `reserved_g` (comprometido). Orçamento nunca mexe em estoque; criar tarefa **reserva**, concluir **consome** (valor REAL), cancelar **libera**. Saldos só mudam via funções SQL (`create_job`, `complete_job`, `report_failure`, `cancel_*`, `adjust_spool`) que travam linhas e escrevem no livro-razão imutável `stock_movements` (idempotente por chave). Nunca dar UPDATE direto em saldo.
+- Produção avulsa (sem pedido): `register_production` (migration 0013) soma as peças ao `products.stock_qty` e baixa o filamento das bobinas pelo livro-razão (`consumo`), só do DISPONÍVEL (saldo − reservado), tudo ou nada e idempotente. UI em `/estoque` → "Registrar produção".
 - Pedido: status de produção/entrega (`orders.status`) é independente do pagamento (`order_payments`; `payment_status` e `amount_paid` são derivados por trigger). Receita recebida = soma dos lançamentos. Um orçamento gera no máximo um pedido (índice único + RPC idempotente).
 - Custo real e lucro realizado: `features/orders/financials.ts` (puro e testado). Lucro realizado só existe com a produção concluída (proporcional ao recebido) ou pedido cancelado; antes disso é "em andamento".
 - Testes SQL usam o sentinela `raise exception 'deveria ter falhado' using errcode = 'XX999'` (com P0001 o teste se auto-captura e passa vazio).

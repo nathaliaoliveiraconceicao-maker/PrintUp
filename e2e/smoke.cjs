@@ -1055,6 +1055,22 @@ async function main() {
   await firstStock.getByText("Estoque atualizado").waitFor();
   await p.goto(B + "/estoque");
   ok((await p.locator('[data-testid="lista-estoque-produtos"] li').first().locator("input").inputValue()) === "7", "estoque de produtos: a quantidade é salva e continua depois de recarregar");
+  // Registrar produção: soma as peças ao produto e baixa o filamento da bobina
+  await p.getByRole("button", { name: "Registrar produção" }).click();
+  const fp = p.locator('[data-testid="form-producao"]');
+  const availOf = async () => { const t = await fp.getByLabel("Filamento usado").locator("option:checked").innerText(); const m = /— ([\d.,]+) g/.exec(t); return parseFloat(m[1].replace(/\./g, "").replace(",", ".")); };
+  const before = await availOf();
+  ok(before >= 10, `registrar produção: filamento mostra o disponível (${before} g)`);
+  await fp.getByLabel("Peças produzidas").fill("3");
+  await fp.getByLabel("Gramas gastos (total)").fill("10");
+  ok((await fp.locator('[data-testid="previa-producao"]').innerText()).includes("baixar 10 g"), "registrar produção: prévia mostra o que será baixado");
+  await fp.getByRole("button", { name: "Registrar e baixar estoque" }).click();
+  await p.locator('[data-testid="producao-ok"]').waitFor();
+  ok((await p.locator('[data-testid="producao-ok"]').innerText()).includes("+3 peças"), "registrar produção: mensagem de sucesso");
+  await p.goto(B + "/estoque");
+  ok((await p.locator('[data-testid="lista-estoque-produtos"] li').first().locator("input").inputValue()) === "10", "registrar produção: estoque do produto 7 + 3 = 10");
+  await p.getByRole("button", { name: "Registrar produção" }).click();
+  ok(Math.abs(before - 10 - (await availOf())) < 0.11, "registrar produção: filamento baixou 10 g da bobina");
   // ── Catálogo compartilhável (link público para clientes) ──
   await p.goto(B + "/produtos");
   await p.getByRole("link", { name: "Compartilhar catálogo" }).click();

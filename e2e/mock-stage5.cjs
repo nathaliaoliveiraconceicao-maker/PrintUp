@@ -139,6 +139,28 @@ module.exports = function stage5({ db, USER, tick }) {
       move(s, "ajuste", r2(v - s.remaining_g), 0, null, null, key, note);
       return ok(null);
     },
+    register_production({ p_product, p_qty, p_filament, p_grams, p_key }) {
+      if (!(p_qty >= 1)) return E("Informe quantas peças foram produzidas");
+      if (!(r2(p_grams) > 0)) return E("Informe os gramas de filamento usados");
+      const pr = db.products.find((x) => x.id === p_product && !x.archived_at);
+      if (!pr) return E("Produto não encontrado", "P0002");
+      const f = db.filaments.find((x) => x.id === p_filament);
+      if (!f) return E("Filamento não encontrado", "P0002");
+      if (db.stock_movements.some((m) => (m.idempotency_key || "").startsWith(p_key + ":"))) return ok(pr.stock_qty);
+      const usable = db.filament_spools.filter((x) => x.filament_id === p_filament && ["nova", "em_uso"].includes(x.status) && x.remaining_g - x.reserved_g > 0)
+        .sort((a, b) => (b.status === "em_uso") - (a.status === "em_uso") || String(a.created_at).localeCompare(String(b.created_at)));
+      const avail = usable.reduce((t, x) => t + x.remaining_g - x.reserved_g, 0);
+      let need = r2(p_grams);
+      if (avail < need - 0.004) return E(`Estoque insuficiente: faltam ${Math.round((need - avail) * 10) / 10} g de ${f.name}`);
+      for (const sp of usable) {
+        const take = Math.min(need, sp.remaining_g - sp.reserved_g);
+        move(sp, "consumo", -take, 0, null, null, p_key + ":" + sp.id, `Produção avulsa: ${p_qty}× ${pr.name}`);
+        need = r2(need - take);
+        if (need <= 0.004) break;
+      }
+      pr.stock_qty += p_qty;
+      return ok(pr.stock_qty);
+    },
     create_job({ p_item, p_qty, p_printer, p_filament, p_est_grams, p_est_minutes, p_waste_percent, p_mode }) {
       const it = db.order_items.find((x) => x.id === p_item);
       if (!it) return E("Item não encontrado", "P0002");

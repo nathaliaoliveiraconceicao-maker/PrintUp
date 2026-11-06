@@ -75,3 +75,11 @@ export const MOVEMENT_KIND_LABEL: Record<MovementRow["kind"], string> = {
 export const SPOOL_STATUS_LABEL: Record<SpoolRow["status"], string> = { nova: "Nova", em_uso: "Em uso", vazia: "Vazia", descartada: "Descartada" };
 
 export const MOVEMENT_COLUMNS = "id, spool_id, job_id, order_id, kind, delta_remaining, delta_reserved, balance_remaining, balance_reserved, note, created_at";
+
+export const registerProductionSchema = z.object({
+  productId: z.uuid(),
+  filamentId: z.uuid({ error: "Escolha o filamento usado." }),
+  quantity: z.number({ error: "Informe quantas peças foram produzidas." }).int("Use um número inteiro de peças.").min(1, "Informe quantas peças foram produzidas.").max(100_000),
+  grams: z.number({ error: "Informe os gramas de filamento usados." }).gt(0, "Informe os gramas de filamento usados.").max(1_000_000),
+  key: z.string().trim().min(8).max(80),
+});

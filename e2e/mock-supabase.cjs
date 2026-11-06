@@ -148,7 +148,7 @@ const stage6 = require("./mock-stage6.cjs")({ db, USER, tick: () => ++n });
 const stage7 = require("./mock-stage7.cjs")({ db, USER, tick: () => ++n });
 const STAGE6_RPC = ["current_entitlements", "consume_quota", "apply_billing_event", "storage_used_bytes"];
 const FEATURE_OF_RPC = { save_order: "orders", create_spool: "stock", create_job: "production" };
-const STAGE5_RPC = ["save_order", "convert_quote_to_order", "create_spool", "adjust_spool", "create_job", "reserve_job", "set_job_stage", "complete_job", "report_failure", "cancel_job", "cancel_order"];
+const STAGE5_RPC = ["save_order", "convert_quote_to_order", "create_spool", "adjust_spool", "register_production", "create_job", "reserve_job", "set_job_stage", "complete_job", "report_failure", "cancel_job", "cancel_order"];
 const rpcResponse = (res, req, r) => (r.error ? send(req, res, r.error.status, r.error.body) : send(req, res, 200, r.ok === undefined ? null : r.ok));
 
 // Equivalente do `save_quote` do banco: número por usuário, travas de status e conferência da soma dos itens.

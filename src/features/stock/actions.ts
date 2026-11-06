@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { dbErrorMessage } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/server";
-import { adjustSpoolSchema, createSpoolSchema, spoolMetaSchema, type StockActionState } from "./schema";
+import { adjustSpoolSchema, createSpoolSchema, registerProductionSchema, spoolMetaSchema, type StockActionState } from "./schema";
 
 const refresh = () => {
   revalidatePath("/filamentos/estoque");
   revalidatePath("/filamentos");
   revalidatePath("/producao");
+  revalidatePath("/estoque");
+  revalidatePath("/produtos");
   revalidatePath("/");
 };
 
@@ -68,4 +70,16 @@ export async function setMinStock(filamentId: string, grams: number): Promise<St
   if (error) return { error: dbErrorMessage(error) };
   refresh();
   return { ok: true };
+}
+
+/** Produção avulsa: baixa o filamento usado e soma as peças prontas ao estoque do produto (tudo ou nada, no banco). */
+export async function registerProduction(payload: unknown): Promise<StockActionState> {
+  const parsed = registerProductionSchema.safeParse(payload);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  const v = parsed.data;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("register_production", { p_product: v.productId, p_qty: v.quantity, p_filament: v.filamentId, p_grams: v.grams, p_key: v.key });
+  if (error) return { error: dbErrorMessage(error) };
+  refresh();
+  return { ok: true, message: `Produção registrada: +${v.quantity} peça${v.quantity > 1 ? "s" : ""} no estoque do produto (agora ${data ?? "?"}) e −${v.grams.toLocaleString("pt-BR")} g de filamento.` };
 }
