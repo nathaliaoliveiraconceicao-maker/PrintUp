@@ -22,3 +22,5 @@ psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0010_superadmin.sql -f rls_
 bash concurrency_admin.sh "$DB"
 # Configurações completas e canais de venda
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0011_configuracoes_completas.sql -f rls_configuracoes.test.sql
+# Catálogo compartilhável
+psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0012_catalogo_compartilhavel.sql -f rls_catalogo_publico.test.sql

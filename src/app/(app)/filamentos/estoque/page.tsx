@@ -81,7 +81,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                   return mine.length > 0 ? (
                     <ul className="divide-y divide-line text-sm" data-testid="bobinas-do-filamento">
                       {mine.map((x) => (
-                        <li key={x.id}><Link href={`/filamentos/estoque/${x.id}`} className="flex items-center justify-between gap-3 py-2 hover:text-accent-strong"><span className="truncate">{x.manufacturer ?? "Bobina"}{x.location ? ` · ${x.location}` : ""}</span><span className="num shrink-0">{g(x.remaining_g)} <span className="text-xs text-muted">de {g(x.initial_g)}</span></span></Link></li>
+                        <li key={x.id}><Link href={`/filamentos/estoque/${x.id}`} className="flex items-center justify-between gap-3 py-2 hover:text-accent-strong"><span className="truncate">{[x.color ?? s.filament.color, x.manufacturer, x.location].filter(Boolean).join(" · ") || "Bobina"}</span><span className="num shrink-0">{g(x.remaining_g)} <span className="text-xs text-muted">de {g(x.initial_g)}</span></span></Link></li>
                       ))}
                     </ul>
                   ) : null;

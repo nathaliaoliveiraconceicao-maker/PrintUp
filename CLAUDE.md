@@ -79,3 +79,7 @@ Identidade (Etapa 4): **grafite** (`--ink`), **laranja vibrante** (`--accent`) e
 
 ## Configurações completas — `docs/CONFIGURACOES.md`
 - Custos e preço são configurados **uma vez** em `/configuracoes` (despesas itemizadas, rateio por faturamento/hora/peça, margem ou multiplicador, arredondamento) e reutilizados pela calculadora, onboarding e `recalculateProducts`. Canais de venda (`sales_channels`) guardam só taxas informadas pelo usuário: nunca embutir tabelas "oficiais" de marketplace. Código que lê `cost_settings` deve usar `settingsOrDefault` (contas anteriores à migration `0011`).
+
+## Catálogo compartilhável — `docs/CATALOGO-COMPARTILHAVEL.md`
+- Vitrine pública `/c/<token>`: leitura anônima só pelas funções `public_catalog_*` (token secreto, campos fixos, sem custo/margem/lucro). Nova coluna exposta ali = teste em `rls_catalogo_publico.test.sql` e revisão de privacidade.
+

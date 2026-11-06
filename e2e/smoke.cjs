@@ -1045,6 +1045,34 @@ async function main() {
   await firstStock.getByText("Estoque atualizado").waitFor();
   await p.goto(B + "/estoque");
   ok((await p.locator('[data-testid="lista-estoque-produtos"] li').first().locator("input").inputValue()) === "7", "estoque de produtos: a quantidade é salva e continua depois de recarregar");
+  // ── Catálogo compartilhável (link público para clientes) ──
+  await p.goto(B + "/produtos");
+  await p.getByRole("link", { name: "Compartilhar catálogo" }).click();
+  await p.waitForURL(/produtos\/compartilhar/);
+  ok((await p.locator('[data-testid="link-vitrine"]').count()) === 0, "vitrine: sem link até o dono criar");
+  await p.getByRole("button", { name: "Criar link da vitrine" }).click();
+  await p.waitForSelector('[data-testid="link-vitrine"]');
+  const vitrineUrl = await p.getByLabel("Link da vitrine").inputValue();
+  ok(/\/c\/[0-9a-f]{32}$/.test(vitrineUrl), "vitrine: link com código secreto de 32 caracteres");
+  const anon = await browser.newPage({ viewport: { width: 390, height: 800 } });
+  await anon.goto(vitrineUrl.replace(/^https?:\/\/[^/]+/, B));
+  const vt = await anon.locator("main").innerText();
+  ok((await anon.locator('[data-testid="item-vitrine"]').count()) >= 1 && /R\$\s?\d/.test(vt) && /em estoque/.test(vt), "vitrine pública (sem login): mostra produtos com preço e estoque");
+  ok(!/custo|margem|lucro/i.test(vt), "vitrine pública: nenhum custo, margem ou lucro");
+  const bad = await anon.goto(B + "/c/00000000000000000000000000000000");
+  ok(bad && bad.status() === 404, "vitrine: código desconhecido dá 404");
+  await p.getByLabel("Mostrar os preços").uncheck();
+  await p.getByRole("button", { name: "Salvar vitrine" }).click();
+  await p.getByText("Vitrine salva").waitFor();
+  await anon.goto(vitrineUrl.replace(/^https?:\/\/[^/]+/, B));
+  ok(!/R\$\s?\d/.test(await anon.locator("main").innerText()), "vitrine sem preços: o preço não aparece");
+  await p.getByLabel("Link ativo (clientes conseguem abrir)").uncheck();
+  await p.getByRole("button", { name: "Salvar vitrine" }).click();
+  await p.getByText("link está desativado").first().waitFor();
+  const off = await anon.goto(vitrineUrl.replace(/^https?:\/\/[^/]+/, B));
+  ok(off && off.status() === 404, "vitrine desativada: o link deixa de abrir");
+  await anon.close();
+
   await p.goto(B + "/filamentos");
   ok((await p.getByRole("link", { name: "Estoque de bobinas" }).count()) === 1, "filamentos: aba 'Estoque de bobinas' (o estoque de filamento fica dentro de Filamentos)");
   await p.getByRole("link", { name: "Estoque de bobinas" }).click();

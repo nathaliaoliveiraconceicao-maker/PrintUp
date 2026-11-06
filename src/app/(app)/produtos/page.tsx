@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, Calculator, Plus, RefreshCw } from "lucide-react";
+import { AlertTriangle, Calculator, Plus, RefreshCw, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, PageHeader } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/field";
@@ -60,6 +60,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         description="Seu catálogo: custo, preço, estoque e tudo que você precisa para orçar."
         action={
           <div className="flex flex-wrap gap-2">
+            <Button asChild variant="secondary"><Link href="/produtos/compartilhar"><Share2 size={18} />Compartilhar catálogo</Link></Button>
             <Button asChild variant="secondary"><Link href="/calculadora"><Calculator size={18} />Precificar</Link></Button>
             <Button asChild><Link href="/produtos/novo"><Plus size={18} />Novo produto</Link></Button>
           </div>

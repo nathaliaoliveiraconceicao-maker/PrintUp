@@ -10,7 +10,7 @@ const jwt = () => `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: USER.id, ro
 const session = () => ({ access_token: jwt(), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + ++n, user: USER });
 
 let PASSWORD = "senha-de-teste-123";
-const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles", "orders", "order_items", "order_payments", "production_jobs", "job_reservations", "filament_spools", "stock_movements", "plans", "subscriptions", "platform_settings", "subscription_changes", "billing_customers", "billing_checkouts", "billing_charges", "billing_events", "usage_events", "coupons", "coupon_redemptions", "admin_audit_log", "app_events", "sales_channels"];
+const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles", "orders", "order_items", "order_payments", "production_jobs", "job_reservations", "filament_spools", "stock_movements", "plans", "subscriptions", "platform_settings", "subscription_changes", "billing_customers", "billing_checkouts", "billing_charges", "billing_events", "usage_events", "coupons", "coupon_redemptions", "admin_audit_log", "app_events", "sales_channels", "catalog_shares"];
 const db = Object.fromEntries(TABLES.map((t) => [t, []]));
 const LIMITS = { printers: 1, filaments: 5, products: 10 };
 // Valores padrão das colunas (o banco real os aplica; o dublê precisa imitar para os testes não enxergarem `undefined`).
@@ -202,6 +202,16 @@ http.createServer(async (req, res) => {
   if (p === "/auth/v1/user") return /Bearer .+\..+\./.test(req.headers.authorization || "") ? send(req, res, 200, USER) : send(req, res, 401, { code: 401, msg: "no token" });
   if (p === "/auth/v1/logout") return send(req, res, 204);
   if (p === "/rest/v1/rpc/save_quote") return saveQuoteRpc(req, res);
+  if (/^\/rest\/v1\/rpc\/public_catalog_(info|items|photo)$/.test(p)) {
+    const kind = /public_catalog_(\w+)$/.exec(p)[1];
+    const b = await readBody(req);
+    const sh = db.catalog_shares.find((r) => r.token === b.p_token && r.enabled);
+    if (!sh) return send(req, res, 200, kind === "photo" ? null : []);
+    const prods = db.products.filter((x) => x.user_id === sh.user_id && !x.archived_at && x.sale_price > 0 && (sh.show_out_of_stock || x.stock_qty > 0));
+    if (kind === "photo") return send(req, res, 200, prods.find((x) => x.id === b.p_product_id)?.photo_path ?? null);
+    if (kind === "info") { const bp = db.business_profiles.find((x) => x.user_id === sh.user_id); return send(req, res, 200, [{ business_name: bp?.business_name ?? null, brand_color: bp?.brand_color ?? "#d94e1b", phone: bp?.phone ?? null, city: bp?.city ?? null, title: sh.title, show_prices: sh.show_prices }]); }
+    return send(req, res, 200, prods.map((x) => ({ product_id: x.id, name: x.name, category: x.category, description: x.description, sale_price: sh.show_prices ? x.sale_price : null, stock_qty: x.stock_qty, has_photo: !!x.photo_path })));
+  }
   const rpcName = /^\/rest\/v1\/rpc\/(\w+)$/.exec(p)?.[1];
   if (rpcName && stage7.names.includes(rpcName)) return rpcResponse(res, req, stage7.rpc(rpcName, await readBody(req)));
   if (rpcName && STAGE6_RPC.includes(rpcName)) return rpcResponse(res, req, stage6.rpc(rpcName, await readBody(req)));
