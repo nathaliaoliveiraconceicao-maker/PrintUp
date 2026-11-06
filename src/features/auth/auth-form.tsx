@@ -35,7 +35,7 @@ export function AuthForm({
         </p>
       )}
       <FormMessage error={state.error} ok={state.ok} />
-      <SubmitButton pending={pending} className="w-full">{signup ? "Criar conta e testar grátis" : "Entrar"}</SubmitButton>
+      <SubmitButton pending={pending} className="w-full">{signup ? "Criar conta grátis" : "Entrar"}</SubmitButton>
       {signup && (
         <p className="text-center text-xs text-muted" data-testid="aceite-termos">
           Ao criar a conta, você concorda com os <Link href="/termos" target="_blank" className="font-medium text-accent-strong underline">Termos de uso</Link> e com a <Link href="/privacidade" target="_blank" className="font-medium text-accent-strong underline">Política de privacidade</Link>.

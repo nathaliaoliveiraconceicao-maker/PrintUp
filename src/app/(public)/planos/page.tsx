@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 export const metadata = { title: "Planos" };
 
 const FAQ = [
-  ["Posso testar antes de pagar?", "O plano Gratuito não expira e já inclui a calculadora. Quando o período de teste estiver habilitado, quem cria a conta começa com os recursos do Pro por alguns dias, sem cartão."],
+  ["Posso testar antes de pagar?", "Sim. Quem cria conta entra no plano Gratuito, que não expira e já inclui a calculadora e a importação de arquivos. Quando quiser orçamentos em PDF, pedidos, produção e estoque, é só assinar um plano."],
   ["Posso cancelar quando quiser?", "Sim. O cancelamento vale no fim do período que você já pagou, sem multa. Depois disso você volta ao plano Gratuito."],
   ["O que acontece com meus dados se eu voltar ao Gratuito?", "Nada é apagado: produtos, orçamentos, pedidos e histórico continuam salvos e visíveis. Só não dá para cadastrar novos itens acima do limite do plano Gratuito ou usar os recursos pagos."],
   ["Se o preço mudar, minha assinatura muda?", "Não automaticamente. Uma assinatura em andamento mantém o valor contratado; mudanças de preço valem para novas contratações e, para quem já assina, só com aviso prévio."],

@@ -23,7 +23,7 @@ const STEPS = [
 ] as const;
 
 const FAQ = [
-  ["Preciso pagar para começar?", "Não. O plano Gratuito não expira e já inclui a calculadora. Quando o período de teste estiver habilitado, quem cria a conta também experimenta os recursos do plano Pro, sem cartão."],
+  ["Preciso pagar para começar?", "Não. O plano Gratuito não expira e já inclui a calculadora."],
   ["Funciona no celular?", "Sim. O PrintUp foi pensado para o celular primeiro: dá para consultar preços e pedidos de onde você estiver."],
   ["Meus dados ficam seguros?", "Cada conta só enxerga os próprios dados, e a proteção é aplicada no banco de dados. Você pode voltar ao plano Gratuito a qualquer momento sem perder o que cadastrou."],
   ["O PrintUp emite nota fiscal?", "Ainda não. O foco hoje é precificação, orçamentos, pedidos, produção e estoque."],
