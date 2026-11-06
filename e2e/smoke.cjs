@@ -80,6 +80,16 @@ async function main() {
   // ── Acesso ──
   await p.goto(B + "/");
   ok(p.url() === B + "/" && (await p.getByRole("link", { name: "Criar conta grátis" }).count()) >= 1, "visitante na raiz vê a página de apresentação (URL continua /)");
+  if (process.env.E2E_SHOTS) {
+    await p.screenshot({ path: `${process.env.E2E_SHOTS}/inicio-desktop.png`, fullPage: true });
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.screenshot({ path: `${process.env.E2E_SHOTS}/inicio-celular.png`, fullPage: true });
+    await p.goto(B + "/cadastro");
+    await p.screenshot({ path: `${process.env.E2E_SHOTS}/cadastro-celular.png`, fullPage: true });
+    await p.setViewportSize({ width: 1200, height: 900 });
+    await p.screenshot({ path: `${process.env.E2E_SHOTS}/cadastro-desktop.png`, fullPage: true });
+    await p.goto(B + "/");
+  }
   const home = (await p.locator("main").innerText()).replace(/\s+/g, " ");
   ok(!/relatório|produção avançada|nota fiscal emitida/i.test(home.replace("O PrintUp emite nota fiscal? Ainda não.", "")) && /3MF/.test(home), "apresentação só promete o que existe");
   await p.goto(B + "/calculadora");
@@ -1057,6 +1067,12 @@ async function main() {
   const anon = await browser.newPage({ viewport: { width: 390, height: 800 } });
   await anon.goto(vitrineUrl.replace(/^https?:\/\/[^/]+/, B));
   const vt = await anon.locator("main").innerText();
+  if (process.env.E2E_SHOTS) {
+    await anon.screenshot({ path: `${process.env.E2E_SHOTS}/vitrine-celular.png`, fullPage: true });
+    await anon.setViewportSize({ width: 1200, height: 900 });
+    await anon.screenshot({ path: `${process.env.E2E_SHOTS}/vitrine-desktop.png`, fullPage: true });
+    await anon.setViewportSize({ width: 390, height: 800 });
+  }
   ok((await anon.locator('[data-testid="item-vitrine"]').count()) >= 1 && /R\$\s?\d/.test(vt) && /em estoque/.test(vt), "vitrine pública (sem login): mostra produtos com preço e estoque");
   ok(!/custo|margem|lucro/i.test(vt), "vitrine pública: nenhum custo, margem ou lucro");
   const bad = await anon.goto(B + "/c/00000000000000000000000000000000");

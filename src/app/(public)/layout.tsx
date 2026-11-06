@@ -17,7 +17,7 @@ export default async function PublicLayout({ children }: { children: React.React
   const privacy = setting("privacy_url");
   return (
     <div className="min-h-dvh">
-      <header className="border-b border-line bg-surface">
+      <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
           <Link href="/" aria-label="PrintUp"><Logo /></Link>
           <nav aria-label="Conta" className="flex items-center gap-2 text-sm">

@@ -21,40 +21,48 @@ export default async function PublicCatalogPage({ params }: { params: Promise<{ 
   for (const it of items) byCategory.set(it.category ?? "Outros", [...(byCategory.get(it.category ?? "Outros") ?? []), it]);
 
   return (
-    <main className="mx-auto max-w-5xl px-5 py-8" data-testid="vitrine-publica">
-      <header className="mb-8 border-b-4 pb-5" style={{ borderColor: info.brand_color }}>
-        <h1 className="text-3xl font-bold tracking-tight">{name}</h1>
-        <p className="mt-1 text-sm text-muted">{[info.business_name && info.title ? info.business_name : null, info.city].filter(Boolean).join(" · ") || "Produtos disponíveis"}</p>
-        {wa && wa.length >= 10 && (
-          <a href={`https://wa.me/${wa.length <= 11 ? `55${wa}` : wa}`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center rounded-xl px-4 font-semibold text-ink hover:brightness-95" style={{ backgroundColor: info.brand_color }}>Pedir pelo WhatsApp</a>
-        )}
+    <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6" data-testid="vitrine-publica">
+      <header className="relative mb-8 overflow-hidden rounded-3xl bg-ink px-6 py-8 text-paper sm:px-10 sm:py-12">
+        <div className="absolute -right-12 -top-16 h-56 w-56 rounded-full blur-3xl" style={{ backgroundColor: info.brand_color, opacity: 0.35 }} aria-hidden="true" />
+        <div className="relative">
+          <h1 className="text-balance text-3xl font-bold tracking-tight text-white sm:text-5xl">{name}</h1>
+          <p className="mt-2 text-paper/75">{[info.business_name && info.title ? info.business_name : null, info.city].filter(Boolean).join(" · ") || "Produtos feitos em impressão 3D"}</p>
+          {wa && wa.length >= 10 && (
+            <a href={`https://wa.me/${wa.length <= 11 ? `55${wa}` : wa}`} target="_blank" rel="noopener noreferrer" className="mt-6 hidden min-h-12 items-center rounded-xl px-6 font-semibold text-ink shadow-lg transition hover:-translate-y-0.5 sm:inline-flex" style={{ backgroundColor: info.brand_color }}>Pedir pelo WhatsApp</a>
+          )}
+        </div>
       </header>
 
       {items.length === 0 ? (
         <Card className="text-center text-muted">Nenhum produto disponível no momento.</Card>
       ) : (
         [...byCategory.entries()].map(([cat, list]) => (
-          <section key={cat} className="mb-8" aria-label={cat}>
-            {byCategory.size > 1 && <h2 className="mb-3 text-lg font-semibold">{cat}</h2>}
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <section key={cat} className="mb-10" aria-label={cat}>
+            {byCategory.size > 1 && <h2 className="mb-4 flex items-center gap-3 text-xl font-bold"><span className="h-6 w-1.5 rounded-full" style={{ backgroundColor: info.brand_color }} aria-hidden="true" />{cat}</h2>}
+            <ul className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
               {list.map((p) => (
                 <li key={p.product_id}>
-                  <Card className="h-full overflow-hidden p-0" data-testid="item-vitrine">
-                    {p.has_photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={`/c/${token}/foto/${p.product_id}`} alt={p.name} loading="lazy" className="aspect-square w-full bg-surface object-cover" />
-                    ) : (
-                      <div className="flex aspect-square w-full items-center justify-center bg-surface text-sm text-muted">Sem foto</div>
-                    )}
-                    <div className="space-y-1 p-4">
-                      <p className="font-semibold">{p.name}</p>
-                      {p.description && <p className="line-clamp-3 text-sm text-muted">{p.description}</p>}
-                      <div className="flex items-baseline justify-between gap-3 pt-1">
-                        {info.show_prices && p.sale_price != null ? <span className="num text-xl font-semibold">{formatBRL(p.sale_price)}</span> : <span />}
-                        <span className={p.stock_qty > 0 ? "rounded-full bg-ok/10 px-2 py-0.5 text-xs text-ok" : "rounded-full bg-paper px-2 py-0.5 text-xs text-muted"}>{p.stock_qty > 0 ? `${p.stock_qty} em estoque` : "Sob encomenda"}</span>
-                      </div>
+                  <article className="group h-full overflow-hidden rounded-2xl border border-line bg-surface transition hover:-translate-y-1 hover:shadow-xl hover:shadow-ink/10" data-testid="item-vitrine">
+                    <div className="relative aspect-square overflow-hidden bg-paper">
+                      {p.has_photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={`/c/${token}/foto/${p.product_id}`} alt={p.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-sm text-muted">Sem foto</div>
+                      )}
+                      {info.show_prices && p.sale_price != null && (
+                        <span className="num absolute bottom-2 left-2 rounded-lg bg-ink/90 px-2.5 py-1 text-base font-semibold text-white shadow-md sm:text-lg">{formatBRL(p.sale_price)}</span>
+                      )}
                     </div>
-                  </Card>
+                    <div className="space-y-1.5 p-3 sm:p-4">
+                      <h3 className="font-semibold leading-snug">{p.name}</h3>
+                      {p.description && <p className="line-clamp-2 text-sm text-muted">{p.description}</p>}
+                      <span className={p.stock_qty > 0 ? "inline-flex items-center gap-1.5 text-xs font-medium text-ok" : "inline-flex items-center gap-1.5 text-xs font-medium text-muted"}>
+                        <span className={p.stock_qty > 0 ? "h-2 w-2 rounded-full bg-ok" : "h-2 w-2 rounded-full bg-muted"} aria-hidden="true" />
+                        {p.stock_qty > 0 ? `${p.stock_qty} em estoque` : "Sob encomenda"}
+                      </span>
+                    </div>
+                  </article>
                 </li>
               ))}
             </ul>
@@ -62,6 +70,9 @@ export default async function PublicCatalogPage({ params }: { params: Promise<{ 
         ))
       )}
       <footer className="mt-10 text-center text-xs text-muted">Preços e disponibilidade sujeitos a alteração.</footer>
+      {wa && wa.length >= 10 && (
+        <a href={`https://wa.me/${wa.length <= 11 ? `55${wa}` : wa}`} target="_blank" rel="noopener noreferrer" className="fixed inset-x-4 bottom-4 z-10 flex min-h-12 items-center justify-center rounded-2xl font-semibold text-ink shadow-xl sm:hidden" style={{ backgroundColor: info.brand_color }}>Pedir pelo WhatsApp</a>
+      )}
     </main>
   );
 }
