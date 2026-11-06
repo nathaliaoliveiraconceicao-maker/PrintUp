@@ -94,7 +94,7 @@ export default async function DashboardPage() {
 
       <Link
         href="/calculadora"
-        className="group mb-8 flex items-center justify-between rounded-3xl bg-ink p-6 text-paper transition-colors hover:bg-black"
+        className="group relative mb-8 flex items-center justify-between overflow-hidden rounded-3xl bg-ink p-6 text-paper transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-ink/20 sm:p-8"
       >
         <div>
           <p className="text-sm opacity-70">Comece por aqui</p>
@@ -107,7 +107,7 @@ export default async function DashboardPage() {
       </Link>
 
       <section aria-labelledby="h-orcado" className="mb-8" data-testid="indicadores">
-        <h2 id="h-orcado" className="text-lg font-semibold">Seu catálogo e seus orçamentos</h2>
+        <SectionTitle id="h-orcado">Seu catálogo e seus orçamentos</SectionTitle>
         <p className="mb-3 text-sm text-muted">
           Valores <strong>orçados</strong>: o PrintUp ainda não registra vendas ou pagamentos, então aprovado não significa recebido.
         </p>
@@ -115,8 +115,9 @@ export default async function DashboardPage() {
           <Kpi label="Produtos cadastrados" value={String(activeProducts.length)} href="/produtos" />
           <Kpi label="Orçamentos criados" value={String(qm.created)} href="/orcamentos" detail={qm.created > 0 ? `${qm.awaiting} aguardando · ${qm.drafts} rascunho${qm.drafts === 1 ? "" : "s"}` : undefined} />
           <Kpi label="Orçamentos aprovados" value={String(qm.approved)} href="/orcamentos?status=aprovado" />
-          <Kpi label="Valor aprovado (orçado)" value={formatBRL(qm.approvedTotal)} href="/orcamentos?status=aprovado" tone={qm.approved > 0 ? "ok" : undefined} />
+          <Kpi featured label="Valor aprovado (orçado)" value={formatBRL(qm.approvedTotal)} href="/orcamentos?status=aprovado" tone={qm.approved > 0 ? "ok" : undefined} />
           <Kpi
+            featured
             label="Lucro estimado dos aprovados"
             value={qm.estimatedProfit === null ? "—" : formatBRL(qm.estimatedProfit)}
             tone={qm.estimatedProfit !== null ? "ok" : undefined}
@@ -153,7 +154,7 @@ export default async function DashboardPage() {
       </section>
 
       <section aria-labelledby="h-pedidos" className="mb-8" data-testid="indicadores-pedidos">
-        <h2 id="h-pedidos" className="text-lg font-semibold">Pedidos e produção</h2>
+        <SectionTitle id="h-pedidos">Pedidos e produção</SectionTitle>
         <p className="mb-3 text-sm text-muted">
           <strong>Receita recebida</strong> vem dos pagamentos lançados nos pedidos; pedido não pago não conta. O lucro realizado só aparece quando a produção do pedido termina.
         </p>
@@ -170,10 +171,10 @@ export default async function DashboardPage() {
             <Kpi label="Concluídos (entregues)" value={String(ordersDone)} href="/pedidos?status=entregue" />
             <Kpi label="Valor de vendas (pedidos)" value={formatBRL(om.salesValue)} detail="Sem cancelados" />
             <Kpi label="A receber" value={formatBRL(om.toReceive)} href="/pedidos" />
-            <Kpi label="Receita recebida" value={formatBRL(om.received)} tone="ok" />
+            <Kpi featured label="Receita recebida" value={formatBRL(om.received)} tone="ok" />
             <Kpi label="Consumo de filamento" value={`${(Math.round(consumedG * 10) / 10).toLocaleString("pt-BR")} g`} href="/filamentos/estoque" detail="Consumo real + falhas" />
             <Kpi label="Lucro estimado" value={om.estimatedProfit === null ? "—" : formatBRL(om.estimatedProfit)} detail="Total − custo estimado" />
-            <Kpi label="Lucro realizado" value={om.realizedProfit === null ? "—" : formatBRL(om.realizedProfit)} tone={om.realizedProfit !== null ? "ok" : undefined} detail={om.pendingRealized > 0 ? `${om.pendingRealized} pedido${om.pendingRealized > 1 ? "s" : ""} aguardando a produção terminar` : "Recebido − custo real"} />
+            <Kpi featured label="Lucro realizado" value={om.realizedProfit === null ? "—" : formatBRL(om.realizedProfit)} tone={om.realizedProfit !== null ? "ok" : undefined} detail={om.pendingRealized > 0 ? `${om.pendingRealized} pedido${om.pendingRealized > 1 ? "s" : ""} aguardando a produção terminar` : "Recebido − custo real"} />
           </div>
         )}
         {lowStock.length > 0 && (
@@ -184,7 +185,7 @@ export default async function DashboardPage() {
       </section>
 
       <section aria-labelledby="h-recentes" className="mb-8">
-        <h2 id="h-recentes" className="mb-3 text-lg font-semibold">Produtos precificados recentemente</h2>
+        <div className="mb-3"><SectionTitle id="h-recentes">Produtos precificados recentemente</SectionTitle></div>
         {recent.length === 0 ? (
           <Card className="text-sm text-muted">
             <p className="font-medium text-ink">Nada precificado ainda.</p>
@@ -210,7 +211,7 @@ export default async function DashboardPage() {
       </section>
 
       <section aria-labelledby="h-atalhos" className="mb-8">
-        <h2 id="h-atalhos" className="mb-3 text-lg font-semibold">Atalhos</h2>
+        <div className="mb-3"><SectionTitle id="h-atalhos">Atalhos</SectionTitle></div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Shortcut href="/calculadora" icon={<Calculator size={20} />} title="Nova precificação" detail="Calcule custo e preço" />
           <Shortcut href="/importar" icon={<FileUp size={20} />} title="Importar modelo" detail="3MF, G-code ou manual" />
@@ -243,26 +244,37 @@ function usage(count: number | null, limit: number | null | undefined) {
   return `${count ?? 0}${limit == null ? "" : ` de ${limit}`} cadastrado(s)`;
 }
 
-function Kpi({ label, value, tone, detail, href }: { label: string; value: string; tone?: "ok" | "danger"; detail?: string; href?: string }) {
-  const inner = (
-    <Card className={`h-full p-4 ${href ? "transition-colors hover:border-accent" : ""}`}>
+function Kpi({ label, value, tone, detail, href, featured }: { label: string; value: string; tone?: "ok" | "danger"; detail?: string; href?: string; featured?: boolean }) {
+  const inner = featured ? (
+    <div className="relative h-full overflow-hidden rounded-2xl bg-ink p-5 text-paper transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-ink/20">
+      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-accent/25 blur-2xl" aria-hidden="true" />
+      <p className="relative text-xs font-medium text-paper/65">{label}</p>
+      <p className={`num relative mt-2 text-3xl font-semibold sm:text-4xl ${tone === "ok" ? "text-emerald-300" : tone === "danger" ? "text-red-300" : "text-white"}`}>{value}</p>
+      {detail && <p className="relative mt-2 text-xs text-paper/65">{detail}</p>}
+    </div>
+  ) : (
+    <Card className={`h-full border-l-4 p-4 ${tone === "ok" ? "border-l-ok" : tone === "danger" ? "border-l-danger" : "border-l-line"} ${href ? "transition hover:-translate-y-0.5 hover:border-accent hover:shadow-md" : ""}`}>
       <p className="text-xs font-medium text-muted">{label}</p>
       <p className={`num mt-1 text-2xl font-semibold ${tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : ""}`}>{value}</p>
       {detail && <p className="mt-1 text-xs text-muted">{detail}</p>}
     </Card>
   );
-  return href ? <Link href={href} className="block">{inner}</Link> : inner;
+  return href ? <Link href={href} className={`block h-full ${featured ? "order-first" : ""}`}>{inner}</Link> : featured ? <div className="order-first">{inner}</div> : inner;
+}
+
+function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
+  return <h2 id={id} className="flex items-center gap-2.5 text-xl font-bold tracking-tight"><span className="h-6 w-1.5 rounded-full bg-accent" aria-hidden="true" />{children}</h2>;
 }
 
 function Shortcut({ href, icon, title, detail }: { href: string; icon: React.ReactNode; title: string; detail: string }) {
   return (
-    <Link href={href} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 hover:border-accent">
-      <span className="text-accent">{icon}</span>
+    <Link href={href} className="group flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 transition hover:-translate-y-0.5 hover:border-accent hover:shadow-md">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-strong">{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block font-medium">{title}</span>
+        <span className="block font-semibold">{title}</span>
         <span className="block truncate text-sm text-muted">{detail}</span>
       </span>
-      <ArrowRight size={16} className="text-muted" />
+      <ArrowRight size={16} className="text-muted transition group-hover:translate-x-0.5 group-hover:text-accent-strong" />
     </Link>
   );
 }

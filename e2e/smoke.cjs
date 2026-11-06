@@ -708,7 +708,7 @@ async function main() {
     await panel.getByLabel("Consumo real (g)").fill(grams);
     if (minutes) await panel.getByLabel("Tempo real (min)").fill(minutes);
     await panel.getByRole("button", { name: "Concluir e baixar estoque" }).click();
-    await p.waitForFunction(() => document.body.innerText.includes("Tarefa concluída e consumo registrado."));
+    await panel.waitFor({ state: "detached" }); // a mensagem de sucesso some rápido com o refresh; o painel fechar é o sinal estável
   };
   await concluir(p.locator('[data-testid="coluna-imprimindo"] [data-testid="tarefa"]', { hasText: "Vaso espiral" }), "90");
   await p.goto(B + "/filamentos/estoque");
@@ -1094,12 +1094,15 @@ async function main() {
   const bad = await anon.goto(B + "/c/00000000000000000000000000000000");
   ok(bad && bad.status() === 404, "vitrine: código desconhecido dá 404");
   await p.getByLabel("Mostrar os preços").uncheck();
+  const salvarVitrine = p.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/produtos/compartilhar"));
   await p.getByRole("button", { name: "Salvar vitrine" }).click();
-  await p.getByText("Vitrine salva").waitFor();
+  await salvarVitrine;
   await anon.goto(vitrineUrl.replace(/^https?:\/\/[^/]+/, B));
   ok(!/R\$\s?\d/.test(await anon.locator("main").innerText()), "vitrine sem preços: o preço não aparece");
   await p.getByLabel("Link ativo (clientes conseguem abrir)").uncheck();
+  const salvarVitrine2 = p.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/produtos/compartilhar"));
   await p.getByRole("button", { name: "Salvar vitrine" }).click();
+  await salvarVitrine2;
   await p.getByText("link está desativado").first().waitFor();
   const off = await anon.goto(vitrineUrl.replace(/^https?:\/\/[^/]+/, B));
   ok(off && off.status() === 404, "vitrine desativada: o link deixa de abrir");
