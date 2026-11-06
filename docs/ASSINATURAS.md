@@ -30,3 +30,6 @@ Em desenvolvimento: `BILLING_GATEWAY=simulado` e `BILLING_WEBHOOK_SECRET=<≥16 
 
 ## Pendências
 Aplicar `0009_billing_plans.sql` no SQL Editor · configurar credenciais de TESTE do Mercado Pago e validar no sandbox (ver `GATEWAY.md`) · rota de reconciliação periódica (cron) ainda não agendada.
+
+## Planos enxutos (migration 0014)
+Só existem Gratuito, Pro e Business (mais o plano interno `trial`). Plano só anuncia o que funciona: recursos "em breve" (produção avançada, relatórios) saíram da lista `FEATURES`; limites públicos nunca ficam em branco (ilimitado). Business = recursos do Pro com limites maiores e fixos (1.000 / 10 / 200 / 300 / 500 / 5.000 MB).

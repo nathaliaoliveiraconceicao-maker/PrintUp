@@ -16,7 +16,7 @@ module.exports = function stage6({ db, USER, tick }) {
     { id: crypto.randomUUID(), code: "pro", name: "Pro", description: "Para quem vende com orçamentos, pedidos e estoque", price_cents: 4990, price_yearly_cents: 49900, trial_days: 0, sort_order: 20, is_public: true, is_active: true, highlight: true,
       limits: { max_products: 200, max_printers: 3, max_filaments: 30, max_imports_month: 50, max_pdf_month: 100, max_storage_mb: 1000 }, features: { calculator: true, import_models: true, quotes: true, pricing_history: true, orders: true, stock: true, production: true } },
     { id: crypto.randomUUID(), code: "business", name: "Business", description: "Para quem produz em escala, com mais impressoras e limites maiores", price_cents: 9990, price_yearly_cents: 99900, trial_days: 0, sort_order: 30, is_public: true, is_active: true, highlight: false,
-      limits: { max_products: null, max_printers: 10, max_filaments: null, max_imports_month: 500, max_pdf_month: null, max_storage_mb: 5000 }, features: { calculator: true, import_models: true, quotes: true, pricing_history: true, orders: true, stock: true, production: true, reports: true, production_advanced: true } },
+      limits: { max_products: 1000, max_printers: 10, max_filaments: 200, max_imports_month: 300, max_pdf_month: 500, max_storage_mb: 5000 }, features: { calculator: true, import_models: true, quotes: true, pricing_history: true, orders: true, stock: true, production: true } },
   ];
   db.plans.push(...PLANS);
   const plan = (id) => db.plans.find((p) => p.id === id);

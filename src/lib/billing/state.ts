@@ -55,8 +55,6 @@ export const FEATURES: Record<string, { label: string; available: boolean }> = {
   orders: { label: "Gestão de pedidos", available: true },
   stock: { label: "Controle de estoque de filamento", available: true },
   production: { label: "Produção em quadro Kanban", available: true },
-  production_advanced: { label: "Gestão de produção avançada", available: false },
-  reports: { label: "Relatórios financeiros", available: false },
 };
 
 export const LIMIT_LABEL: Record<string, string> = {

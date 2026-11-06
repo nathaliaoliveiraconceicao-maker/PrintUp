@@ -26,3 +26,5 @@ psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0011_configuracoes_completa
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0012_catalogo_compartilhavel.sql -f rls_catalogo_publico.test.sql
 # Produção avulsa (baixa automática de filamento)
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0013_producao_avulsa.sql -f rls_producao_avulsa.test.sql
+# Planos enxutos
+psql -q -v ON_ERROR_STOP=1 -d "$DB" -f ../migrations/0014_planos_enxutos.sql -f planos_enxutos.test.sql
