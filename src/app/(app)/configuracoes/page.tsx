@@ -1,5 +1,6 @@
 import { SettingsTabs } from "@/components/settings-tabs";
-import { PageHeader } from "@/components/ui/card";
+import { Card, PageHeader as PageHeader } from "@/components/ui/card";
+import { ThemeChoice } from "@/components/theme-toggle";
 import { ChannelsEditor } from "@/features/settings/channels-editor";
 import { settingsOrDefault, type ChannelRow, type SettingsRow } from "@/features/settings/schema";
 import { SettingsForm } from "@/features/settings/settings-form";
@@ -20,6 +21,13 @@ export default async function SettingsPage() {
       <div className="space-y-6">
         <SettingsForm settings={settingsOrDefault(data as Partial<SettingsRow> | null)} />
         <ChannelsEditor channels={(channels.data ?? []) as ChannelRow[]} />
+        <Card className="space-y-4" data-testid="aparencia">
+          <div>
+            <h2 className="font-semibold">05 · Aparência</h2>
+            <p className="mt-1 text-sm text-muted">Escolha tela clara, escura ou deixe o PrintUp seguir o seu aparelho. A escolha vale para este aparelho.</p>
+          </div>
+          <ThemeChoice />
+        </Card>
       </div>
     </>
   );

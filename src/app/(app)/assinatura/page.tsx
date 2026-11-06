@@ -61,7 +61,7 @@ export default async function SubscriptionPage() {
           <div><dt className="text-xs text-muted">Troca agendada</dt><dd className="font-medium">{ent?.pending_plan_code ?? "—"}</dd></div>
         </dl>
         <div className="flex flex-wrap gap-2 pt-1">
-          <Link href="/planos" className="inline-flex h-11 items-center rounded-xl bg-accent px-5 text-sm font-semibold text-ink hover:brightness-95">{paying ? "Alterar plano" : "Ver planos"}</Link>
+          <Link href="/planos" className="inline-flex h-11 items-center rounded-xl bg-accent px-5 text-sm font-semibold text-on-accent hover:brightness-95">{paying ? "Alterar plano" : "Ver planos"}</Link>
         </div>
         <SubscriptionActions canCancel={paying && !ent?.cancel_at_period_end} hasGatewaySub={paying} />
         {!paying && <div className="border-t border-line pt-4"><RedeemCoupon /></div>}
@@ -97,7 +97,7 @@ export default async function SubscriptionPage() {
               const has = Boolean(ent?.features[key]);
               return (
                 <li key={key} className={cn("flex items-center gap-2", !has && "text-muted")}>
-                  <span aria-hidden="true" className={cn("flex h-5 w-5 items-center justify-center rounded-full text-xs", has && f.available ? "bg-ok text-white" : "bg-line")}>{has && f.available ? "✓" : "–"}</span>
+                  <span aria-hidden="true" className={cn("flex h-5 w-5 items-center justify-center rounded-full text-xs", has && f.available ? "bg-ok text-on-danger" : "bg-line")}>{has && f.available ? "✓" : "–"}</span>
                   <span>{f.label}{!f.available ? " (em breve)" : ""}</span>
                   <span className="sr-only">{has && f.available ? "incluído" : "não incluído"}</span>
                 </li>

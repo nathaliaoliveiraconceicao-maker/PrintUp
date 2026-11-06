@@ -102,7 +102,7 @@ export function OnboardingWizard({ initial, redo }: { initial: WizardInitial; re
 
       <ol className="flex gap-1.5" aria-label={`Passo ${Math.min(step + 1, STEPS.length)} de ${STEPS.length}`}>
         {STEPS.map((s, i) => (
-          <li key={s.key} className={cn("h-1.5 flex-1 rounded-full", i < step ? "bg-accent" : i === step && !last ? "bg-ink" : "bg-line")} />
+          <li key={s.key} className={cn("h-1.5 flex-1 rounded-full", i < step ? "bg-accent" : i === step && !last ? "bg-dark" : "bg-line")} />
         ))}
       </ol>
       {!last && <p className="text-xs text-muted">Passo {step + 1} de {STEPS.length}</p>}
@@ -186,7 +186,7 @@ export function OnboardingWizard({ initial, redo }: { initial: WizardInitial; re
             {([["negocio", "Nome do negócio", "/negocio"], ["impressora", "Impressora", "/impressoras"], ["custo", "Custo da hora", "/impressoras"], ["filamento", "Filamento", "/filamentos"], ["margem", "Margem padrão", "/configuracoes"]] as const).map(([k, label, href]) => (
               <li key={k} className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2">
-                  <span className={cn("flex h-5 w-5 items-center justify-center rounded-full", done[k] ? "bg-ok text-white" : "bg-line text-muted")} aria-hidden="true">{done[k] ? <Check size={12} /> : null}</span>
+                  <span className={cn("flex h-5 w-5 items-center justify-center rounded-full", done[k] ? "bg-ok text-on-danger" : "bg-line text-muted")} aria-hidden="true">{done[k] ? <Check size={12} /> : null}</span>
                   {label} <span className="sr-only">{done[k] ? "configurado" : "ficou para depois"}</span>
                 </span>
                 {done[k] ? <span className="text-ok">Configurado</span> : <Link href={href} className="font-medium text-accent-strong underline">Completar depois</Link>}

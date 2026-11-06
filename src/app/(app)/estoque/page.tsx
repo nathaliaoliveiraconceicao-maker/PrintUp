@@ -43,7 +43,7 @@ export default async function ProductStockPage({ searchParams }: { searchParams:
       <nav aria-label="Filtro" className="mb-4 flex gap-2 overflow-x-auto">
         {([["todos", "Todos"], ["com", "Com estoque"], ["sem", "Sem estoque"]] as const).map(([k, l]) => (
           <Link key={k} href={k === "todos" ? "/estoque" : `/estoque?ver=${k}`} aria-current={view === k ? "page" : undefined}
-            className={cn("flex h-10 shrink-0 items-center rounded-full border px-4 text-sm", view === k ? "border-ink bg-ink font-medium text-paper" : "border-line bg-surface text-muted hover:text-ink")}>{l}</Link>
+            className={cn("flex h-10 shrink-0 items-center rounded-full border px-4 text-sm", view === k ? "border-dark bg-dark font-medium text-on-dark" : "border-line bg-surface text-muted hover:text-ink")}>{l}</Link>
         ))}
       </nav>
       {products.length === 0 ? (

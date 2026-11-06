@@ -48,7 +48,7 @@ export function SideNav() {
           aria-current={isActive(path, item) ? "page" : undefined}
           className={cn(
             "flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium",
-            isActive(path, item) ? "bg-ink text-paper" : "text-muted hover:bg-paper hover:text-ink",
+            isActive(path, item) ? "bg-dark text-on-dark" : "text-muted hover:bg-paper hover:text-ink",
           )}
         >
           <item.icon size={18} />

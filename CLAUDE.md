@@ -62,6 +62,8 @@ SaaS de precificação para impressão 3D. Interface 100% em **pt-BR**, moeda **
 ## Design
 Identidade (Etapa 4): **grafite** (`--ink`), **laranja vibrante** (`--accent`) e neutros (`--paper`, `--surface`, `--line`). Botão primário = laranja com texto grafite (contraste 5,4:1; texto branco sobre laranja não passa no AA). Links/ênfase em laranja usam `--accent-strong`. Números com `.num` (mono, tabular). Navegação em `components/app-nav.tsx`; módulos futuros (Pedidos, Estoque) aparecem só como "em breve", sem link. Evitar visual genérico de dashboard (gradientes roxos, cards idênticos sem hierarquia).
 
+Tema claro/escuro: o usuário escolhe (botão de ícone no menu + Configurações → Aparência: Claro, Escuro, Automático; guardado no aparelho em `localStorage`; padrão claro). Cores sempre por token (`--paper`, `--surface`, `--ink`…) que o tema redefine; superfícies escuras fixas usam `bg-dark`/`text-on-dark`, texto sobre laranja usa `text-on-accent`. Nunca `bg-ink`/`text-paper`/`text-white` em cartão novo sem pensar nos dois temas. Script de inicialização em `lib/theme.ts` evita piscar.
+
 ## Painel, calculadora e onboarding (Etapa 4) — `docs/ETAPA4-UX.md`
 - Painel só mostra dados reais (`features/dashboard/metrics.ts`). Orçado ≠ vendido: sem módulo de vendas, nada é apresentado como faturamento; lucro estimado = aprovado − custo de produção, só dos aprovados com custo conhecido.
 - Calculadora: modo rápido e avançado usam o **mesmo** `calculatePricing`; o modo só muda o que aparece. Desconto ao cliente é simulação (`applyDiscount`), não altera o motor nem o que é salvo. Acabamento soma com embalagem.

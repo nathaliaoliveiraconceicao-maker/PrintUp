@@ -175,7 +175,7 @@ export function Calculator({
               role="radio"
               aria-checked={uiMode === m}
               onClick={() => setUiMode(m)}
-              className={cn("min-h-11 rounded-xl px-3 text-center text-sm font-semibold transition-colors", uiMode === m ? "bg-ink text-paper" : "text-muted hover:text-ink")}
+              className={cn("min-h-11 rounded-xl px-3 text-center text-sm font-semibold transition-colors", uiMode === m ? "bg-dark text-on-dark" : "text-muted hover:text-ink")}
             >
               {label}
             </button>
@@ -357,7 +357,7 @@ export function Calculator({
 
       {/* Resultado: coluna lateral no desktop, barra fixa no celular */}
       <aside className="lg:sticky lg:top-6 lg:self-start">
-        <Card className="hidden space-y-4 shadow-xl shadow-ink/5 lg:block">
+        <Card className="hidden space-y-4 shadow-xl shadow-black/5 lg:block">
           <ResultBody result={result} errors={errors} qty={qty} discountPct={discountPct} sale={input?.sale ?? null} simple={!advanced} channelPrices={channelPrices} />
         </Card>
         <div className="fixed inset-x-0 bottom-16 z-10 border-t border-line bg-surface/95 px-5 py-3 backdrop-blur lg:hidden">
@@ -414,7 +414,7 @@ function ResultBody({
   return (
     <>
       {!compact && (
-        <div className="relative overflow-hidden rounded-2xl bg-ink p-5 text-paper shadow-lg [&>*:not(:first-child)]:relative" data-testid="preco-sugerido"><div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-accent/25 blur-2xl" aria-hidden="true" />
+        <div className="relative overflow-hidden rounded-2xl bg-dark p-5 text-on-dark shadow-lg [&>*:not(:first-child)]:relative" data-testid="preco-sugerido"><div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-accent/25 blur-2xl" aria-hidden="true" />
           <p className="text-sm opacity-75">Preço sugerido por unidade</p>
           <p className="num text-5xl font-semibold tracking-tight text-white">{formatBRL(result.suggestedUnitPrice)}</p>
           <p className="mt-1 text-xs opacity-75">

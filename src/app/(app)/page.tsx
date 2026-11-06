@@ -94,14 +94,14 @@ export default async function DashboardPage() {
 
       <Link
         href="/calculadora"
-        className="group relative mb-8 flex items-center justify-between overflow-hidden rounded-3xl bg-ink p-6 text-paper transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-ink/20 sm:p-8"
+        className="group relative mb-8 flex items-center justify-between overflow-hidden rounded-3xl bg-dark p-6 text-on-dark transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/20 sm:p-8"
       >
         <div>
           <p className="text-sm opacity-70">Comece por aqui</p>
           <p className="mt-1 text-2xl font-bold tracking-tight">Nova precificação</p>
           <p className="mt-1 text-sm opacity-70">Descubra o preço certo de uma peça em menos de um minuto.</p>
         </div>
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-ink">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent">
           <Calculator />
         </span>
       </Link>
@@ -246,11 +246,11 @@ function usage(count: number | null, limit: number | null | undefined) {
 
 function Kpi({ label, value, tone, detail, href, featured }: { label: string; value: string; tone?: "ok" | "danger"; detail?: string; href?: string; featured?: boolean }) {
   const inner = featured ? (
-    <div className="relative h-full overflow-hidden rounded-2xl bg-ink p-5 text-paper transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-ink/20">
+    <div className="relative h-full overflow-hidden rounded-2xl bg-dark p-5 text-on-dark transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/20">
       <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-accent/25 blur-2xl" aria-hidden="true" />
-      <p className="relative text-xs font-medium text-paper/65">{label}</p>
+      <p className="relative text-xs font-medium text-on-dark/65">{label}</p>
       <p className={`num relative mt-2 text-3xl font-semibold sm:text-4xl ${tone === "ok" ? "text-emerald-300" : tone === "danger" ? "text-red-300" : "text-white"}`}>{value}</p>
-      {detail && <p className="relative mt-2 text-xs text-paper/65">{detail}</p>}
+      {detail && <p className="relative mt-2 text-xs text-on-dark/65">{detail}</p>}
     </div>
   ) : (
     <Card className={`h-full border-l-4 p-4 ${tone === "ok" ? "border-l-ok" : tone === "danger" ? "border-l-danger" : "border-l-line"} ${href ? "transition hover:-translate-y-0.5 hover:border-accent hover:shadow-md" : ""}`}>

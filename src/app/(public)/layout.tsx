@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -21,15 +22,16 @@ export default async function PublicLayout({ children }: { children: React.React
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
           <Link href="/" aria-label="PrintUp"><Logo /></Link>
           <nav aria-label="Conta" className="flex items-center gap-2 text-sm">
+            <ThemeToggle />
             {user ? (
               <>
                 <Link href="/assinatura" className="flex h-11 items-center rounded-xl px-3 font-medium hover:bg-paper">Minha assinatura</Link>
-                <Link href="/" className="flex h-11 items-center rounded-xl bg-ink px-4 font-medium text-paper">Voltar ao painel</Link>
+                <Link href="/" className="flex h-11 items-center rounded-xl bg-dark px-4 font-medium text-on-dark">Voltar ao painel</Link>
               </>
             ) : (
               <>
                 <Link href="/login" className="flex h-11 items-center rounded-xl px-3 font-medium hover:bg-paper">Entrar</Link>
-                <Link href="/cadastro" className="flex h-11 items-center rounded-xl bg-accent px-4 font-semibold text-ink hover:brightness-95">Criar conta</Link>
+                <Link href="/cadastro" className="flex h-11 items-center rounded-xl bg-accent px-4 font-semibold text-on-accent hover:brightness-95">Criar conta</Link>
               </>
             )}
           </nav>

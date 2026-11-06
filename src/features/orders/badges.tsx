@@ -8,7 +8,7 @@ const ORDER_TONE: Record<OrderStatus, string> = {
   aguardando_pagamento: "border-warn/30 bg-accent-soft text-warn",
   em_producao: "border-import/30 bg-import-soft text-import",
   pronto: "border-ok/30 bg-ok/10 text-ok",
-  entregue: "border-ink/20 bg-ink text-paper",
+  entregue: "border-dark/20 bg-dark text-on-dark",
   cancelado: "border-danger/30 bg-danger/10 text-danger",
 };
 /** Faixa lateral do cartão do pedido, na cor do status. */

@@ -16,7 +16,7 @@ export default async function ConfirmPage({ searchParams }: { searchParams: Prom
       <div className="space-y-4" data-testid="confirmar-invalido">
         <h2 className="text-xl font-semibold">Link inválido</h2>
         <p className="text-sm text-muted">Este link de confirmação está incompleto. Abra o e-mail e clique de novo no link, ou volte para entrar.</p>
-        <Link href="/login" className="inline-flex h-11 items-center rounded-xl bg-accent px-5 text-sm font-semibold text-ink">Ir para o login</Link>
+        <Link href="/login" className="inline-flex h-11 items-center rounded-xl bg-accent px-5 text-sm font-semibold text-on-accent">Ir para o login</Link>
       </div>
     );
   }

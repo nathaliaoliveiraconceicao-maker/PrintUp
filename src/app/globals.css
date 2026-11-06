@@ -17,6 +17,34 @@
   /* Dados importados de arquivo (cor fria, distinta do laranja do que o usuário digita) */
   --import: #1d6b73;
   --import-soft: #dbeff0;
+  /* Superfícies escuras fixas (cartões de destaque, item ativo do menu) e textos sobre elas/sobre o laranja */
+  --dark: #1c1f24;
+  --on-dark: #f2f3f5;
+  --on-accent: #1c1f24;
+  --on-danger: #ffffff;
+  color-scheme: light;
+}
+
+/* Tema escuro: escolhido pelo usuário (botão) ou automático pelo sistema. Contrastes conferidos (WCAG AA). */
+:root[data-theme="dark"] {
+  --paper: #111418;
+  --surface: #1a1e24;
+  --ink: #eceef1;
+  --muted: #a3abb5;
+  --line: #2e343c;
+  --accent: #f26a1b;
+  --accent-strong: #ff9a5c;
+  --accent-soft: #3a2314;
+  --ok: #5fd38d;
+  --warn: #f0b25e;
+  --danger: #ff8a80;
+  --import: #5cc8d2;
+  --import-soft: #10363a;
+  --dark: #272c34;
+  --on-dark: #f2f3f5;
+  --on-accent: #1c1f24;
+  --on-danger: #1c1f24;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -33,6 +61,10 @@
   --color-danger: var(--danger);
   --color-import: var(--import);
   --color-import-soft: var(--import-soft);
+  --color-dark: var(--dark);
+  --color-on-dark: var(--on-dark);
+  --color-on-accent: var(--on-accent);
+  --color-on-danger: var(--on-danger);
   --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }

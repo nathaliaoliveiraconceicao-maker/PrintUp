@@ -25,7 +25,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
       <PageHeader title="Visão geral" description={`Dados reais · ${period.label}`} />
       <div className="mb-6 flex flex-wrap items-end gap-2" data-testid="filtro-periodo">
         {PRESETS.map(([k, l]) => (
-          <Link key={k} href={`/admin?periodo=${k}`} aria-current={period.key === k ? "true" : undefined} className={cn("flex h-11 items-center rounded-xl border px-4 text-sm font-medium", period.key === k ? "border-ink bg-ink text-paper" : "border-line hover:bg-paper")}>{l}</Link>
+          <Link key={k} href={`/admin?periodo=${k}`} aria-current={period.key === k ? "true" : undefined} className={cn("flex h-11 items-center rounded-xl border px-4 text-sm font-medium", period.key === k ? "border-dark bg-dark text-on-dark" : "border-line hover:bg-paper")}>{l}</Link>
         ))}
         <form className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="periodo" value="personalizado" />

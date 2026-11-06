@@ -40,7 +40,7 @@ export default async function PlansPage({ searchParams }: { searchParams: Promis
         {hasYearly && (
           <div className="mt-6 inline-grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface p-1" role="group" aria-label="Ciclo de cobrança">
             {(["mensal", "anual"] as const).map((c) => (
-              <Link key={c} href={`/planos?ciclo=${c}`} aria-current={cycle === c ? "true" : undefined} className={cn("flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold", cycle === c ? "bg-ink text-paper" : "text-muted hover:text-ink")}>
+              <Link key={c} href={`/planos?ciclo=${c}`} aria-current={cycle === c ? "true" : undefined} className={cn("flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold", cycle === c ? "bg-dark text-on-dark" : "text-muted hover:text-ink")}>
                 {c === "mensal" ? "Mensal" : "Anual"}
               </Link>
             ))}
@@ -65,7 +65,7 @@ export default async function PlansPage({ searchParams }: { searchParams: Promis
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="text-xl font-bold">{p.name}</h2>
-                  {p.highlight && <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold text-ink">Mais escolhido</span>}
+                  {p.highlight && <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold text-on-accent">Mais escolhido</span>}
                 </div>
                 <p className="mt-1 text-sm text-muted">{p.description}</p>
               </div>
@@ -90,7 +90,7 @@ export default async function PlansPage({ searchParams }: { searchParams: Promis
 
               <div className="mt-auto pt-2">
                 {!user ? (
-                  <Link href="/cadastro" className="flex h-11 w-full items-center justify-center rounded-xl bg-accent text-sm font-semibold text-ink hover:brightness-95">{p.price_cents === 0 ? "Começar grátis" : "Criar conta para contratar"}</Link>
+                  <Link href="/cadastro" className="flex h-11 w-full items-center justify-center rounded-xl bg-accent text-sm font-semibold text-on-accent hover:brightness-95">{p.price_cents === 0 ? "Começar grátis" : "Criar conta para contratar"}</Link>
                 ) : isCurrent && (p.price_cents === 0 || ent?.billing_cycle === cycle) ? (
                   <p className="flex h-11 items-center justify-center rounded-xl border border-line text-sm font-medium" aria-current="true">Seu plano atual</p>
                 ) : p.price_cents === 0 ? (

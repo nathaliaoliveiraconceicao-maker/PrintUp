@@ -37,20 +37,20 @@ function ExampleCard() {
   return (
     <div className="relative mx-auto w-full max-w-md" aria-hidden="true">
       <div className="absolute -inset-6 -z-10 rounded-[2.5rem] bg-[radial-gradient(closest-side,rgba(242,106,27,0.28),transparent)]" />
-      <div className="rounded-3xl bg-ink p-6 text-paper shadow-2xl ring-1 ring-white/10">
-        <div className="flex items-center justify-between text-xs text-paper/60"><span>Preço sugerido por peça</span><span className="rounded-full bg-white/10 px-2 py-0.5">exemplo</span></div>
+      <div className="rounded-3xl bg-dark p-6 text-on-dark shadow-2xl ring-1 ring-white/10">
+        <div className="flex items-center justify-between text-xs text-on-dark/60"><span>Preço sugerido por peça</span><span className="rounded-full bg-white/10 px-2 py-0.5">exemplo</span></div>
         <p className="num mt-2 text-5xl font-semibold tracking-tight text-white">R$ 47,00</p>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-          <div className="rounded-xl bg-white/10 p-2"><p className="text-paper/60">Placa</p><p className="num text-sm font-semibold text-white">R$ 62,00</p></div>
-          <div className="rounded-xl bg-white/10 p-2"><p className="text-paper/60">Custo/peça</p><p className="num text-sm font-semibold text-white">R$ 15,50</p></div>
-          <div className="rounded-xl bg-accent p-2 text-ink"><p className="opacity-70">Lucro/peça</p><p className="num text-sm font-bold">R$ 31,50</p></div>
+          <div className="rounded-xl bg-white/10 p-2"><p className="text-on-dark/60">Placa</p><p className="num text-sm font-semibold text-white">R$ 62,00</p></div>
+          <div className="rounded-xl bg-white/10 p-2"><p className="text-on-dark/60">Custo/peça</p><p className="num text-sm font-semibold text-white">R$ 15,50</p></div>
+          <div className="rounded-xl bg-accent p-2 text-on-accent"><p className="opacity-70">Lucro/peça</p><p className="num text-sm font-bold">R$ 31,50</p></div>
         </div>
         <ul className="mt-4 divide-y divide-white/10 text-sm">
-          {rows.map(([k, v]) => <li key={k} className="flex justify-between py-1.5 text-paper/80"><span>{k}</span><span className="num">{v}</span></li>)}
+          {rows.map(([k, v]) => <li key={k} className="flex justify-between py-1.5 text-on-dark/80"><span>{k}</span><span className="num">{v}</span></li>)}
         </ul>
         <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-xl border border-white/15 p-3"><p className="text-xs text-paper/60">Shopee</p><p className="num font-semibold text-white">R$ 61,00</p></div>
-          <div className="rounded-xl border border-white/15 p-3"><p className="text-xs text-paper/60">Mercado Livre</p><p className="num font-semibold text-white">R$ 56,00</p></div>
+          <div className="rounded-xl border border-white/15 p-3"><p className="text-xs text-on-dark/60">Shopee</p><p className="num font-semibold text-white">R$ 61,00</p></div>
+          <div className="rounded-xl border border-white/15 p-3"><p className="text-xs text-on-dark/60">Mercado Livre</p><p className="num font-semibold text-white">R$ 56,00</p></div>
         </div>
       </div>
     </div>
@@ -66,7 +66,7 @@ export default function HomePage() {
           <h1 className="text-balance text-4xl font-bold leading-[1.05] tracking-tight sm:text-6xl">Saiba o <span className="text-accent-strong">preço certo</span> de cada peça. Venda com lucro.</h1>
           <p className="max-w-xl text-lg text-muted">Calcule o custo da placa e de cada unidade, gere orçamentos em PDF e organize pedidos, produção e estoque de filamento. Em português, em reais.</p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/cadastro" className={`${BTN} bg-accent text-ink shadow-lg shadow-accent/30 hover:brightness-95`}>Criar conta grátis<ArrowRight size={18} aria-hidden="true" /></Link>
+            <Link href="/cadastro" className={`${BTN} bg-accent text-on-accent shadow-lg shadow-accent/30 hover:brightness-95`}>Criar conta grátis<ArrowRight size={18} aria-hidden="true" /></Link>
             <Link href="/planos" className={`${BTN} border border-line bg-surface hover:bg-paper`}>Ver planos</Link>
           </div>
           <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted">
@@ -83,10 +83,10 @@ export default function HomePage() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f, i) => (
-            <article key={f.title} className={`group rounded-3xl border p-6 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-ink/5 ${i === 0 ? "border-ink bg-ink text-paper lg:col-span-2" : i === FEATURES.length - 1 ? "border-line bg-surface hover:border-accent lg:col-span-2" : "border-line bg-surface hover:border-accent"}`}>
-              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${i === 0 ? "bg-accent" : "bg-accent-soft"}`}><f.icon size={24} className={i === 0 ? "text-ink" : "text-accent-strong"} aria-hidden="true" /></span>
+            <article key={f.title} className={`group rounded-3xl border p-6 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-black/5 ${i === 0 ? "border-dark bg-dark text-on-dark lg:col-span-2" : i === FEATURES.length - 1 ? "border-line bg-surface hover:border-accent lg:col-span-2" : "border-line bg-surface hover:border-accent"}`}>
+              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${i === 0 ? "bg-accent" : "bg-accent-soft"}`}><f.icon size={24} className={i === 0 ? "text-on-accent" : "text-accent-strong"} aria-hidden="true" /></span>
               <h3 className="mt-4 text-xl font-semibold">{f.title}</h3>
-              <p className={`mt-2 text-sm leading-relaxed ${i === 0 ? "text-paper/75 lg:max-w-xl lg:text-base" : "text-muted"}`}>{f.text}</p>
+              <p className={`mt-2 text-sm leading-relaxed ${i === 0 ? "text-on-dark/75 lg:max-w-xl lg:text-base" : "text-muted"}`}>{f.text}</p>
             </article>
           ))}
         </div>
@@ -97,7 +97,7 @@ export default function HomePage() {
         <ol className="grid gap-6 md:grid-cols-3">
           {STEPS.map(([n, title, text]) => (
             <li key={n} className="relative rounded-3xl border border-line bg-surface p-6">
-              <span className="num absolute -top-4 left-6 flex h-9 w-9 items-center justify-center rounded-full bg-accent text-base font-bold text-ink shadow-md" aria-hidden="true">{n}</span>
+              <span className="num absolute -top-4 left-6 flex h-9 w-9 items-center justify-center rounded-full bg-accent text-base font-bold text-on-accent shadow-md" aria-hidden="true">{n}</span>
               <h3 className="mt-3 text-lg font-semibold">{title}</h3>
               <p className="mt-1 text-sm text-muted">{text}</p>
             </li>
@@ -122,11 +122,11 @@ export default function HomePage() {
         ))}
       </section>
 
-      <section className="relative overflow-hidden rounded-3xl bg-ink px-6 py-14 text-center text-paper">
+      <section className="relative overflow-hidden rounded-3xl bg-dark px-6 py-14 text-center text-on-dark">
         <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl" aria-hidden="true" />
         <h2 className="relative text-3xl font-bold tracking-tight">Comece a precificar hoje</h2>
-        <p className="relative mx-auto mt-2 max-w-xl text-paper/80">Crie a sua conta e faça o primeiro cálculo em poucos minutos.</p>
-        <Link href="/cadastro" className={`${BTN} relative mt-6 bg-accent text-ink hover:brightness-95`}>Criar conta grátis<ArrowRight size={18} aria-hidden="true" /></Link>
+        <p className="relative mx-auto mt-2 max-w-xl text-on-dark/80">Crie a sua conta e faça o primeiro cálculo em poucos minutos.</p>
+        <Link href="/cadastro" className={`${BTN} relative mt-6 bg-accent text-on-accent hover:brightness-95`}>Criar conta grátis<ArrowRight size={18} aria-hidden="true" /></Link>
       </section>
     </div>
   );

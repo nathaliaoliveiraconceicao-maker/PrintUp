@@ -169,6 +169,29 @@ async function main() {
   await p.goto(B + "/privacidade");
   ok((await main$()).includes("LGPD") && (await main$()).includes("Mercado Pago") && (await main$()).includes("direitos"), "política de privacidade: LGPD, provedores e direitos do titular");
 
+  // ── Tema claro/escuro: a pessoa escolhe ──
+  await p.goto(B + "/configuracoes");
+  const tema = () => p.evaluate(() => document.documentElement.dataset.theme);
+  ok((await tema()) === "light", "tema: sem escolha, a tela é clara");
+  ok((await p.locator('[data-testid="escolha-tema"]').count()) === 1, "tema: Configurações → Aparência com Claro, Escuro e Automático");
+  await p.getByRole("radio", { name: "Escuro" }).click();
+  ok((await tema()) === "dark" && (await p.evaluate(() => localStorage.getItem("printup-theme"))) === "dark", "tema: escolher Escuro aplica e guarda a escolha");
+  await p.reload();
+  ok((await tema()) === "dark", "tema: a escolha continua depois de recarregar (sem piscar claro)");
+  const bgDark = await p.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  ok(bgDark !== "rgb(242, 243, 245)", "tema escuro: o fundo realmente mudou");
+  if (process.env.E2E_SHOTS) await p.screenshot({ path: `${process.env.E2E_SHOTS}/escuro-configuracoes.png`, fullPage: true });
+  await p.getByTestId("alternar-tema").first().click();
+  ok((await tema()) === "light", "tema: o botão de ícone volta para o claro");
+  await p.getByRole("radio", { name: "Escuro" }).click();
+  for (const path of ["/", "/calculadora", "/pedidos", "/filamentos/estoque"]) {
+    await p.goto(B + path);
+    if (process.env.E2E_SHOTS) await p.screenshot({ path: `${process.env.E2E_SHOTS}/escuro${path.replace(/\//g, "-")}.png`, fullPage: true });
+  }
+  await p.goto(B + "/configuracoes");
+  await p.getByRole("radio", { name: "Claro" }).click();
+  ok((await tema()) === "light", "tema: Claro volta ao padrão");
+
   // ── Configurações ──
   await p.goto(B + "/configuracoes");
   ok((await p.locator('[data-testid="como-calcula"]').count()) === 1 && (await p.locator('[data-testid="canais-de-venda"]').count()) === 1, "configurações: despesas, preço de venda, explicação do cálculo e canais de venda numa página só");

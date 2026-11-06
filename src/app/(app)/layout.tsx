@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogOut, ShieldCheck } from "lucide-react";
 import { BottomNav, SideNav } from "@/components/app-nav";
 import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/features/auth/actions";
 import { isAdminQuiet } from "@/features/admin/guard";
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SideNav />
         </div>
         <div className="space-y-1">
+          <ThemeToggle withLabel />
           {isAdmin && <Link href="/admin" className="flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted hover:bg-paper hover:text-ink"><ShieldCheck size={18} aria-hidden="true" />Administração</Link>}
           <form action={logout}>
             <Button variant="ghost" className="w-full justify-start"><LogOut size={18} />Sair</Button>
@@ -26,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="mb-6 flex items-center justify-between lg:hidden">
           <Logo />
           <div className="flex items-center gap-1">
+            <ThemeToggle className="!h-9 !w-9" />
             {isAdmin && <Link href="/admin" aria-label="Administração" className="flex h-9 items-center rounded-xl px-2 text-muted hover:bg-paper"><ShieldCheck size={18} /></Link>}
             <form action={logout}><Button variant="ghost" size="sm"><LogOut size={16} />Sair</Button></form>
           </div>
