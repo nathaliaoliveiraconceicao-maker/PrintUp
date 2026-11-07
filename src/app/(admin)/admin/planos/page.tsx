@@ -7,7 +7,8 @@ export const metadata = { title: "Planos · Administração" };
 
 export default async function PlansPage() {
   const { supabase } = await requireAdminPage();
-  const plans = await loadPlans(supabase);
+  // O plano interno "Teste grátis" só aparece enquanto houver contas nele (hoje novos cadastros entram direto no Gratuito).
+  const plans = (await loadPlans(supabase)).filter((p) => p.code !== "trial" || p.subscribers > 0);
   return (
     <>
       <PageHeader title="Planos" description="Preços, limites e recursos vêm do banco. Mudar o preço NÃO altera assinaturas já contratadas (o valor cobrado já está no gateway); limites e recursos valem para todos do plano." />

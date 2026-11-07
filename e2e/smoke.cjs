@@ -163,6 +163,15 @@ async function main() {
   await p.goto(B + "/filamentos");
   ok((await main$()).includes("PLA Preto"), "assistente criou o filamento 'PLA Preto'");
 
+  // ── Conta bloqueada pelo superadmin: o cliente vê o aviso e nada mais ──
+  const setBlocked = (on) => fetch(`http://127.0.0.1:${MOCK_PORT}/__set_blocked?on=${on ? 1 : 0}`);
+  await setBlocked(true);
+  await p.goto(B + "/");
+  ok((await p.locator('[data-testid="conta-bloqueada"]').count()) === 1 && (await p.locator("body").innerText()).includes("Conta suspensa") && (await p.locator("aside").count()) === 0, "conta bloqueada: o cliente vê só o aviso de conta suspensa (sem menu)");
+  await setBlocked(false);
+  await p.goto(B + "/");
+  ok((await p.locator('[data-testid="conta-bloqueada"]').count()) === 0, "conta liberada: o app volta ao normal");
+
   // ── Termos de uso e privacidade (públicos) ──
   await p.goto(B + "/termos");
   ok((await main$()).includes("Termos de uso") && (await main$()).includes("Itaboraí/RJ") && (await main$()).includes("sugestão"), "termos de uso: página pública com foro e aviso de que o preço é sugestão");

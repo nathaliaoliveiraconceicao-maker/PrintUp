@@ -19,7 +19,7 @@ export async function login(_: AuthState, formData: FormData): Promise<AuthState
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { error: "E-mail ou senha incorretos." };
+  if (error) return { error: error.code === "user_banned" ? "Esta conta está suspensa. Fale com o suporte." : "E-mail ou senha incorretos." };
   redirect("/");
 }
 

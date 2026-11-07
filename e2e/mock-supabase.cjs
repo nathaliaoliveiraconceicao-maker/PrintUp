@@ -223,6 +223,7 @@ http.createServer(async (req, res) => {
   // Só para os testes: simula a passagem do tempo (prazo vencido) sem esperar dias.
   if (p === "/__set_order_due") { const b = await readBody(req); const o = db.orders.find((r) => r.number === b.number); if (o) o.due_date = b.due; return send(req, res, 200, {}); }
   if (p === "/__set_admin") { const b = await readBody(req); stage7.state.admin = Boolean(b && b.admin); return send(req, res, 200, {}); }
+  if (p === "/__set_blocked") { const on = new URL(req.url, "http://x").searchParams.get("on") === "1"; db.profiles.forEach((r) => { r.blocked_at = on ? new Date().toISOString() : null; }); return send(req, res, 200, {}); }
   if (p === "/__reset_onboarding") { db.profiles.forEach((r) => { r.onboarding_done_at = null; }); return send(req, res, 200, {}); }
 
   const t = /^\/rest\/v1\/(\w+)$/.exec(p)?.[1];

@@ -49,3 +49,6 @@ Clientes resgatam cupons em **Minha assinatura → "Tenho um código"**.
 - Indicadores calculam o estado de cada usuário em tempo real (adequado até alguns milhares de usuários; depois, materializar).
 - `app_events` não tem expurgo automático (definir retenção antes de lançar).
 - Reconciliação periódica com o gateway ainda não agendada (Etapa 6).
+
+## Bloquear e liberar conta (migration 0016)
+`admin_set_user_blocked` (superadmin; nunca a si mesma nem outro superadmin; motivo obrigatório; auditada) grava `profiles.blocked_at/blocked_reason` e encerra as sessões; a ação do servidor também aplica o *ban* no Supabase Auth (impede novo login) e desfaz o bloqueio no banco se o *ban* falhar. O cliente bloqueado vê só a tela "Conta suspensa" (`(app)/layout.tsx`); os dados ficam guardados. Só a função administrativa muda o bloqueio (gatilho `protect_profile_role`). O plano interno `trial` some da lista de planos quando não há contas nele.

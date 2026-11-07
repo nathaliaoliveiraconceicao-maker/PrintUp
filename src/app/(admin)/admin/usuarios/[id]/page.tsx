@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, PageHeader } from "@/components/ui/card";
-import { CancelForm, CourtesyForm, EndCourtesyForm } from "@/features/admin/forms";
+import { BlockForm, CancelForm, CourtesyForm, EndCourtesyForm } from "@/features/admin/forms";
 import { requireAdminPage } from "@/features/admin/guard";
-import { loadPlans, loadUserDetail } from "@/features/admin/server";
+import { loadPlans, loadUserBlock, loadUserDetail } from "@/features/admin/server";
 import { Badge, brl, fmtBytes, fmtDate, stateLabel, stateTone, Table } from "@/features/admin/ui";
 import { LIMIT_LABEL } from "@/lib/billing/state";
 
@@ -15,6 +15,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   let d;
   try { d = await loadUserDetail(supabase, id); } catch { notFound(); }
+  const block = await loadUserBlock(supabase, id).catch(() => ({ bloqueada_em: null, motivo: null }));
   const plans = (await loadPlans(supabase)).filter((p) => p.is_active && p.code !== "gratuito");
   const paid = d.assinatura?.gateway_assinatura != null && ["active", "past_due"].includes(d.assinatura.status);
   const trial = d.assinatura?.status === "trialing" && !d.assinatura.gateway_assinatura;
@@ -24,7 +25,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   ];
   return (
     <>
-      <PageHeader title={d.perfil.nome || d.perfil.email} description={d.perfil.email} action={<Link href="/admin/usuarios" className="text-sm text-accent-strong hover:underline">← Usuários</Link>} />
+      <PageHeader title={(d.perfil.nome || d.perfil.email) + (block.bloqueada_em ? " (bloqueada)" : "")} description={d.perfil.email} action={<Link href="/admin/usuarios" className="text-sm text-accent-strong hover:underline">← Usuários</Link>} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="space-y-2" data-testid="detalhe-plano">
           <h2 className="font-semibold">Plano e situação</h2>
@@ -65,6 +66,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         {trial && <Card><EndCourtesyForm userId={id} /></Card>}
         {paid && !d.assinatura?.cancela_no_fim && <Card><CancelForm userId={id} /></Card>}
         {paid && d.assinatura?.cancela_no_fim && <Card><p className="text-sm">Cancelamento já agendado para o fim do período pago.</p></Card>}
+        {d.perfil.papel !== "superadmin" && <Card><BlockForm userId={id} blockedAt={block.bloqueada_em} reason={block.motivo} /></Card>}
       </div>
     </>
   );

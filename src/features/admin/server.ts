@@ -41,6 +41,8 @@ async function call<T>(supabase: Supa, fn: string, args: Record<string, unknown>
 export const loadOverview = (s: Supa, from: Date, to: Date) => call<Overview>(s, "admin_overview", { p_from: from.toISOString(), p_to: to.toISOString() });
 export const loadUsers = (s: Supa, a: { q?: string; plan?: string; state?: string; limit: number; offset: number }) =>
   call<UserRow[]>(s, "admin_list_users", { p_search: a.q || null, p_plan: a.plan || null, p_state: a.state || null, p_limit: a.limit, p_offset: a.offset });
+export type UserBlock = { bloqueada_em: string | null; motivo: string | null };
+export const loadUserBlock = (s: Supa, id: string) => call<UserBlock>(s, "admin_user_block_state", { p_user: id });
 export const loadUserDetail = (s: Supa, id: string) => call<UserDetail>(s, "admin_user_detail", { p_user: id });
 export const loadSubscriptions = (s: Supa, a: { q?: string; state?: string; limit: number; offset: number }) =>
   call<SubRow[]>(s, "admin_list_subscriptions", { p_state: a.state || null, p_search: a.q || null, p_limit: a.limit, p_offset: a.offset });

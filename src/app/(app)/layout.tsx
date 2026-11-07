@@ -6,9 +6,23 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/features/auth/actions";
 import { isAdminQuiet } from "@/features/admin/guard";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const isAdmin = await isAdminQuiet();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: me } = user ? await supabase.from("profiles").select("blocked_at").eq("id", user.id).maybeSingle() : { data: null };
+  if (me?.blocked_at) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-5 text-center" data-testid="conta-bloqueada">
+        <Logo className="mx-auto" />
+        <h1 className="text-2xl font-bold">Conta suspensa</h1>
+        <p className="text-muted">O acesso a esta conta foi suspenso. Seus dados continuam guardados. Fale com o suporte para entender o motivo e regularizar.</p>
+        <form action={logout}><Button variant="secondary" className="w-full">Sair</Button></form>
+      </main>
+    );
+  }
   return (
     <div className="mx-auto flex min-h-dvh max-w-6xl">
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col justify-between border-r border-line p-5 lg:flex">

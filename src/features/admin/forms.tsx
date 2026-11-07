@@ -10,7 +10,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { LIMIT_LABEL, FEATURES } from "@/lib/billing/state";
 import { useActionForm } from "@/lib/use-action-form";
 import type { FormState } from "@/lib/forms";
-import { createCoupon, endCourtesy, grantCourtesy, runMercadoPagoProbe, saveSettings, scheduleCancel, setCouponActive, updatePlan, type ProbeState } from "./actions";
+import { createCoupon, endCourtesy, grantCourtesy, runMercadoPagoProbe, saveSettings, scheduleCancel, setUserBlocked, setCouponActive, updatePlan, type ProbeState } from "./actions";
 import { LIMIT_KEYS } from "./schema";
 import type { PlanRowAdmin } from "./server";
 
@@ -146,6 +146,34 @@ export function CancelForm({ userId }: { userId: string }) {
       <Checkbox name="confirmar" label="Confirmo o cancelamento" />
       <FormMessage error={state.error} ok={state.ok} />
       <SubmitButton pending={pending} size="sm" variant="danger">Cancelar assinatura</SubmitButton>
+    </form>
+  );
+}
+
+export function BlockForm({ userId, blockedAt, reason }: { userId: string; blockedAt: string | null; reason: string | null }) {
+  const { state, onSubmit, pending } = useActionForm(setUserBlocked, {} as FormState);
+  const blocked = Boolean(blockedAt);
+  return (
+    <form onSubmit={onSubmit} className="space-y-3" data-testid="form-bloqueio">
+      <input type="hidden" name="userId" value={userId} />
+      <input type="hidden" name="blocked" value={blocked ? "0" : "1"} />
+      <h3 className="font-medium">{blocked ? "Conta bloqueada" : "Bloquear conta"}</h3>
+      {blocked ? (
+        <>
+          <p className="text-sm text-muted">Bloqueada desde {new Date(blockedAt as string).toLocaleDateString("pt-BR")}. Motivo: {reason ?? "—"}. O cliente não consegue entrar; os dados dele continuam guardados.</p>
+          <Field label="Motivo da liberação (opcional)" error={state.fieldErrors?.reason}><Input name="reason" maxLength={200} /></Field>
+          <FormMessage error={state.error} ok={state.ok} />
+          <SubmitButton pending={pending} size="sm">Liberar conta</SubmitButton>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted">O cliente deixa de conseguir entrar (use em fraude ou abuso). Os dados dele não são apagados e você pode liberar depois. Assinatura paga não é cancelada por aqui.</p>
+          <Field label="Motivo" error={state.fieldErrors?.reason}><Input name="reason" required maxLength={200} /></Field>
+          <Checkbox name="confirmar" label="Confirmo o bloqueio desta conta" />
+          <FormMessage error={state.error} ok={state.ok} />
+          <SubmitButton pending={pending} size="sm" variant="danger">Bloquear conta</SubmitButton>
+        </>
+      )}
     </form>
   );
 }

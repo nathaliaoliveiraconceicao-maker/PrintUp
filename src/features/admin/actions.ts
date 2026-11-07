@@ -147,3 +147,27 @@ export async function runMercadoPagoProbe(formData: FormData): Promise<ProbeStat
   await logEvent("sistema", "info", "Teste de conexão com o Mercado Pago executado", {}, ctx.userId);
   return { lines };
 }
+
+/**
+ * Bloqueia ou libera uma conta. Primeiro o banco valida e registra (auditoria, nunca a si mesma nem outro superadmin);
+ * depois o Supabase Auth impede novo login. Os dados do cliente continuam guardados.
+ */
+export async function setUserBlocked(_: FormState, formData: FormData): Promise<FormState> {
+  const ctx = await currentAdmin();
+  if (!ctx) return DENIED;
+  const blocked = formData.get("blocked") === "1";
+  const parsed = reasonSchema.safeParse({ userId: formData.get("userId"), reason: formData.get("reason") || (blocked ? "" : "liberada") });
+  if (!parsed.success) return zodToState(parsed.error);
+  if (blocked && formData.get("confirmar") !== "on") return { error: "Marque a confirmação para bloquear." };
+  const { userId, reason } = parsed.data;
+  const { error } = await ctx.supabase.rpc("admin_set_user_blocked", { p_user: userId, p_blocked: blocked, p_reason: reason });
+  if (error) return { error: rpcError(error) };
+  const { error: authError } = await createAdminClient().auth.admin.updateUserById(userId, { ban_duration: blocked ? "876000h" : "none" });
+  if (authError) {
+    await ctx.supabase.rpc("admin_set_user_blocked", { p_user: userId, p_blocked: !blocked, p_reason: "desfeito: falha no provedor de login" });
+    await logEvent("seguranca", "erro", "Falha ao aplicar bloqueio no provedor de login", { blocked }, userId);
+    return { error: "Não foi possível aplicar o bloqueio no login. Nada foi alterado; tente de novo." };
+  }
+  revalidatePath(`/admin/usuarios/${userId}`);
+  return { ok: blocked ? "Conta bloqueada. O cliente não consegue mais entrar; os dados dele continuam guardados." : "Conta liberada. O cliente já pode entrar de novo." };
+}
