@@ -20,7 +20,8 @@ export class MemoryRepo implements OffersRepo {
 
   async settings() { return this.settingsValue; }
   async coupons(storeId: string) { return this.couponList.filter((c) => c.storeId === storeId); }
-  async upsertProduct(storeId: string, data: ProductData, _now: Date) {
+  async upsertProduct(storeId: string, data: ProductData, ...rest: [Date?]) {
+    void rest;
     const found = this.products.find((p) => p.storeId === storeId && p.externalId === data.externalId);
     if (found) { Object.assign(found, data); return { product: found, isNew: false }; }
     const row: ProductRow = { ...data, id: this.id("prod"), storeId };
@@ -62,7 +63,8 @@ export class MemoryRepo implements OffersRepo {
     }
     return n;
   }
-  async startRun(sourceId: string, _trigger?: string, _now?: Date) {
+  async startRun(sourceId: string, ...rest: [string?, Date?]) {
+    void rest;
     if (this.runs.some((r) => r.sourceId === sourceId && r.status === "executando")) return null;
     const id = this.id("run");
     this.runs.push({ id, sourceId, status: "executando" });

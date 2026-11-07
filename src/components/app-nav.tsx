@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, Calculator, ClipboardList, FileText, FileUp, Home, KanbanSquare, Layers, MoreHorizontal, Package, Printer, Settings } from "lucide-react";
+import { Boxes, Calculator, Tag, ClipboardList, FileText, FileUp, Home, KanbanSquare, Layers, MoreHorizontal, Package, Printer, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: string; icon: typeof Home; also?: string[] };
@@ -18,6 +18,7 @@ export const MAIN_NAV: Item[] = [
   { href: "/estoque", label: "Estoque de produtos", icon: Boxes },
   { href: "/impressoras", label: "Impressoras", icon: Printer },
   { href: "/filamentos", label: "Filamentos", icon: Layers },
+  { href: "/ofertas", label: "Ofertas 3D", icon: Tag, also: ["/alertas"] },
   { href: "/configuracoes", label: "Configurações", icon: Settings, also: ["/negocio", "/historico", "/boas-vindas", "/assinatura"] },
 ];
 
@@ -31,7 +32,7 @@ const BOTTOM: Item[] = [
   { href: "/orcamentos", label: "Orçamentos", icon: FileText },
   { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
   { href: "/producao", label: "Produção", icon: KanbanSquare },
-  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/produtos", "/estoque", "/importar", "/impressoras", "/filamentos", "/configuracoes", "/negocio", "/historico", "/boas-vindas", "/assinatura"] },
+  { href: "/mais", label: "Mais", icon: MoreHorizontal, also: ["/produtos", "/estoque", "/ofertas", "/alertas", "/importar", "/impressoras", "/filamentos", "/configuracoes", "/negocio", "/historico", "/boas-vindas", "/assinatura"] },
 ];
 
 const isActive = (path: string, { href, also = [] }: Item) =>

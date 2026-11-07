@@ -21,7 +21,9 @@ export default async function PublicLayout({ children }: { children: React.React
       <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
           <Link href="/" aria-label="PrintUp"><Logo /></Link>
-          <nav aria-label="Conta" className="flex items-center gap-2 text-sm">
+          <nav aria-label="Conta" className="flex items-center gap-1 text-sm sm:gap-2">
+            <Link href="/ofertas" className="hidden h-11 items-center rounded-xl px-3 font-medium hover:bg-paper sm:flex">Ofertas 3D</Link>
+            <Link href="/planos" className="hidden h-11 items-center rounded-xl px-3 font-medium hover:bg-paper sm:flex">Planos</Link>
             <ThemeToggle />
             {user ? (
               <>

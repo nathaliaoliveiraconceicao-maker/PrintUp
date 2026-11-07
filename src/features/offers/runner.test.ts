@@ -5,7 +5,6 @@ import { MemoryRepo } from "./repo-memory";
 import { parseOrigin, resolveRedirect, UUID_RE } from "./redirect";
 import { emailConfigured, sendEmail } from "@/lib/email";
 import type { Source, Store } from "./repo";
-import type { RawProduct } from "./connectors/types";
 
 const NOW = new Date("2026-11-10T10:00:00Z");
 const store: Store = { id: "s1", code: "simu", name: "Loja Simulada", kind: "simulado", allowedHosts: ["simulada.example.com"], reliability: 90, affiliateConfig: { params: { aff: "X" }, requiredParams: ["aff"] }, isSimulated: true, isActive: true };
@@ -137,5 +136,48 @@ describe("envio de e-mail", () => {
     expect(await sendEmail(msg, env, (async () => new Response("", { status: 500 })) as unknown as typeof fetch)).toBe("falhou");
     expect(await sendEmail(msg, env, (async () => { throw new Error("rede"); }) as unknown as typeof fetch)).toBe("falhou");
     expect(await sendEmail({ ...msg, to: "invalido" }, env)).toBe("falhou");
+  });
+});
+
+import { agoLabel, applyFilters, buildViews, facets, paginate, parseFilters, sortViews, type OfferView } from "./listing";
+
+describe("listagem pública: filtros, ordenação e visualização", () => {
+  const mk = (over: Partial<OfferView>): OfferView => ({ id: "x", productId: "p", title: "Filamento PLA 1kg", brand: "Marca", category: "filamento-pla", imageUrl: null, storeCode: "la", storeName: "Loja A", disclosure: "", priceCents: 7000, effectiveCents: 7000, previousCents: null, previousBasis: null, discountPct: null, coupon: null, shippingCents: null, inStock: true, validUntil: null, lastCheckedAt: NOW.toISOString(), isAffiliate: true, featured: false, score: 50, weightG: 1000, perKgCents: 7000, canonicalKey: null, ...over });
+  const items = [mk({ id: "1", title: "PLA Marca X", effectiveCents: 8000, perKgCents: 8000, score: 60 }), mk({ id: "2", title: "PETG Outra", category: "filamento-petg", storeCode: "lb", storeName: "Loja B", effectiveCents: 6000, perKgCents: 6000, discountPct: 25, previousCents: 8000, previousBasis: "loja", score: 90 }), mk({ id: "3", title: "Bico 0.4", category: "bicos-hotends", storeCode: "la", effectiveCents: 3000, perKgCents: null, weightG: null, featured: true, score: 40 })];
+  it("filtra por texto, categoria (inclusive grupo), loja e faixa de preço", () => {
+    expect(applyFilters(items, parseFilters({ q: "petg" })).map((o) => o.id)).toEqual(["2"]);
+    expect(applyFilters(items, parseFilters({ categoria: "filamentos" })).map((o) => o.id)).toEqual(["1", "2"]);
+    expect(applyFilters(items, parseFilters({ loja: "lb" })).map((o) => o.id)).toEqual(["2"]);
+    expect(applyFilters(items, parseFilters({ min: "35", max: "70" })).map((o) => o.id)).toEqual(["2"]);
+    expect(applyFilters(items, parseFilters({ q: "açao inexistente" }))).toEqual([]);
+  });
+  it("entrada maliciosa vira filtro neutro", () => {
+    const f = parseFilters({ categoria: "'; drop table", loja: "<x>", ordem: "foo", pagina: "-3", min: "abc" });
+    expect(f).toMatchObject({ categoria: "", loja: "", ordem: "relevancia", pagina: 1, min: null });
+  });
+  it("ordena por relevância (destaque primeiro), preço, desconto e preço por kg", () => {
+    expect(sortViews(items, "relevancia").map((o) => o.id)).toEqual(["3", "2", "1"]);
+    expect(sortViews(items, "menor_preco").map((o) => o.id)).toEqual(["3", "2", "1"]);
+    expect(sortViews(items, "maior_desconto")[0].id).toBe("2");
+    expect(sortViews(items, "menor_preco_kg").map((o) => o.id)).toEqual(["2", "1", "3"]);
+  });
+  it("pagina e calcula facetas", () => {
+    expect(paginate(Array.from({ length: 50 }, (_, i) => i), 3).rows).toHaveLength(2);
+    expect(paginate([1, 2], 9).page).toBe(1);
+    expect(facets(items).stores.map((s) => s.code)).toEqual(["la", "lb"]);
+    expect(facets(items).categories.map((c) => c.slug)).toEqual(["filamento-pla", "filamento-petg", "bicos-hotends"]);
+  });
+  it("monta a visualização: cupom entra no preço efetivo e preço por kg só com peso conhecido", () => {
+    const v = buildViews(
+      [{ id: "o", product_id: "p", price_cents: 7000, previous_price_cents: 9000, previous_basis: "loja", discount_pct: 22.2, coupon_id: "c", coupon_saved_cents: 700, shipping_cents: null, in_stock: true, score: 80, is_affiliate: true, featured: false, valid_until: null, last_checked_at: NOW.toISOString() }],
+      [{ id: "p", store_id: "s", title: "PLA", brand: "M", category: "filamento-pla", image_url: null, attrs: { weightG: 1000 }, canonical_key: "k" }],
+      [{ id: "s", code: "a", name: "A", disclosure: "d" }], [{ id: "c", code: "PRINT10", valid_until: null }],
+    );
+    expect(v[0]).toMatchObject({ effectiveCents: 6300, perKgCents: 6300, coupon: { code: "PRINT10", savedCents: 700 }, previousBasis: "loja" });
+    expect(buildViews([{ id: "o", product_id: "zz", price_cents: 100, previous_price_cents: null, previous_basis: null, discount_pct: null, coupon_id: null, coupon_saved_cents: 0, shipping_cents: null, in_stock: null, score: 1, is_affiliate: false, featured: false, valid_until: null, last_checked_at: NOW.toISOString() }], [], [], [])).toEqual([]);
+  });
+  it("rótulo de atualização", () => {
+    expect(agoLabel(new Date(NOW.getTime() - 5 * 3_600_000).toISOString(), NOW)).toBe("há 5 h");
+    expect(agoLabel(new Date(NOW.getTime() - 50 * 3_600_000).toISOString(), NOW)).toBe("há 2 dias");
   });
 });
