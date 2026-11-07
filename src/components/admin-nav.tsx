@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, FileClock, Gauge, Settings, Tags, Ticket, Users, Wallet } from "lucide-react";
+import { Activity, BarChart3, ShoppingBag, FileClock, Gauge, Settings, Tags, Ticket, Users, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/admin/assinaturas", label: "Assinaturas", icon: Wallet },
   { href: "/admin/planos", label: "Planos", icon: Tags },
   { href: "/admin/cupons", label: "Cupons", icon: Ticket },
+  { href: "/admin/ofertas", label: "Ofertas", icon: ShoppingBag },
   { href: "/admin/uso", label: "Uso", icon: BarChart3 },
   { href: "/admin/monitoramento", label: "Monitoramento", icon: Activity },
   { href: "/admin/auditoria", label: "Auditoria", icon: FileClock },
