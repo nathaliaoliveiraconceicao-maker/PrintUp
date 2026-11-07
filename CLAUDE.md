@@ -86,3 +86,8 @@ Tema claro/escuro: o usuário escolhe (botão de ícone no menu + Configuraçõe
 ## Catálogo compartilhável — `docs/CATALOGO-COMPARTILHAVEL.md`
 - Vitrine pública `/c/<token>`: leitura anônima só pelas funções `public_catalog_*` (token secreto, campos fixos, sem custo/margem/lucro). Nova coluna exposta ali = teste em `rls_catalogo_publico.test.sql` e revisão de privacidade.
 
+## Ofertas 3D e afiliados (Etapa 8) — `docs/OFERTAS.md`
+- Nunca inventar preço anterior/desconto/cupom/disponibilidade: só `resolvePreviousPrice`/`applyCoupon` (regras determinísticas, testadas). Publicação automática nasce DESLIGADA; só com autorização explícita do dono.
+- Leitura pública só das colunas de vitrine do que está publicado (RLS); credenciais só em variáveis de ambiente; destino de `/ir/<id>` revalidado contra `allowed_hosts` da loja. Dados simulados nunca são publicáveis (`offers_guard`) nem aparecem como reais.
+- Conectores novos = arquivo em `features/offers/connectors` + registro; marcar `status` honestamente (`preparado_nao_verificado` até conferir a documentação oficial).
+

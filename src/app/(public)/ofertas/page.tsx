@@ -64,7 +64,7 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
         ))}
       </nav>
 
-      {featured.length > 0 && !f.q && !f.categoria && f.pagina === 1 && (
+      {featured.length > 0 && !f.q && !f.categoria && !f.loja && f.min === null && f.max === null && f.pagina === 1 && (
         <section aria-labelledby="h-destaques" className="space-y-3">
           <h2 id="h-destaques" className="text-lg font-bold">Destaques</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{featured.map((o) => <OfferCard key={o.id} o={o} />)}</div>

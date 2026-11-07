@@ -10,6 +10,8 @@ export type Comparable = {
   priceCents: number;
   shippingCents?: number | null;
   couponSavedCents?: number | null;
+  /** Chave canônica já calculada (gravada no produto): quando existe, é ela que decide a equivalência. */
+  key?: string | null;
 };
 
 const norm = (s: string | null | undefined) => (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -28,9 +30,11 @@ export function canonicalKey(p: Pick<Comparable, "category" | "brand" | "model" 
   return [p.category, brand, model, specs.weightG ?? "-", specs.variant ?? "-"].join("|");
 }
 
+const keyOf = (c: Comparable): string | null => c.key ?? canonicalKey(c);
+
 export const areEquivalent = (a: Comparable, b: Comparable): boolean => {
-  const ka = canonicalKey(a);
-  return ka !== null && ka === canonicalKey(b);
+  const ka = keyOf(a);
+  return ka !== null && ka === keyOf(b);
 };
 
 /** Preço efetivo: preço − cupom + frete (frete só entra quando conhecido nas DUAS pontas, senão compara sem frete e avisa). */

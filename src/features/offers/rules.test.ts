@@ -111,6 +111,10 @@ describe("equivalência e comparação", () => {
     expect(canonicalKey({ ...a, title: "Filamento PLA preto" })).toBeNull();
     expect(canonicalKey({ category: "impressoras", brand: "Creality", title: "Impressora 3D" })).toBeNull(); // sem modelo
   });
+  it("a chave já gravada no produto decide a equivalência", () => {
+    expect(areEquivalent({ ...a, title: "x", key: "K1" }, { ...a, title: "y", key: "K1" })).toBe(true);
+    expect(areEquivalent({ ...a, key: "K1" }, { ...a, key: "K2" })).toBe(false);
+  });
   it("ordena pelo preço efetivo e calcula o preço por kg", () => {
     const b = { ...a, title: "PLA Marca X 1kg 1.75mm", priceCents: 6500, couponSavedCents: 500 };
     const c = { ...a, title: "PLA Marca X 500g 1.75mm", priceCents: 3000 };

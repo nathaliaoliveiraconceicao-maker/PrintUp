@@ -10,12 +10,15 @@ const jwt = () => `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: USER.id, ro
 const session = () => ({ access_token: jwt(), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + ++n, user: USER });
 
 let PASSWORD = "senha-de-teste-123";
-const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles", "orders", "order_items", "order_payments", "production_jobs", "job_reservations", "filament_spools", "stock_movements", "plans", "subscriptions", "platform_settings", "subscription_changes", "billing_customers", "billing_checkouts", "billing_charges", "billing_events", "usage_events", "coupons", "coupon_redemptions", "admin_audit_log", "app_events", "sales_channels", "catalog_shares"];
+const TABLES = ["printers", "filaments", "cost_settings", "products", "pricings", "audit_log", "imported_models", "print_profiles", "customers", "business_profiles", "quotes", "quote_items", "profiles", "orders", "order_items", "order_payments", "production_jobs", "job_reservations", "filament_spools", "stock_movements", "plans", "subscriptions", "platform_settings", "subscription_changes", "billing_customers", "billing_checkouts", "billing_charges", "billing_events", "usage_events", "coupons", "coupon_redemptions", "admin_audit_log", "app_events", "sales_channels", "catalog_shares", "offer_settings", "offer_stores", "offer_sources", "offer_products", "offer_price_history", "offer_coupons", "offers", "offer_clicks", "offer_conversions", "offer_alerts", "offer_alert_notifications", "offer_runs", "offer_errors"];
 const db = Object.fromEntries(TABLES.map((t) => [t, []]));
 const LIMITS = { printers: 1, filaments: 5, products: 10 };
 // Valores padrão das colunas (o banco real os aplica; o dublê precisa imitar para os testes não enxergarem `undefined`).
 const DEFAULTS = { billing_checkouts: { status: "aberto" }, printers: { purchase_price: 0, lifespan_hours: null, power_watts: 0, hourly_cost: 0, hourly_includes_energy: false, hourly_includes_wear: false, hourly_includes_fixed: false, wear_per_hour: 0 }, filaments: { material: "PLA", spool_weight_g: 1000, min_stock_g: 250 }, cost_settings: { monthly_fixed_costs: 0, fixed_allocation: "per_hour", productive_hours_per_month: 160, monthly_units: 0, energy_price_per_kwh: 0.9, labor_hourly_rate: 0, loss_percent: 5, sale_fee_percent: 0, sale_fee_fixed: 0, tax_percent: 0, margin_percent: 30, packaging_per_unit: 0, shipping_per_unit: 0, fixed_items: {}, expected_revenue: 0, pricing_mode: "margin", markup_percent: 200, price_rounding: "none" }, products: { stock_qty: 0, archived_at: null }, business_profiles: { brand_color: "#d94e1b", default_validity_days: 7 } };
 const AUDITED = ["printers", "filaments", "products", "pricings", "imported_models"];
+const SERVICE_KEY = "chave-servidor-FALSA-apenas-para-teste-local";
+const OFFER_PUBLIC = ["offers", "offer_products", "offer_price_history", "offer_coupons", "offer_stores"];
+db.offer_settings.push({ key: "auto_publish", value: false }, { key: "min_score_publish", value: 75 }, { key: "min_score_review", value: 45 }, { key: "allow_simulated", value: false });
 db.profiles.push({ id: "11111111-1111-1111-1111-111111111111", full_name: "Teste Mock", business_name: null, onboarding_done_at: null });
 const objects = new Map(); // caminho no bucket -> { bytes, contentType }
 let n = 0;
@@ -224,6 +227,28 @@ http.createServer(async (req, res) => {
   if (p === "/__set_order_due") { const b = await readBody(req); const o = db.orders.find((r) => r.number === b.number); if (o) o.due_date = b.due; return send(req, res, 200, {}); }
   if (p === "/__set_admin") { const b = await readBody(req); stage7.state.admin = Boolean(b && b.admin); return send(req, res, 200, {}); }
   if (p === "/__set_blocked") { const on = new URL(req.url, "http://x").searchParams.get("on") === "1"; db.profiles.forEach((r) => { r.blocked_at = on ? new Date().toISOString() : null; }); return send(req, res, 200, {}); }
+  if (p === "/__count") { const tb = new URL(req.url, "http://x").searchParams.get("t"); return send(req, res, 200, { n: (db[tb] || []).length }); }
+  if (p === "/__seed_offers") {
+    const now = Date.now(), iso = (d) => new Date(now - d * 86_400_000).toISOString();
+    const S1 = "a1000000-0000-4000-8000-000000000001", S2 = "a1000000-0000-4000-8000-000000000002";
+    db.offer_stores.push({ id: S1, code: "lojaa", name: "Loja A (teste)", kind: "afiliado", allowed_hosts: ["lojaa.com.br"], reliability: 90, affiliate_config: { params: { aff: "MEUID" }, requiredParams: ["aff"] }, disclosure: "Link de afiliado: o PrintUp pode receber comissão, sem custo extra.", is_active: true, is_simulated: false },
+      { id: S2, code: "lojab", name: "Loja B (teste)", kind: "afiliado", allowed_hosts: ["lojab.com.br"], reliability: 80, affiliate_config: {}, disclosure: "Link de afiliado: o PrintUp pode receber comissão, sem custo extra.", is_active: true, is_simulated: false });
+    const prod = (n, store, title, brand, category, attrs, key) => ({ id: `b1000000-0000-4000-8000-00000000000${n}`, store_id: store, external_id: `e${n}`, title, brand, model: null, category, image_url: null, product_url: `https://${store === S1 ? "lojaa" : "lojab"}.com.br/p${n}`, attrs, canonical_key: key, is_simulated: false, last_seen_at: iso(0) });
+    db.offer_products.push(prod(1, S1, "Filamento PLA Marca X 1kg 1.75mm", "Marca X", "filamento-pla", { material: "PLA", weightG: 1000, diameterMm: 1.75 }, "fil|marca x|PLA|-|1.75|1000|1"),
+      prod(2, S2, "PLA Marca X 1 kg 1,75 mm", "Marca X", "filamento-pla", { material: "PLA", weightG: 1000, diameterMm: 1.75 }, "fil|marca x|PLA|-|1.75|1000|1"),
+      prod(3, S1, "Filamento PLA Marca X 500g 1.75mm", "Marca X", "filamento-pla", { material: "PLA", weightG: 500, diameterMm: 1.75 }, "fil|marca x|PLA|-|1.75|500|1"),
+      prod(4, S1, "Bico nozzle 0.4mm latão", "Marca Y", "bicos-hotends", {}, null),
+      prod(5, S2, "Filamento PETG Marca Z 1kg", "Marca Z", "filamento-petg", { material: "PETG", weightG: 1000 }, "fil|marca z|PETG|-|?|1000|1"),
+      prod(6, S1, "Secador de filamento perigoso", "Marca W", "secadores", {}, null));
+    const offer = (n, status, price, extra = {}) => ({ id: `c1000000-0000-4000-8000-00000000000${n}`, product_id: `b1000000-0000-4000-8000-00000000000${n}`, status, price_cents: price, previous_price_cents: null, previous_basis: null, discount_pct: null, coupon_id: null, coupon_saved_cents: 0, shipping_cents: null, in_stock: true, score: 80, score_detail: {}, flags: [], link_url: `https://lojaa.com.br/p${n}?aff=MEUID`, is_affiliate: true, featured: false, valid_until: null, last_checked_at: iso(0.1), review_reason: null, reviewed_at: null, is_simulated: false, ...extra });
+    db.offer_coupons.push({ id: "d1000000-0000-4000-8000-000000000001", store_id: S1, code: "PRINT10", kind: "percent", value: 10, min_purchase_cents: null, max_discount_cents: null, valid_from: null, valid_until: new Date(now + 20 * 86_400_000).toISOString(), source: "loja", is_active: true });
+    db.offers.push(offer(1, "publicada", 7000, { previous_price_cents: 10000, previous_basis: "loja", discount_pct: 30, coupon_id: "d1000000-0000-4000-8000-000000000001", coupon_saved_cents: 700, score: 90 }),
+      offer(2, "publicada", 7500, { link_url: "https://lojab.com.br/p2", is_affiliate: false, score: 70 }), offer(3, "publicada", 4000, { score: 60 }), offer(4, "publicada", 3000, { featured: true, score: 50 }),
+      offer(5, "revisao", 9000, { link_url: "https://lojab.com.br/p5", score: 66, review_reason: "publicacao_automatica_desligada", flags: ["primeiro_registro"] }),
+      offer(6, "publicada", 5000, { link_url: "https://evil.example.com/roubo", score: 55 }));
+    [[30, 10200], [24, 10000], [18, 9800], [12, 10100], [6, 9900], [0, 7000]].forEach(([d, c]) => db.offer_price_history.push({ id: crypto.randomUUID(), product_id: "b1000000-0000-4000-8000-000000000001", price_cents: c, in_stock: true, source: "feed", observed_at: iso(d) }));
+    return send(req, res, 200, {});
+  }
   if (p === "/__reset_onboarding") { db.profiles.forEach((r) => { r.onboarding_done_at = null; }); return send(req, res, 200, {}); }
 
   const t = /^\/rest\/v1\/(\w+)$/.exec(p)?.[1];
@@ -243,6 +268,15 @@ http.createServer(async (req, res) => {
 
   if (req.method === "GET" || req.method === "HEAD") {
     let rows = filter(db[t], q);
+    // RLS do módulo de ofertas: quem não usa a chave de serviço só enxerga o que foi publicado
+    if (OFFER_PUBLIC.includes(t) && req.headers.apikey !== SERVICE_KEY) {
+      const pub = db.offers.filter((o) => o.status === "publicada");
+      if (t === "offers") rows = rows.filter((r) => r.status === "publicada");
+      if (t === "offer_products") rows = rows.filter((r) => pub.some((o) => o.product_id === r.id));
+      if (t === "offer_price_history") rows = rows.filter((r) => pub.some((o) => o.product_id === r.product_id));
+      if (t === "offer_stores") rows = rows.filter((r) => r.is_active);
+    }
+    if (["offer_settings", "offer_sources", "offer_clicks", "offer_conversions", "offer_runs", "offer_errors"].includes(t) && req.headers.apikey !== SERVICE_KEY) return send(req, res, 401, { code: "42501", message: "permission denied" });
     if (t === "subscriptions") rows = rows.map((r) => ({ ...r, plan: { name: db.plans.find((pl) => pl.id === r.plan_id)?.name } }));
     if (t === "billing_checkouts") rows = rows.map((r) => ({ ...r, plan: db.plans.find((pl) => pl.id === r.plan_id) }));
     if (q.get("order")) rows = sortRows(rows, q.get("order"));
@@ -254,6 +288,10 @@ http.createServer(async (req, res) => {
   if (req.method === "POST") {
     const body = await readBody(req);
     const items = Array.isArray(body) ? body : [body];
+    if (t === "offer_settings" && pref.includes("merge-duplicates")) {
+      for (const it of items) { db.offer_settings = db.offer_settings.filter((r) => r.key !== it.key); db.offer_settings.push(it); }
+      return send(req, res, 201);
+    }
     if (pref.includes("merge-duplicates")) {
       const prev = db[t].find((r) => r.user_id === items[0].user_id);
       db[t] = db[t].filter((r) => r.user_id !== items[0].user_id);

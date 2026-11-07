@@ -26,7 +26,7 @@ export default async function OfferPage({ params }: { params: Promise<{ id: stri
   if (!o) notFound();
   const [history, auth] = await Promise.all([loadPriceHistory(supabase, o.productId), supabase.auth.getUser()]);
   const stats = priceStats(history, { windowDays: 90 });
-  const toComparable = (v: typeof o): Comparable & { v: typeof o } => ({ v, category: v.category, brand: v.brand, title: v.title, priceCents: v.priceCents, shippingCents: v.shippingCents, couponSavedCents: v.coupon?.savedCents ?? 0, specs: v.weightG ? { weightG: v.weightG } : undefined });
+  const toComparable = (v: typeof o): Comparable & { v: typeof o } => ({ v, category: v.category, brand: v.brand, title: v.title, priceCents: v.priceCents, shippingCents: v.shippingCents, couponSavedCents: v.coupon?.savedCents ?? 0, specs: v.weightG ? { weightG: v.weightG } : undefined, key: v.canonicalKey });
   // só entram como equivalentes os que têm a MESMA chave canônica (marca, modelo/material, peso, variante)
   const sameKey = o.canonicalKey ? all.filter((x) => x.canonicalKey === o.canonicalKey) : [];
   const cmp = sameKey.length > 1 ? compareEquivalents(toComparable(o), sameKey.filter((x) => x.id !== o.id).map(toComparable)) : null;

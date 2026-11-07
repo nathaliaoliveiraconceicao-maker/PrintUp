@@ -1,5 +1,5 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { cronAuthorized } from "@/features/offers/cron-auth";
 import { runScheduled } from "@/features/offers/cron";
 import { offersRepo, siteUrl } from "@/features/offers/server";
 import { logEvent } from "@/features/admin/log";
@@ -9,18 +9,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function authorized(req: Request): boolean | null {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || secret.length < 16) return null; // não configurado
-  const got = req.headers.get("authorization") ?? "";
-  const want = `Bearer ${secret}`;
-  const a = Buffer.from(got), b = Buffer.from(want);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 /** Chamada pelo agendador (Vercel Cron envia `Authorization: Bearer $CRON_SECRET`). Sem o segredo configurado, recusa tudo. */
 export async function GET(req: Request) {
-  const ok = authorized(req);
+  const ok = cronAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET);
   if (ok === null) return NextResponse.json({ erro: "CRON_SECRET não configurado" }, { status: 503 });
   if (!ok) return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   try {

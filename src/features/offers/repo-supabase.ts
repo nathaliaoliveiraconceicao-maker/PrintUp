@@ -103,18 +103,28 @@ export class SupabaseRepo implements OffersRepo {
     await this.db.from("offer_sources").update({ last_run_at: at.toISOString(), last_status: status }).eq("id", sourceId);
   }
   async dueSources(now: Date) {
-    const { data } = await this.db.from("offer_sources").select("*, offer_stores!inner(*)").eq("is_active", true).eq("offer_stores.is_active", true);
-    return (data ?? []).map((r: Row) => ({ store: rowToStore(r.offer_stores as Row), source: rowToSource(r) }))
-      .filter(({ source }) => !source.lastRunAt || now.getTime() - source.lastRunAt.getTime() >= source.frequencyMinutes * 60_000);
+    const [{ data: src }, { data: sts }] = await Promise.all([this.db.from("offer_sources").select("*").eq("is_active", true), this.db.from("offer_stores").select("*").eq("is_active", true)]);
+    const stores = new Map(((sts ?? []) as Row[]).map((r) => [r.id as string, rowToStore(r)]));
+    return ((src ?? []) as Row[]).flatMap((r) => {
+      const source = rowToSource(r), store = stores.get(source.storeId);
+      const due = !source.lastRunAt || now.getTime() - source.lastRunAt.getTime() >= source.frequencyMinutes * 60_000;
+      return store && due ? [{ store, source }] : [];
+    });
   }
   async recentPublishedOffers(since: Date): Promise<(AlertOffer & { offerLinkReady: boolean })[]> {
-    const { data } = await this.db.from("offers").select("id, price_cents, discount_pct, in_stock, product_id, offer_products!inner(title, category, attrs, offer_stores!inner(code, name))").eq("status", "publicada").gte("last_checked_at", since.toISOString()).limit(1000);
+    const { data } = await this.db.from("offers").select("id, price_cents, discount_pct, in_stock, product_id").eq("status", "publicada").gte("last_checked_at", since.toISOString()).limit(1000);
+    const offers = (data ?? []) as Row[];
+    if (offers.length === 0) return [];
+    const [{ data: prods }, { data: sts }] = await Promise.all([this.db.from("offer_products").select("id, store_id, title, category, attrs").in("id", [...new Set(offers.map((o) => o.product_id as string))]), this.db.from("offer_stores").select("id, code, name")]);
+    const P = new Map(((prods ?? []) as Row[]).map((p) => [p.id as string, p])), S = new Map(((sts ?? []) as Row[]).map((s) => [s.id as string, s]));
     const out: (AlertOffer & { offerLinkReady: boolean })[] = [];
-    for (const r of (data ?? []) as unknown as Row[]) {
-      const p = r.offer_products as Row;
+    for (const r of offers) {
+      const p = P.get(r.product_id as string);
+      if (!p) continue;
+      const store = S.get(p.store_id as string);
       const { data: obs } = await this.db.from("offer_price_history").select("in_stock").eq("product_id", r.product_id as string).order("observed_at", { ascending: false }).limit(2);
       const prev = obs && obs.length >= 2 ? (obs[1].in_stock as boolean | null) : null;
-      out.push({ id: r.id as string, title: p.title as string, category: p.category as string, storeCode: ((p.offer_stores as Row).code as string) ?? "", storeName: (p.offer_stores as Row).name as string, priceCents: Number(r.price_cents), discountPct: r.discount_pct === null ? null : Number(r.discount_pct), inStock: (r.in_stock as boolean | null) ?? null, wasOutOfStock: prev === false, weightG: ((p.attrs as { weightG?: number }) ?? {}).weightG ?? null, offerLinkReady: true });
+      out.push({ id: r.id as string, title: p.title as string, category: p.category as string, storeCode: (store?.code as string) ?? "", storeName: store?.name as string | undefined, priceCents: Number(r.price_cents), discountPct: r.discount_pct === null ? null : Number(r.discount_pct), inStock: (r.in_stock as boolean | null) ?? null, wasOutOfStock: prev === false, weightG: ((p.attrs as { weightG?: number }) ?? {}).weightG ?? null, offerLinkReady: true });
     }
     return out;
   }

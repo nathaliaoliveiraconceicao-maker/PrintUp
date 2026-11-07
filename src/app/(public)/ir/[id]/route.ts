@@ -12,8 +12,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!UUID_RE.test(id)) return home;
   try {
     const db = createAdminClient();
-    const { data: offer } = await db.from("offers").select("id, status, link_url, product_id, offer_products!inner(store_id)").eq("id", id).maybeSingle();
-    const storeId = (offer as { offer_products?: { store_id?: string } } | null)?.offer_products?.store_id;
+    const { data: offer } = await db.from("offers").select("id, status, link_url, product_id").eq("id", id).maybeSingle();
+    const { data: prod } = offer ? await db.from("offer_products").select("store_id").eq("id", offer.product_id as string).maybeSingle() : { data: null };
+    const storeId = (prod as { store_id?: string } | null)?.store_id;
     const { data: store } = storeId ? await db.from("offer_stores").select("id, is_active, allowed_hosts").eq("id", storeId).maybeSingle() : { data: null };
     const url = resolveRedirect(offer as { status: string; link_url: string } | null, store as { is_active: boolean; allowed_hosts: string[] } | null);
     if (!url) return home;
