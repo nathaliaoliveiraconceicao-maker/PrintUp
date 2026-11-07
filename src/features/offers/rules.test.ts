@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { classifyTitle } from "./categories";
 import { buildAffiliateUrl, acceptProvidedAffiliateUrl, hostAllowed, isSafeDestination, stripForeignTracking } from "./affiliate";
 import { alertMatches, shouldNotify } from "./alerts";
-import { areEquivalent, canonicalKey, compareEquivalents } from "./equivalence";
+import { areEquivalent, canonicalKey, compareEquivalents, type Comparable } from "./equivalence";
 import { dailySeries, lowestPriceLabel, priceStats } from "./history";
 import { applyCoupon, discountPct, pricePerKgCents, resolvePreviousPrice, type Coupon, type Observation } from "./pricing";
 import { NonRetryableError, RateLimiter, withRetry } from "./retry";
@@ -121,8 +121,8 @@ describe("equivalência e comparação", () => {
   });
   it("frete só entra quando conhecido em todos", () => {
     const b = { ...a, title: "PLA Marca X 1kg 1.75mm", priceCents: 6500, shippingCents: 1000 };
-    expect(compareEquivalents({ ...a, shippingCents: null }, [b]).shippingComparable).toBe(false);
-    expect(compareEquivalents({ ...a, shippingCents: 0 }, [b]).shippingComparable).toBe(true);
+    expect(compareEquivalents<Comparable>({ ...a, shippingCents: null }, [b]).shippingComparable).toBe(false);
+    expect(compareEquivalents<Comparable>({ ...a, shippingCents: 0 }, [b]).shippingComparable).toBe(true);
   });
   it("preço por kg só com peso conhecido", () => {
     expect(pricePerKgCents(5000, 500)).toBe(10000);

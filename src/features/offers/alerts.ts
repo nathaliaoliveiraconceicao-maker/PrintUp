@@ -14,6 +14,7 @@ export type AlertRule = {
 export type AlertOffer = {
   id: string; title: string; category: string; storeCode: string; priceCents: number; discountPct: number | null; inStock: boolean | null; wasOutOfStock?: boolean;
   weightG?: number | null;
+  storeName?: string;
 };
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
