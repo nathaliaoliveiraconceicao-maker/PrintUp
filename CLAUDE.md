@@ -91,3 +91,7 @@ Tema claro/escuro: o usuário escolhe (botão de ícone no menu + Configuraçõe
 - Leitura pública só das colunas de vitrine do que está publicado (RLS); credenciais só em variáveis de ambiente; destino de `/ir/<id>` revalidado contra `allowed_hosts` da loja. Dados simulados nunca são publicáveis (`offers_guard`) nem aparecem como reais.
 - Conectores novos = arquivo em `features/offers/connectors` + registro; marcar `status` honestamente (`preparado_nao_verificado` até conferir a documentação oficial).
 
+
+## PrintUp Live (monitoramento de impressoras) — `docs/LIVE.md`
+- Impressoras são alcançadas só por um **conector local** (conexões de saída); a Vercel nunca fala com a rede do usuário e nenhuma porta é exposta. Credenciais da impressora ficam só no conector.
+- Cada adaptador declara capacidades com nível de suporte (`src/features/live/adapters/catalog.ts`). Nada vira `verificado` sem teste em equipamento real; comando remoto só com `verificado` + confirmação + validade + auditoria. Desconhecido = `null`. Dado velho aparece como "sem sinal". Energia é sempre "estimada". IA é opcional, probabilística e nunca interrompe impressão sozinha.
